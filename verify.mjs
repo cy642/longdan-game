@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { build } from './build.mjs';
 const context = vm.createContext({ console });
 for (const name of ['stages.js', 'campaign.js']) vm.runInContext(readFileSync(new URL(name, import.meta.url), 'utf8'), context);
-const { Campaign, StageDefinition, AttackDefinition } = context.LongdanCore;
+const { Campaign, StageDefinition, AttackDefinition, attackHits, enemyThreat } = context.LongdanCore;
 const fresh = (difficulty = 'normal') => { const g = new Campaign(difficulty); g.start(difficulty); g.chooseRoute('continue'); g.events = []; return g; };
 const tick = (g, seconds, input = {}) => { for (let t = 0; t < seconds; t += .02) g.step(.02, input); };
 const object = (g, id) => { const o = g.objects.find(o => o.id === id); assert(o, id); g.player.x = o.x; g.player.y = o.y; g.player.action = null; return o; };
@@ -72,6 +72,58 @@ g.player.action = null; assert(g.dash(1, 0)); tick(g, .1); assert(g.effects.some
 tick(g, .6); assert(!g.effects.some(e => e.type === 'dashGhost'), 'Dash echoes must expire');
 for (let i = 0; i < 360; i++) { if (i % 36 === 0) g.dash(0, 1); g.step(.02, { attack: true, aim: 0 }); assert(g.effects.length < 100, 'Effects must stay bounded during sustained inputs'); }
 g.effects.push({ type: 'cast', life: 1 }); g.hitStop = .05; g.enterStage('village'); assert.equal(g.effects.length, 0); assert.equal(g.hitStop, 0);
+// A short deliberate press near recovery is consumed once; early or stale inputs are discarded.
+const empty = () => { const c = fresh(); c.enemies = []; c.allies = []; c.rocks = []; c.huts = []; c.props = []; return c; };
+g = empty(); assert(g.requestAction('attack', { aim: 0 })); assert(!g.requestAction('attack', { aim: 0 }), 'Presses far from recovery may not queue an attack');
+tick(g, .34); assert(g.requestAction('attack', { aim: 0 })); assert(g.actionBuffer); tick(g, .1); assert.equal(g.player.action.key, 'thrust2'); assert.equal(g.actionBuffer, null);
+tick(g, .7); assert.equal(g.player.action, null); assert.equal(g.player.combo, 2, 'A released buffered press may not repeat');
+g = empty(); g.attack(0); tick(g, .34); g.requestAction('attack', { aim: 0 }); g.player.action.t -= .2; tick(g, .3); assert.equal(g.actionBuffer, null); assert.equal(g.player.combo, 1, 'An expired input may not execute after a longer interruption');
+g = empty(); g.player.dashCd = .1; assert(g.requestAction('dash', { x: 0, y: 1 })); tick(g, .12); assert(g.player.dashTime > 0); assert.equal(g.player.dashDir, Math.PI / 2); assert.equal(g.actionBuffer, null); tick(g, .5); assert.equal(g.player.dashTime, 0);
+g = empty(); g.attack(0); tick(g, .34); g.requestAction('attack'); g.enterStage('village'); assert.equal(g.actionBuffer, null); assert.equal(g.player.combo, 0);
+g = empty(); g.player.qi = 0; assert(!g.requestAction('dash')); assert.equal(g.actionBuffer, null); g.mode = 'paused'; assert(!g.requestAction('attack'));
+// Keyboard combos keep a living target; explicit mouse aim still overrides it.
+g = empty(); const held = g.spawnEnemy('spear', g.player.x + 95, g.player.y); held.cooldown = 99;
+const other = g.spawnEnemy('spear', g.player.x + 170, g.player.y + 80); other.cooldown = 99;
+g.attack(); tick(g, .44); other.x = g.player.x - 45; other.y = g.player.y;
+assert(g.attack()); assert.equal(g.player.comboTarget, held.id); assert(Math.abs(g.player.action.dir) < .05); tick(g, .5);
+assert(g.attack(Math.PI)); assert.equal(g.player.comboTarget, null); assert.equal(g.player.action.dir, Math.PI);
+// The warning covers a lunge's entire path; movement integrates the active interval exactly.
+for (const dt of [.02, .04]) {
+  g = empty(); g.player.x = 850; g.player.y = 550; g.player.invincible = 0;
+  e = g.spawnEnemy('boss', 500, 550, 'extra', 'zhanghe');
+  e.action = g.newAction('enemy', { name: '冲枪', windup: .11, active: .23, recovery: .5, range: 195, arc: .45, lunge: 160, damage: 32 }, 0);
+  const warning = enemyThreat(e, g.player.r); assert.equal(warning.radius + warning.travel, 371); assert(!attackHits(e, g.player, e.action.def, 0));
+  for (let t = 0; t < .4; t += dt) g.updateEnemyAction(e, dt, g.player);
+  assert(Math.abs(e.x - 660) < 1e-6, 'Lunge distance must not depend on frame size'); assert.equal(g.player.hp, g.player.maxHp - 32); assert.equal(e.action.hits.size, 1);
+  assert(enemyThreat(e).opening); e.sequence = [{}]; assert(!enemyThreat(e).opening, 'A gap inside a combo is not a full counter opening');
+}
+g = empty(); g.player.x = 872; g.player.y = 550; g.player.invincible = 0; e = g.spawnEnemy('boss', 500, 550, 'extra', 'zhanghe');
+e.action = g.newAction('enemy', { windup: .11, active: .23, recovery: .5, range: 195, arc: .45, lunge: 160, damage: 32 }, 0);
+for (let i = 0; i < 10; i++) g.updateEnemyAction(e, .04, g.player); assert.equal(g.player.hp, g.player.maxHp, 'Standing beyond the full telegraph must be safe');
+g = empty(); e = g.spawnEnemy('shield', g.player.x + 70, g.player.y); g.startEnemyAction(e, g.player); g.damageEnemy(e, 42, 0, 0, 'player', 34, true);
+assert.equal(e.action, null); assert(e.stunned >= .8); assert.equal(enemyThreat(e), null, 'A broken shield must cancel its pending strike');
+// Contextual mountain lessons advance with encounters and never gate progress on a technique.
+g = fresh(); assert.equal(g.getTutorial().step, 1); tick(g, .5, { x: 1 }); assert(g.learned.has('move')); clear(g, 'm1'); assert.equal(g.getTutorial().step, 2); clear(g, 'm2'); assert.equal(g.getTutorial().step, 3); clear(g, 'm3'); assert.equal(g.getTutorial(), null);
+// Oil carts arm only on real weapon frames, pause with the world, explode once and reset on retry.
+g = fresh(); g.enemies = []; g.allies = []; g.rocks = []; g.huts = []; const oil = g.props[0];
+g.player.x = oil.x - 90; g.player.y = oil.y; g.player.invincible = 0;
+e = g.spawnEnemy('shield', oil.x + 50, oil.y, 'm3'); e.cooldown = 99;
+const oilArcher = g.spawnEnemy('archer', oil.x + 60, oil.y + 90, 'm3'); oilArcher.cooldown = 99;
+e.speed = oilArcher.speed = 0;
+g.attack(0); tick(g, .04); assert.equal(oil.fuse, null); tick(g, .08); assert(oil.fuse > 0);
+g.mode = 'paused'; const fuse = oil.fuse; tick(g, 2); assert.equal(oil.fuse, fuse); g.mode = 'playing'; g.player.x = oil.x - 190;
+tick(g, 1); assert(oil.spent); assert.equal(e.hp, e.maxHp - 85); assert(e.shieldBroken > 0); assert.equal(oilArcher.hp, 0); assert.equal(g.player.hp, g.player.maxHp); assert(g.learned.has('cart')); assert(!g.blocking(oil.x, oil.y));
+const explodedHp = e.hp; tick(g, .3); assert.equal(e.hp, explodedHp);
+g.defeat('test', 'test'); g.retry(); assert(!g.props[0].spent); assert.equal(g.props[0].fuse, null); assert(g.blocking(g.props[0].x, g.props[0].y));
+g = fresh(); g.allies = []; g.enemies = []; g.player.invincible = 0; g.player.x = g.props[0].x - 90; g.player.y = g.props[0].y; g.props[0].fuse = .01; g.updateProps(.02); assert.equal(g.player.hp, g.player.maxHp - 28, 'The blast warning applies to the player too');
+g = fresh(); const oldSave = JSON.parse(JSON.stringify(g.snapshot())); delete oldSave.learned; assert(Campaign.validSnapshot(oldSave)); assert(new Campaign().restore(oldSave));
+assert(!Campaign.validSnapshot({ ...oldSave, learned: ['unknown'] }));
+// Arrow hints and actual projectiles both stop at cover, including an intact cart.
+g = empty(); g.huts = [{ x: 400, y: 500, w: 80, h: 100 }]; g.player.x = 485; g.player.y = 500; g.player.invincible = 0;
+e = g.spawnEnemy('archer', 300, 508); const arrowHint = enemyThreat({ ...e, action: g.newAction('enemy', AttackDefinition.arrow, 0) });
+assert.equal(arrowHint.radius, 840); assert(g.projectileReach(e, 0, arrowHint.radius) < 100);
+g.projectiles = [{ id: 555, x: 300, y: 500, vx: 400, vy: 0, damage: 14, life: 2.1 }]; for (let i = 0; i < 40; i++) g.updateProjectiles(.04);
+assert.equal(g.player.hp, g.player.maxHp); assert.equal(g.projectiles.length, 0);
 const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8'); assert(!html.includes('GAME_SCRIPT')); assert(!html.includes('GAME_STYLES')); assert(!/<script[^>]+src=/.test(html));
 assert.equal(html, build(), 'Published entry must match the current source build');
 assert(html.length < 250000, 'Online entry should allow images to be cached independently');
@@ -81,4 +133,4 @@ assert(!/data-device|touchControls|joystick|切换手机|选择你的游玩方�
 const script = readFileSync(new URL('./game.js', import.meta.url), 'utf8'), shell = readFileSync(new URL('./shell.html', import.meta.url), 'utf8');
 for (const [, id] of script.matchAll(/\$\('([^']+)'\)/g)) assert(shell.includes('id="' + id + '"'), 'Missing desktop UI element: ' + id);
 assert.equal(Object.keys(StageDefinition).length, 6); assert(AttackDefinition.thrust3.recovery > AttackDefinition.thrust1.recovery);
-console.log('PASS: movement, active-frame damage, combos, interruptible medicine, precision dodge, shield break, weak supporting troops, 6 regions, both story routes, 2 bosses, phase 2, supply deployment, rescue retries, saved progression, escort navigation, and complete offline assets.');
+console.log('PASS: input buffering and expiry, stable combo targeting, lunge telegraph and frame-independent damage, contextual onboarding, oil-cart tactics and retry, arrow cover, legacy saves, plus movement, medicine, precision dodge, shield break, 6 regions, both story routes, bosses, escort navigation and offline assets.');

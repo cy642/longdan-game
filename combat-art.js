@@ -39,9 +39,87 @@
     g.beginPath(); g.moveTo(nose, -4); g.quadraticCurveTo(nose + 14, 12, nose - 18, 23); g.strokeStyle = '#c5ffff'; g.lineWidth = 1; g.stroke();
     g.fillStyle = '#1c9794'; g.fillRect(nose - 8, -13, 3, 2);
   }
+  function threatPath(g, radius, angle, travel) {
+    g.beginPath(); g.moveTo(0, 0);
+    g.lineTo(Math.cos(-angle) * radius, Math.sin(-angle) * radius);
+    if (travel > 0) g.lineTo(travel + Math.cos(-angle) * radius, Math.sin(-angle) * radius);
+    g.arc(travel, 0, radius, -angle, angle);
+    if (travel > 0) g.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+    g.closePath();
+  }
+  function warning(g, enemy, threat) {
+    if (!threat) return;
+    const a = enemy.action, active = threat.state === 'active';
+    g.save(); g.translate(enemy.x, enemy.y);
+    if (threat.state === 'recovery') {
+      if (threat.opening && enemy.type !== 'archer') {
+        g.strokeStyle = '#a5dec4'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(0, 3, 23, 8, 0, 0, TAU); g.stroke();
+        g.font = '11px Microsoft YaHei'; g.textAlign = 'center'; g.fillStyle = '#d0ecd2'; g.fillText('收招 · 可反击', 0, 25);
+      }
+      g.restore(); return;
+    }
+    g.save(); if (enemy.type === 'archer') g.translate(0, -8); g.rotate(a.dir);
+    const fill = active ? '#d0524040' : threat.imminent ? '#d9724a40' : '#a943352a';
+    const stroke = active ? '#f4a086' : threat.imminent ? '#ffd395' : '#dd8b6cc0';
+    if (enemy.type === 'archer') {
+      g.fillStyle = fill; g.fillRect(0, -threat.laneWidth, threat.radius, threat.laneWidth * 2);
+      if (threat.tracking) g.setLineDash([6, 5]);
+      line(g, [[0, 0], [threat.radius, 0]], stroke, 1.5);
+      g.setLineDash([8, 8]); line(g, [[0, -threat.laneWidth], [threat.radius, -threat.laneWidth]], '#d48c6866');
+      line(g, [[0, threat.laneWidth], [threat.radius, threat.laneWidth]], '#d48c6866');
+    } else {
+      threatPath(g, threat.radius, threat.arc, threat.travel); g.fillStyle = fill; g.fill();
+      g.strokeStyle = stroke; g.lineWidth = active || threat.imminent ? 2 : 1;
+      if (threat.tracking) g.setLineDash([6, 5]); g.stroke();
+      g.setLineDash([]);
+      if (threat.travel > 0) {
+        line(g, [[20, 0], [threat.travel + 28, 0]], '#e5ac8670', 1.5);
+        poly(g, [[threat.travel + 30, 0], [threat.travel + 20, -5], [threat.travel + 20, 5]], '#e5ac86aa');
+      }
+    }
+    g.restore();
+    g.fillStyle = '#192c26ee'; g.fillRect(-22, 10, 44, 3); g.fillStyle = stroke; g.fillRect(-22, 10, 44 * threat.progress, 3);
+    if (enemy.type !== 'boss') { g.fillStyle = '#f2c6a2'; g.font = '10px Microsoft YaHei'; g.textAlign = 'center'; g.fillText(active ? '出手' : enemy.type === 'archer' ? '弓射 · 留意箭路' : threat.imminent ? '将出手' : '蓄力', 0, 27); }
+    g.restore();
+  }
+  function propWarning(g, prop, playerRadius) {
+    if (prop.spent || prop.fuse == null) return;
+    const radius = prop.blastRadius + playerRadius, progress = 1 - prop.fuse / prop.fuseTime;
+    g.save(); g.translate(prop.x, prop.y); g.fillStyle = '#b84b362f'; g.strokeStyle = '#f1a578'; g.lineWidth = 2;
+    g.beginPath(); g.arc(0, 0, radius, 0, TAU); g.fill(); g.stroke();
+    arc(g, radius - 4, -Math.PI / 2, -Math.PI / 2 + TAU * progress, '#ffd293', 3);
+    g.textAlign = 'center'; g.font = 'bold 12px Microsoft YaHei'; g.fillStyle = '#ffe0a8'; g.fillText('油车将爆 · 闪开红圈', 0, -75); g.restore();
+  }
+  function prop(g, item, time) {
+    g.save(); g.translate(item.x, item.y);
+    g.fillStyle = '#1e302653'; g.beginPath(); g.ellipse(0, 5, 40, 13, 0, 0, TAU); g.fill();
+    if (item.spent) {
+      for (let i = 0; i < 6; i++) { g.save(); g.translate((i - 2.5) * 9, i % 2 * 9); g.rotate(i * 1.7); g.fillStyle = i % 2 ? '#524638' : '#302e28'; g.fillRect(-12, -2, 23, 4); g.restore(); }
+      g.strokeStyle = '#564939'; g.lineWidth = 4; g.beginPath(); g.arc(20, 5, 11, .4, 5.1); g.stroke(); g.restore(); return;
+    }
+    for (const x of [-29, 29]) {
+      g.fillStyle = '#3c3329'; g.beginPath(); g.ellipse(x, 0, 9, 16, 0, 0, TAU); g.fill();
+      g.strokeStyle = '#94784f'; g.lineWidth = 2; g.stroke(); line(g, [[x - 5, -10], [x + 5, 10]], '#806d48', 2);
+    }
+    poly(g, [[-32, -29], [22, -34], [33, -8], [-25, 0]], '#79613e');
+    poly(g, [[-25, 0], [33, -8], [33, 4], [-25, 11]], '#5a472e');
+    line(g, [[-30, -26], [24, -31]], '#b19460', 2); line(g, [[-25, 1], [33, -7]], '#b19460', 2);
+    for (const [x, y] of [[-13, -28], [10, -34]]) {
+      g.fillStyle = '#7d4435'; g.beginPath(); g.ellipse(x, y, 13, 16, -.1, 0, TAU); g.fill();
+      line(g, [[x - 11, y], [x + 11, y - 2]], '#b29062', 3); g.fillStyle = '#35372b'; g.fillRect(x - 5, y - 16, 10, 5);
+      g.textAlign = 'center'; g.fillStyle = '#edd2a3'; g.font = '11px KaiTi,serif'; g.fillText('油', x, y + 3);
+    }
+    if (item.fuse != null) {
+      glow(g, 0, -35, 40, '#ffd291', .23);
+      for (let i = 0; i < 3; i++) { const sway = Math.sin(time * 16 + i) * 4, x = (i - 1) * 10;
+        poly(g, [[x - 8, -28], [x + sway, -56 - i % 2 * 8], [x + 8, -28]], '#efad62');
+        poly(g, [[x - 4, -28], [x + sway * .5, -46], [x + 4, -28]], '#fff0aa'); }
+    } else { g.textAlign = 'center'; g.font = '11px Microsoft YaHei'; g.fillStyle = '#efcc9e'; g.fillText('油车 · 出枪引爆', 0, -59); }
+    g.restore();
+  }
   function effect(g, e, reduced, art, time) {
     const t = clamp(1 - e.life / e.maxLife), fade = 1 - t;
-    if (!['slash', 'impact', 'shockwave', 'dashGhost', 'cast', 'perfect', 'shatter'].includes(e.type)) return false;
+    if (!['slash', 'impact', 'shockwave', 'dashGhost', 'cast', 'perfect', 'shatter', 'explosion'].includes(e.type)) return false;
     g.save(); g.translate(e.x, e.y); g.lineCap = 'round'; g.lineJoin = 'round';
     if (e.type === 'dashGhost') {
       g.globalAlpha = fade * (reduced ? .13 : .3);
@@ -95,6 +173,14 @@
       g.globalAlpha = fade * (reduced ? .4 : .7); g.scale(1, .6);
       for (let i = 0; i < 2; i++) arc(g, Math.max(1, radius - i * 9), 0, TAU, color, i ? 1 : 3 * fade + .5);
       if (e.type === 'perfect') for (let i = 0; i < 8; i++) { const angle = i * TAU / 8; line(g, [[Math.cos(angle) * radius, Math.sin(angle) * radius], [Math.cos(angle) * (radius + 8), Math.sin(angle) * (radius + 8)]], '#efffff', 2); }
+    } else if (e.type === 'explosion') {
+      const radius = e.radius * (.2 + .8 * (1 - Math.pow(fade, 3)));
+      g.globalAlpha = fade * .7; if (!reduced) glow(g, 0, -15, radius * .7, '#ffd193', .34 * fade);
+      arc(g, radius, 0, TAU, '#f9c083', 7 * fade + 1);
+      for (let i = 0; i < (reduced ? 6 : 15); i++) {
+        const angle = i * 2.399, distance = radius * (.45 + i % 4 * .15), x = Math.cos(angle) * distance, y = Math.sin(angle) * distance;
+        line(g, [[x, y], [x + Math.cos(angle) * (10 + fade * 12), y + Math.sin(angle) * (10 + fade * 12)]], i % 2 ? '#f8c08a' : '#fff2ba', 2 * fade + 1);
+      }
     } else if (e.type === 'cast') {
       // Local calligraphy avoids a full-screen flash or obscuring enemy telegraphs.
       g.globalAlpha = Math.min(1, t * 10) * Math.min(1, fade * 3); g.translate(0, -102 - t * 14);
@@ -103,5 +189,5 @@
     }
     g.restore(); return true;
   }
-  globalThis.LongdanCombatArt = { charge, effect, colors };
+  globalThis.LongdanCombatArt = { charge, effect, colors, warning, propWarning, prop, threatPath };
 })();

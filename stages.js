@@ -9,11 +9,12 @@
       roads: [[[160, 940], [550, 840], [700, 590], [1080, 410], [1190, 210]]], huts: [],
       objects: [{ id: 'campMountain', kind: 'camp', x: 1180, y: 230, label: '山道营火' },
         { id: 'toVillage', kind: 'exit', x: 1350, y: 180, label: '前往荒村', to: 'village', need: 'mountain' }],
+      props: [{ id: 'mountainOil', kind: 'oilCart', x: 1130, y: 380, r: 25, group: 'm3', blastRadius: 145, fuseTime: .9 }],
       groups: [
         { id: 'm1', units: [['sword', 545, 835]] },
         { id: 'm2', units: [['sword', 765, 595], ['spear', 830, 530]] },
-        { id: 'm3', units: [['spear', 1070, 395], ['archer', 1150, 330]] },
-      ], tutorial: '移动接近敌人，出枪可接三式。红色蓄力结束时闪避，抓住收招出枪。',
+        { id: 'm3', units: [['shield', 1070, 395], ['archer', 1150, 330]] },
+      ], tutorial: '沿山道向前，每场遭遇会提示一项新技巧。金色箭头指向当前目标。',
     },
     village: {
       name: '荒村小巷', chapter: '二 · 人间烟火', seed: 31, mood: 'village', spawn: [180, 940],
@@ -60,6 +61,7 @@
       objects: [{ id: 'supplies', kind: 'supplies', x: 1280, y: 775, label: '粮营 · 盾阵校尉', group: 'fSupply' },
         { id: 'toBridge', kind: 'exit', x: 1330, y: 180, label: '整军前往北桥', to: 'bridge', group: 'f1', need: 'house' },
         { id: 'backHouse', kind: 'exit', x: 145, y: 980, label: '返回旧宅', to: 'house' }],
+      props: [{ id: 'supplyOil', kind: 'oilCart', x: 1160, y: 785, r: 25, group: 'fSupply', blastRadius: 145, fuseTime: .9 }],
       groups: [{ id: 'f1', units: [['spear', 750, 555], ['sword', 940, 425], ['archer', 960, 345]] },
         { id: 'fSupply', units: [['shield', 1090, 780], ['sword', 1190, 700], ['archer', 1360, 850]] }],
       tutorial: '北面是退路，东面是粮营。焚粮会撤走北桥弓阵，并打开侧道。',

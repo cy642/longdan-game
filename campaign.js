@@ -5,6 +5,19 @@
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
   const total = a => a.windup + a.active + a.recovery;
+  const learningKeys = ['move', 'combo', 'dodge', 'shield', 'cart'];
+  const INPUT_BUFFER = .12;
+  const ARROW_SPEED = 400, ARROW_LIFE = 2.1, ARROW_RADIUS = 8;
+  const attackHits = (origin, target, definition, dir) => dist(origin, target) <= definition.range + (target.r || 0) &&
+    Math.abs(angleDiff(Math.atan2(target.y - origin.y, target.x - origin.x), dir)) <= definition.arc;
+  function enemyThreat(e, radius = 16) {
+    const a = e.action; if (!a || e.hp <= 0 || e.stunned > 0 || e.phaseTime > 0) return null;
+    const state = a.t < a.def.windup ? 'windup' : a.t < a.def.windup + a.def.active ? 'active' : 'recovery';
+    return { radius: e.type === 'archer' ? ARROW_SPEED * ARROW_LIFE : a.def.range + radius, laneWidth: radius + ARROW_RADIUS,
+      arc: a.def.arc, travel: Math.max(0, (a.def.lunge || 0) - (a.travel || 0)),
+      state, tracking: a.t < a.def.windup * .45, progress: clamp(a.t / a.def.windup, 0, 1),
+      imminent: a.def.windup - a.t <= .12, opening: state === 'recovery' && !e.sequence.length };
+  }
   const flagKeys = ['mountain', 'civilians', 'healer', 'temple', 'sword', 'adou', 'house', 'mother', 'motherDecision', 'supplies', 'elite', 'boss', 'committed'];
   const bossMoves = {
     xiahou: [
@@ -27,6 +40,7 @@
       this.difficulty = difficulty === 'story' ? 'story' : 'normal'; this.seed = 82713; this.mode = 'menu';
       this.events = []; this.effects = []; this.projectiles = []; this.floaters = []; this.loot = []; this.history = [];
       this.flags = Object.fromEntries(flagKeys.map(k => [k, false])); this.cleared = new Set(); this.visited = new Set(); this.seen = new Set();
+      this.learned = new Set(); this.actionBuffer = null;
       this.time = 0; this.kills = 0; this.precisionCount = 0; this.nextId = 10; this.attackId = 1;
       this.screenShake = 0; this.hitStop = 0; this.command = 'follow'; this.rescue = null; this.activeBoss = null; this.boss = null;
       this.checkpoint = { stage: 'mountain', x: 190, y: 910, encounter: null }; this.selectedRoute = 'bridge';
@@ -45,7 +59,7 @@
     }
     say(text) { this.events.push({ kind: 'toast', text }); }
     record(text) { if (!this.history.includes(text)) this.history.push(text); }
-    dialog(title, text, choices, speaker = '未来记忆') { this.mode = 'dialog'; this.events.push({ kind: 'dialog', title, text, choices, speaker }); }
+    dialog(title, text, choices, speaker = '未来记忆') { this.clearActionBuffer(); this.mode = 'dialog'; this.events.push({ kind: 'dialog', title, text, choices, speaker }); }
     save() { this.events.push({ kind: 'save' }); }
     groupDone(id) { return !id || this.cleared.has(this.stage + ':' + id); }
     groupAlive(id) { return this.enemies.some(e => e.hp > 0 && (!id || e.group === id)); }
@@ -62,7 +76,10 @@
       this.stage = id; this.definition = StageDefinition[id]; this.visited.add(id);
       const point = position || this.definition.spawn; this.player.x = point[0]; this.player.y = point[1]; this.player.action = null;
       this.player.attackTimer = 0; this.player.dashTime = 0; this.player.moving = false; this.player.invincible = .7;
+      this.player.comboWindow = 0; this.player.combo = 0; this.player.comboTarget = null; this.clearActionBuffer();
       this.objects = this.definition.objects.map(o => ({ ...o }));
+      // Props reset with an unfinished encounter, so a retry retains its tactical options.
+      this.props = (this.definition.props || []).map(o => ({ ...o, fuse: null, spent: this.groupDone(o.group) }));
       this.huts = this.definition.huts.map(([x, y, w, h, type]) => ({ x, y, w, h, type }));
       this.trees = []; this.rocks = []; this.seed = this.definition.seed;
       for (let i = 0; i < 150; i++) {
@@ -106,7 +123,8 @@
       if (this.stage === 'bridge' && y < 285 && (x < 1170 + radius || x > 1370 - radius)) return true;
       if (this.stage === 'bridge' && !this.flags.supplies && x > 1070 - radius && x < 1150 + radius && y > 725 - radius) return true;
       return this.huts.some(h => x > h.x - h.w / 2 - radius && x < h.x + h.w / 2 + radius && y > h.y - h.h / 2 + 15 - radius && y < h.y + h.h / 2 + radius) ||
-        this.rocks.some(r => Math.hypot(x - r.x, y - r.y) < r.r * .7 + radius);
+        this.rocks.some(r => Math.hypot(x - r.x, y - r.y) < r.r * .7 + radius) ||
+        this.props.some(prop => !prop.spent && Math.hypot(x - prop.x, y - prop.y) < prop.r + radius);
     }
     move(a, dx, dy) {
       const beforeX = a.x, beforeY = a.y, radius = a.r || 14;
@@ -161,13 +179,17 @@
       if (e.hp <= 0 || e.phaseTime > 0 || (this.activeBoss && e !== this.boss)) return;
       const armored = (e.type === 'shield' || e.type === 'elite') && e.shieldBroken <= 0;
       if (armored && Math.abs(angleDiff(dir + Math.PI, e.dir)) < 1.15 && !breakShield) { damage *= .24; stagger *= .45; this.floater(e.x, e.y, '盾挡', '#b9cdd4'); }
-      if (breakShield && armored) { e.shieldBroken = 2.8; e.stunned = .8; this.floater(e.x, e.y, '破盾'); this.effects.push({ type: 'shatter', x: e.x, y: e.y, dir, color: '#ffe1a0', life: .4, maxLife: .4 }); }
+      if (breakShield && armored) {
+        e.shieldBroken = 2.8; e.stunned = .8; e.action = null; e.sequence = []; e.windup = 0; e.cooldown = Math.max(e.cooldown, .8);
+        this.floater(e.x, e.y, '破盾'); this.effects.push({ type: 'shatter', x: e.x, y: e.y, dir, color: '#ffe1a0', life: .4, maxLife: .4 });
+        if (source === 'player') this.learn('shield');
+      }
       const floor = source === 'ally' ? e.maxHp * .22 : 0;
       const actual = Math.min(Math.max(0, e.hp - floor), damage); if (actual <= 0) return;
       e.hp = Math.max(floor, e.hp - actual); e.hurtFlash = .16; e.alerted = true;
-      if (source === 'player') this.effects.push({ type: 'impact', x: e.x, y: e.y, dir, seed: e.id * 1.7, color: breakShield ? '#ffdfa0' : '#b5f4f5', life: .25, maxLife: .25 });
+      if (source !== 'ally') this.effects.push({ type: 'impact', x: e.x, y: e.y, dir, seed: e.id * 1.7, color: breakShield || source === 'environment' ? '#ffdfa0' : '#b5f4f5', life: .25, maxLife: .25 });
       if (source === 'player') { this.player.rage = Math.min(100, this.player.rage + 4); this.player.lastCombat = this.time; }
-      if (e.type !== 'boss') { e.knockX += Math.cos(dir) * knock; e.knockY += Math.sin(dir) * knock; if (source === 'player' && e.type !== 'elite') { e.stunned = .12; e.action = null; } }
+      if (e.type !== 'boss') { e.knockX += Math.cos(dir) * knock; e.knockY += Math.sin(dir) * knock; if (source === 'player' && e.type !== 'elite') { e.stunned = Math.max(e.stunned, .12); e.action = null; e.windup = 0; } }
       if (e.staggerShield <= 0) {
         e.stagger += stagger;
         if (e.stagger >= e.staggerMax) { e.stagger = 0; e.stunned = e.type === 'boss' ? 2.1 : 1.3; e.staggerShield = 4.4; e.action = null; e.sequence = []; e.cooldown = 1.2; this.floater(e.x, e.y, '破势 · 反击'); this.events.push({ kind: 'sound', sound: 'break' }); }
@@ -186,6 +208,7 @@
       if (target.hp <= 0) return false;
       const p = this.player;
       if (target === p && p.invincible > 0) {
+        if (attackId != null && p.dashTime > 0) this.learn('dodge');
         const window = this.difficulty === 'story' ? .18 : .12;
         if (attackId != null && p.dashTime > 0 && p.dashAge <= window && p.lastPrecisionAttack !== attackId) {
           p.lastPrecisionAttack = attackId; p.counterWindow = 1.2; p.qi = Math.min(100, p.qi + 12); p.rage = Math.min(100, p.rage + 8); this.precisionCount++;
@@ -205,10 +228,39 @@
       return true;
     }
     newAction(key, definition, dir) { return { id: this.attackId++, key, def: definition, t: 0, dir, hits: new Set(), fired: false }; }
+    clearActionBuffer() { this.actionBuffer = null; }
+    performAction(kind, input = {}) {
+      if (kind === 'attack') return this.attack(input.aim);
+      if (kind === 'dash') return this.dash(input.x, input.y);
+      if (['heavy', 'ultimate'].includes(kind) && !this.player.action && this.player.dashTime <= 0 && Number.isFinite(input.aim)) this.player.dir = input.aim;
+      if (kind === 'heavy') return this.heavy();
+      if (kind === 'ultimate') return this.ultimate();
+      return false;
+    }
+    requestAction(kind, input = {}) {
+      if (this.mode !== 'playing') return false;
+      // A new deliberate press replaces any previous request; holding attack never queues one.
+      this.clearActionBuffer();
+      if (this.performAction(kind, input)) return true;
+      const p = this.player, actionLeft = p.action ? Math.max(0, total(p.action.def) - p.action.t) : 0;
+      const wait = kind === 'dash' ? Math.max(p.dashCd, p.dashTime) : Math.max(actionLeft, p.dashTime, kind === 'heavy' ? p.heavyCd : kind === 'attack' ? p.attackCd : 0);
+      const resourceReady = kind === 'dash' ? p.qi >= 16 : kind === 'heavy' ? p.qi >= 30 : kind === 'ultimate' ? this.flags.sword && p.rage >= 100 : kind === 'attack';
+      if (resourceReady && wait > 0 && wait <= INPUT_BUFFER + 1e-6) {
+        this.actionBuffer = { kind, input: { ...input }, expires: this.time + INPUT_BUFFER }; return true;
+      }
+      return false;
+    }
+    consumeBufferedAction() {
+      const buffered = this.actionBuffer; if (!buffered) return;
+      if (this.mode !== 'playing' || this.time > buffered.expires + 1e-6) { this.clearActionBuffer(); return; }
+      if (this.performAction(buffered.kind, buffered.input)) this.clearActionBuffer();
+    }
     attack(aim) {
       const p = this.player; if (this.mode !== 'playing' || p.action || p.dashTime > 0 || p.attackCd > 0) return false;
-      const target = this.nearbyEnemy(p, 205);
+      const heldTarget = p.comboWindow > 0 && this.enemies.find(e => e.id === p.comboTarget && e.hp > 0 && dist(e, p) < 205 && (!this.activeBoss || e === this.boss));
+      const target = heldTarget || this.nearbyEnemy(p, 205);
       if (Number.isFinite(aim)) p.dir = aim; else if (target) p.dir = Math.atan2(target.y - p.y, target.x - p.x);
+      p.comboTarget = Number.isFinite(aim) ? null : target?.id || null;
       p.combo = p.comboWindow > 0 ? p.combo % 3 + 1 : 1;
       const key = p.counterWindow > 0 ? 'counter' : 'thrust' + p.combo; p.counterWindow = 0;
       p.action = this.newAction(key, AttackDefinition[key], p.dir); p.comboWindow = 1.2; p.attackPose = 'normal'; return true;
@@ -257,16 +309,52 @@
           }
         }
         if (a.key !== 'heal') for (const e of this.enemies) {
-          if (e.hp <= 0 || a.hits.has(e.id) || dist(p, e) > a.def.range + e.r || Math.abs(angleDiff(Math.atan2(e.y - p.y, e.x - p.x), a.dir)) > a.def.arc) continue;
+          if (e.hp <= 0 || a.hits.has(e.id) || !attackHits(p, e, a.def, a.dir)) continue;
           a.hits.add(e.id); const before = e.hp;
           this.damageEnemy(e, a.def.damage, a.dir, a.key === 'sweep' ? 200 : 50, 'player', a.def.stagger, ['sweep', 'sword'].includes(a.key));
           if (e.hp < before) {
+            if (a.key === 'thrust3') this.learn('combo');
             this.screenShake = Math.max(this.screenShake, a.key === 'sword' ? 5 : ['thrust3', 'sweep', 'counter'].includes(a.key) ? 3.2 : 1.6);
             if (!a.impactStopped) { this.hitStop = a.key === 'sword' ? .065 : ['thrust3', 'sweep', 'counter'].includes(a.key) ? .045 : .022; a.impactStopped = true; }
           }
         }
+        if (a.key !== 'heal') for (const prop of this.props) {
+          if (prop.spent || prop.fuse != null || a.hits.has(prop.id) || !attackHits(p, prop, a.def, a.dir)) continue;
+          a.hits.add(prop.id); prop.fuse = prop.fuseTime; this.say('油车已引燃，闪开红圈！'); this.events.push({ kind: 'sound', sound: 'ignite' });
+        }
       }
       if (a.t >= total(a.def)) { p.action = null; p.attackTimer = 0; }
+    }
+    learn(key) {
+      if (this.learned.has(key)) return;
+      this.learned.add(key);
+      if (this.stage === 'mountain' && key !== 'move') this.floater(this.player.x, this.player.y - 35,
+        { combo: '三式已成', dodge: '避开锋芒', shield: '盾阵可破', cart: '借势破阵' }[key], '#c3e9bc');
+      this.save();
+    }
+    mountainGroup() { return this.stage === 'mountain' ? this.definition.groups.find(group => this.groupAlive(group.id))?.id : null; }
+    getTutorial() {
+      if (this.stage !== 'mountain' || this.flags.mountain) return null;
+      const group = this.mountainGroup(), prop = this.props[0];
+      if (prop?.fuse != null && !prop.spent) return { step: 3, title: '油车将爆 · 立即撤开', text: '空格 / K 向红圈外闪避。爆裂会伤到圈内的所有人。', skill: 'dash' };
+      if (group === 'm1') return this.learned.has('move') ?
+        { step: 1, title: '出枪接三式', text: '按住 J / 左键可连击。第三式威力大，收招较慢。', skill: 'attack', done: this.learned.has('combo') } :
+        { step: 1, title: '沿山道接敌', text: 'WASD / 方向键移动，跟随金色箭头找到前方剑兵。', skill: '', done: false };
+      if (group === 'm2') return { step: 2, title: '看红区 · 闪避反击', text: '红区亮起后，按空格 / K 闪避。敌人收招时再出枪；精准闪避可接回马枪。', skill: 'dash', done: this.learned.has('dodge') };
+      return { step: 3, title: '破盾，或借油车破阵', text: 'Q / 右键横扫可破盾，也可绕后出枪。击中油车可引爆，点燃后及时闪开。', skill: 'sweep', done: this.learned.has('shield') || this.learned.has('cart') };
+    }
+    updateProps(dt) {
+      for (const prop of this.props) {
+        if (prop.spent || prop.fuse == null) continue;
+        prop.fuse -= dt; if (prop.fuse > 0) continue;
+        prop.spent = true; prop.fuse = null;
+        this.effects.push({ type: 'explosion', x: prop.x, y: prop.y, radius: prop.blastRadius, life: .65, maxLife: .65 });
+        this.screenShake = Math.max(this.screenShake, 4); this.hitStop = .045; this.events.push({ kind: 'sound', sound: 'explosion' }); this.learn('cart');
+        for (const e of this.enemies) if (e.hp > 0 && dist(prop, e) <= prop.blastRadius + e.r)
+          this.damageEnemy(e, 85, Math.atan2(e.y - prop.y, e.x - prop.x), 190, 'environment', 48, true);
+        for (const friend of [this.player, ...(this.squadActive() ? this.allies : []), ...(this.rescue ? [this.rescue.healer] : [])])
+          if (friend.hp > 0 && dist(prop, friend) <= prop.blastRadius + friend.r) this.damageFriend(friend, 28);
+      }
     }
     checkGroups() {
       for (const group of this.definition.groups) {
@@ -313,7 +401,7 @@
       const o = this.nearestObject(); if (!o) return false;
       if (o.kind === 'camp') {
         if (this.enemies.some(e => e.hp > 0 && e.alerted && dist(e, o) < 350)) { this.say(this.interactionText(o)); return false; }
-        Object.assign(this.player, { hp: this.player.maxHp, qi: 100, potions: 3, action: null, invincible: .5 });
+        this.clearActionBuffer(); Object.assign(this.player, { hp: this.player.maxHp, qi: 100, potions: 3, action: null, invincible: .5 });
         this.allies.forEach(a => { a.hp = a.maxHp; }); this.checkpoint = { stage: this.stage, x: o.x, y: o.y + 35, encounter: null };
         this.say('营火已记住你的来路。体力、气力、行军药已补满。'); this.events.push({ kind: 'sound', sound: 'heal' }); this.save(); return true;
       }
@@ -381,6 +469,7 @@
       this.save();
     }
     beginBoss(id) {
+      this.clearActionBuffer();
       this.activeBoss = id; this.enemies = this.enemies.filter(e => e.hp <= 0); this.projectiles = [];
       const arena = this.definition.arena;
       this.player.x = arena.x - 145; this.player.y = arena.y + 90; this.player.action = null; this.player.invincible = .8;
@@ -396,7 +485,7 @@
         this.flags.temple = this.flags.sword = true; this.player.rage = 100;
         this.checkpoint = { stage: 'temple', x: 1090, y: 550, encounter: null };
         this.record('夏侯恩败于破庙，赵云夺得青釭剑，荒村侧门随之打开。');
-        this.dialog('青釭入手 · 路已不同', '你收起青釭剑，重新握紧长枪。\n\n新招「青釭断势」已习得：战意满时，拔剑打出高破势一击。\n\n破庙侧门已开，回荒村不必再走长路。井畔还有人在等你。', [{ text: '持剑前行', detail: 'R 或手机青釭键发动；接下来前往井畔旧宅。', route: 'continue' }], '赵云');
+        this.dialog('青釭入手 · 路已不同', '你收起青釭剑，重新握紧长枪。\n\n新招「青釭断势」已习得：战意满时，拔剑打出高破势一击。\n\n破庙侧门已开，回荒村不必再走长路。井畔还有人在等你。', [{ text: '持剑前行', detail: 'R 发动青釭断势；接下来前往井畔旧宅。', route: 'continue' }], '赵云');
       } else {
         this.flags.boss = true; this.checkpoint = { stage: 'bridge', x: 1100, y: 340, encounter: null };
         this.record('北桥枪阵被破，张郃退去，赵云守住了队伍的撤离。');
@@ -436,7 +525,12 @@
       if (this.activeBoss) return { title: this.boss.name + ' · 单挑', text: this.boss.phase2 ? '新的追枪加入了连招。不要抢出枪，等收招，再抓破绽。' : '观察蓄力，闪避后出枪。精准闪避可接回马枪，破势后可打连续重击。', target: this.boss };
       if (this.rescue) return { title: '守住井畔', text: `第 ${this.rescue.wave} / 2 波 · 医者体力 ${Math.ceil(this.rescue.healer.hp)}。用军令牵制敌人，你亲自清掉追兵。`, target: this.rescue.healer };
       switch (this.stage) {
-        case 'mountain': return { title: this.flags.mountain ? '营火与前路' : '枪起长坂', text: this.flags.mountain ? '前方营火可补药并保存进度，之后继续进入荒村。' : '沿山道清开敌军。连击第三式收招较慢，别站着硬换血。', target: this.flags.mountain ? o('toVillage') : targetEnemy() };
+        case 'mountain': {
+          const group = this.mountainGroup(), target = this.enemies.find(e => e.hp > 0 && e.group === group);
+          return { title: this.flags.mountain ? '营火与前路' : { m1: '枪起长坂', m2: '识破枪势', m3: '破盾开路' }[group] || '枪起长坂',
+            text: this.flags.mountain ? '前方营火可补药并保存进度，之后继续进入荒村。' : { m1: '击退山道上的剑兵，熟悉长枪连击。', m2: '继续清开两名追兵，留意突刺方向与出手时机。', m3: '盾兵与弓手守住出口，借地形和破盾技打开前路。' }[group] || '沿山道向前，清开守军。',
+            target: this.flags.mountain ? o('toVillage') : target || this.player };
+        }
         case 'village': return { title: this.selectedRoute === 'healer' && !this.flags.healer ? '寻访医者' : '穿过荒村', text: '西巷有被困医者与百姓；北面破庙有曹将守路。救援是可选的，也会打开新的结局。', target: this.selectedRoute === 'healer' && !this.flags.healer ? o('civilians') : o('toTemple') };
         case 'temple': return { title: this.flags.temple ? '侧门已开' : '破庙夺剑', text: this.flags.temple ? '东路通向井畔旧宅，西侧门直回荒村。' : '清开庙外守军，在营火休整，随后独自挑战夏侯恩。', target: this.flags.temple ? this.selectedRoute === 'healer' && !this.flags.healer ? o('shortcut') : o('toHouse') : o('xiahouGate') };
         case 'house': return { title: this.flags.house ? '护主向北' : this.flags.adou ? '井畔还有一人' : '寻回阿斗', text: this.flags.house ? '糜夫人' + (this.flags.mother ? '已获救。' : '仍可营救。') + '前往粮道岔口，也可以回头寻找医者。' : this.flags.adou ? '保护医者救下糜夫人，或先护阿斗撤离。渡桥前还可以回头。' : '击退守军后，靠近井畔旧宅，寻回阿斗与糜夫人。', target: this.selectedRoute === 'healer' && !this.flags.healer ? o('backTemple') : this.flags.house ? o('toFork') : o('adou') };
@@ -444,7 +538,7 @@
         default: return { title: this.flags.boss ? '渡桥重逢' : '一枪断后', text: this.flags.boss ? '沿木桥向北，与刘备会合，看看你改写了哪些命运。' : this.flags.supplies ? '弓阵已撤，东侧道已打开。清开盾阵，让随军先走，再独自接下张郃的枪。' : '随军协助牵制盾兵，赵云先破弓阵。清开桥头后，单挑张郃。', target: this.flags.boss ? o('exit') : this.groupAlive() ? targetEnemy() : o('zhangheGate') };
       }
     }
-    defeat(title, text) { if (this.mode !== 'playing') return; this.mode = 'defeat'; this.events.push({ kind: 'defeat', title, text }); this.events.push({ kind: 'sound', sound: 'defeat' }); this.save(); }
+    defeat(title, text) { if (this.mode !== 'playing') return; this.clearActionBuffer(); this.mode = 'defeat'; this.events.push({ kind: 'defeat', title, text }); this.events.push({ kind: 'sound', sound: 'defeat' }); this.save(); }
     retry() {
       if (this.mode !== 'defeat') return false;
       const cp = { ...this.checkpoint }; this.mode = 'playing'; this.enterStage(cp.stage, [cp.x, cp.y], false); this.checkpoint = cp;
@@ -453,7 +547,7 @@
       this.say('重新握枪。已完成的救援与夺剑仍在，当前战斗重新开始。'); this.save(); return true;
     }
     finish() {
-      this.mode = 'ending';
+      this.clearActionBuffer(); this.mode = 'ending';
       const title = this.flags.mother ? '长坂逆命 · 母子同归' : this.flags.civilians ? '一骑护众 · 仁心归来' : '孤胆归来 · 命有未竟';
       const text = this.flags.mother ? '刘备先接过阿斗，随后看见担架上的糜夫人。\n「子龙……你竟把她也带回来了。」\n\n记忆里的诀别没有发生。你改写的第一件事，是让一个人活下来。' : '刘备接过阿斗，伸手扶起浑身尘土的你。\n「子龙，今日全赖你了。」\n\n你护住了孩子，也记住了井畔未能兑现的承诺。长坂的命运，还有另一种写法。';
       this.result = { won: true, title, text, people: this.flags.civilians ? 3 : 0, soldiers: 3, kills: this.kills, time: this.time, mother: this.flags.mother, supplies: this.flags.supplies, history: [...this.history] };
@@ -462,7 +556,7 @@
     snapshot() {
       return { version: 1, difficulty: this.difficulty, stage: this.stage, checkpoint: { ...this.checkpoint }, flags: { ...this.flags }, cleared: [...this.cleared],
         visited: [...this.visited], seen: [...this.seen], history: [...this.history], time: this.time, kills: this.kills, precisionCount: this.precisionCount,
-        route: this.selectedRoute, complete: this.mode === 'ending' };
+        route: this.selectedRoute, learned: [...this.learned], complete: this.mode === 'ending' };
     }
     static validSnapshot(s) {
       if (!s || s.version !== 1 || !StageDefinition[s.stage] || !s.checkpoint || !StageDefinition[s.checkpoint.stage] || !['normal', 'story'].includes(s.difficulty)) return false;
@@ -471,12 +565,14 @@
       const groups = new Set(Object.entries(StageDefinition).flatMap(([stage, def]) => def.groups.map(g => stage + ':' + g.id)));
       if (s.cleared.some(k => !groups.has(k)) || s.visited.some(k => !StageDefinition[k]) || s.history.length > 30 || s.history.some(t => typeof t !== 'string' || t.length > 300)) return false;
       if (s.seen.some(k => !['xiahou', 'zhanghe'].includes(k)) || ![null, 'xiahou', 'zhanghe', 'rescue'].includes(s.checkpoint.encounter)) return false;
+      if (s.learned !== undefined && (!Array.isArray(s.learned) || s.learned.length > learningKeys.length || s.learned.some(k => !learningKeys.includes(k)))) return false;
       if (s.flags.sword !== s.flags.temple || s.flags.mother && (!s.flags.adou || !s.flags.healer) || s.flags.boss && !s.flags.adou || s.flags.committed && !s.flags.adou) return false;
       return [s.time, s.kills, s.precisionCount].every(v => Number.isFinite(v) && v >= 0 && v < 1e7);
     }
     restore(s) {
       if (!Campaign.validSnapshot(s) || s.complete) return false;
       this.reset(s.difficulty); this.flags = { ...s.flags }; this.cleared = new Set(s.cleared); this.visited = new Set(s.visited); this.seen = new Set(s.seen);
+      this.learned = new Set(s.learned || []);
       this.history = [...s.history]; this.time = s.time; this.kills = s.kills; this.precisionCount = s.precisionCount; this.selectedRoute = s.route === 'healer' ? 'healer' : 'bridge';
       this.checkpoint = { ...s.checkpoint }; this.mode = 'playing'; this.enterStage(s.checkpoint.stage, [s.checkpoint.x, s.checkpoint.y], false);
       if (s.checkpoint.encounter === 'rescue' && !this.flags.mother) this.startRescue();
@@ -520,23 +616,37 @@
       e.attackDir = Math.atan2(target.y - e.y, target.x - e.x); e.dir = e.attackDir;
       e.action = this.newAction('enemy', definition, e.attackDir); e.windupMax = definition.windup; e.windup = definition.windup;
     }
+    projectileReach(e, dir, reach) {
+      for (let distance = 8; distance < reach; distance += 8)
+        if (this.blocking(e.x + Math.cos(dir) * distance, e.y - 8 + Math.sin(dir) * distance, 2)) return distance;
+      return reach;
+    }
     updateEnemyAction(e, dt, target) {
-      const a = e.action; a.t += dt;
+      const a = e.action, previous = a.t; a.t += dt;
       if (target && a.t < a.def.windup * .45) { a.dir = Math.atan2(target.y - e.y, target.x - e.x); e.attackDir = e.dir = a.dir; }
       e.windup = Math.max(0, a.def.windup - a.t);
-      if (a.t >= a.def.windup && a.t < a.def.windup + a.def.active) {
+      if (!a.readySound && a.t >= a.def.windup - .12 && previous < a.def.windup) { a.readySound = true; this.events.push({ kind: 'sound', sound: 'enemyReady' }); }
+      const activeDt = Math.max(0, Math.min(a.t, a.def.windup + a.def.active) - Math.max(previous, a.def.windup));
+      if (activeDt > 0) {
         if (!a.fired) {
           a.fired = true;
-          if (e.type === 'archer') this.projectiles.push({ id: a.id, x: e.x, y: e.y - 8, vx: Math.cos(a.dir) * 400, vy: Math.sin(a.dir) * 400, dir: a.dir, damage: a.def.damage, life: 2.1 });
+          if (e.type === 'archer') this.projectiles.push({ id: a.id, x: e.x, y: e.y - 8, vx: Math.cos(a.dir) * ARROW_SPEED, vy: Math.sin(a.dir) * ARROW_SPEED, dir: a.dir, damage: a.def.damage, life: ARROW_LIFE });
           else this.effects.push({ type: 'enemySlash', x: e.x, y: e.y, dir: a.dir, radius: a.def.range, arc: a.def.arc, life: a.def.active + .06, maxLife: a.def.active + .06 });
-          this.events.push({ kind: 'sound', sound: 'enemy' });
+          this.events.push({ kind: 'sound', sound: a.def.lunge || a.def.windup >= .85 || a.def.arc > 2 ? 'enemyHeavy' : 'enemy' });
         }
-        if (a.def.lunge) this.move(e, Math.cos(a.dir) * a.def.lunge / a.def.active * dt, Math.sin(a.dir) * a.def.lunge / a.def.active * dt);
         if (e.type !== 'archer') {
           const targets = this.activeBoss ? [this.player] : [this.player, ...(this.squadActive() ? this.allies : []), ...(this.rescue ? [this.rescue.healer] : [])];
-          for (const friend of targets) {
-            if (friend.hp <= 0 || a.hits.has(friend.id) || dist(e, friend) > a.def.range + friend.r || Math.abs(angleDiff(Math.atan2(friend.y - e.y, friend.x - e.x), a.dir)) > a.def.arc) continue;
-            a.hits.add(friend.id); this.damageFriend(friend, a.def.damage, a.id);
+          const travel = (a.def.lunge || 0) * activeDt / a.def.active, segments = Math.max(1, Math.ceil(travel / 8));
+          // Integrate only the active part of this frame and sample the path to prevent tunnelling.
+          for (let segment = 0; segment <= segments; segment++) {
+            if (segment > 0 && travel > 0) {
+              const moved = this.move(e, Math.cos(a.dir) * travel / segments, Math.sin(a.dir) * travel / segments);
+              a.travel = (a.travel || 0) + moved;
+            }
+            for (const friend of targets) {
+              if (friend.hp <= 0 || a.hits.has(friend.id) || !attackHits(e, friend, a.def, a.dir)) continue;
+              a.hits.add(friend.id); this.damageFriend(friend, a.def.damage, a.id);
+            }
           }
         }
       }
@@ -577,10 +687,15 @@
     }
     updateProjectiles(dt) {
       for (let i = this.projectiles.length - 1; i >= 0; i--) {
-        const a = this.projectiles[i]; a.life -= dt; a.x += a.vx * dt; a.y += a.vy * dt;
-        let hit = false;
-        for (const target of [this.player, ...(this.squadActive() ? this.allies : []), ...(this.rescue ? [this.rescue.healer] : [])]) if (target.hp > 0 && dist(a, target) < target.r + 8) { this.damageFriend(target, a.damage, a.id); hit = true; break; }
-        if (hit || a.life <= 0 || this.blocking(a.x, a.y, 2)) this.projectiles.splice(i, 1);
+        const a = this.projectiles[i], travelDt = Math.min(dt, Math.max(0, a.life)); a.life -= dt;
+        const segments = Math.max(1, Math.ceil(Math.hypot(a.vx, a.vy) * travelDt / 8)); let hit = false;
+        const targets = [this.player, ...(this.squadActive() ? this.allies : []), ...(this.rescue ? [this.rescue.healer] : [])];
+        for (let segment = 0; segment < segments && !hit; segment++) {
+          a.x += a.vx * travelDt / segments; a.y += a.vy * travelDt / segments;
+          if (this.blocking(a.x, a.y, 2)) { hit = true; break; }
+          for (const target of targets) if (target.hp > 0 && dist(a, target) < target.r + ARROW_RADIUS) { this.damageFriend(target, a.damage, a.id); hit = true; break; }
+        }
+        if (hit || a.life <= 0) this.projectiles.splice(i, 1);
       }
     }
     step(dt, input = {}) {
@@ -589,6 +704,7 @@
       const p = this.player; this.screenShake = Math.max(0, this.screenShake - dt * 20);
       for (const key of ['attackCd', 'comboWindow', 'heavyCd', 'dashCd', 'dashTime', 'invincible', 'hurtFlash', 'healCd', 'counterWindow']) p[key] = Math.max(0, p[key] - dt);
       p.dashAge += dt; p.qi = Math.min(100, p.qi + dt * (p.dashTime > 0 ? 0 : 18));
+      this.consumeBufferedAction();
       let dx = input.x || 0, dy = input.y || 0; const magnitude = Math.hypot(dx, dy); if (magnitude > 1) { dx /= magnitude; dy /= magnitude; }
       p.moving = false; p.vx = dx; p.vy = dy;
       if (!p.action) { if (Number.isFinite(input.aim)) p.dir = input.aim; else if (magnitude > .06) p.dir = Math.atan2(dy, dx); }
@@ -609,15 +725,19 @@
           this.effects.push({ type: 'dust', x: p.x + Math.sin(p.dir) * (p.footStep % 2 ? 7 : -7), y: p.y, radius: 6, life: .28, maxLife: .28 });
         }
       }
-      if (input.attack) this.attack(input.aim);
+      if (this.stage === 'mountain' && p.walkDistance > 70) this.learn('move');
+      if (input.attack && !this.actionBuffer) this.attack(input.aim);
       this.updatePlayerAction(dt); if (this.mode !== 'playing') return;
+      this.consumeBufferedAction();
       this.updateFriends(dt); this.updateEnemies(dt); if (this.mode !== 'playing') return;
-      this.updateProjectiles(dt); this.updateRescue(dt);
+      this.updateProjectiles(dt); if (this.mode !== 'playing') return;
+      this.updateProps(dt); if (this.mode !== 'playing') return;
+      this.updateRescue(dt);
       for (let i = this.loot.length - 1; i >= 0; i--) { const item = this.loot[i]; item.life -= dt; if (dist(p, item) < 35) { p.hp = Math.min(p.maxHp, p.hp + 18); this.loot.splice(i, 1); } else if (item.life <= 0) this.loot.splice(i, 1); }
       for (const e of this.effects) { e.life -= dt; if (e.vx != null) { e.x += e.vx * dt; e.y += e.vy * dt; } }
       this.effects = this.effects.filter(e => e.life > 0);
       for (const f of this.floaters) { f.life -= dt; f.y -= dt * 22; } this.floaters = this.floaters.filter(f => f.life > 0);
     }
   }
-  globalThis.LongdanCore = { Campaign, StageDefinition, AttackDefinition, W, H, dist, clamp, angleDiff };
+  globalThis.LongdanCore = { Campaign, StageDefinition, AttackDefinition, W, H, dist, clamp, angleDiff, attackHits, enemyThreat };
 })();

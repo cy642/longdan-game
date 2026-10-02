@@ -14,6 +14,8 @@
 .skill.ready{animation:skill-breathe 1.9s ease-in-out infinite}
 @keyframes skill-breathe{50%{box-shadow:0 0 21px #d9bd6854,inset 0 0 14px #d9bd681a}}
 .soft-effects .skill.ready{animation:none}
+.skill.guided{border-color:#e5c98a;box-shadow:inset 0 0 16px #dcc67a28}.skill.guided kbd{background:#775c303d;color:#fff0c2}
+.tutorial-hint{border-top:1px solid #c8b77b45;padding-top:10px}.tutorial-hint>small{font-size:9px;color:#d2b978;letter-spacing:1px}.tutorial-hint>strong{display:block;font-size:12px;line-height:1.6;font-weight:500;color:#efddb0;margin:7px 0}.tutorial-hint>p{margin-bottom:0;font-size:11px;line-height:1.8}.tutorial-hint.learned>small{color:#b2d6b6}
 @media(prefers-reduced-motion:reduce){.skill.ready{animation:none}}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#122923;color:var(--paper);font-family:"Microsoft YaHei UI","Microsoft YaHei",sans-serif;overflow:hidden;overscroll-behavior:none}
 button{font:inherit;color:inherit;cursor:pointer;border:1px solid #d6cc9e48;background:#172f28ed;border-radius:5px;transition:background .15s,border-color .15s;}
@@ -58,7 +60,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
 <div class="battle-status"><strong id="troopLabel">随军 3 人 · 待命</strong><small id="pressureLabel">观察 · 闪避 · 反击</small></div>
 <div class="top-actions"><button id="quickMapButton" type="button" aria-label="查看军图">军图</button><button id="soundButton" type="button" aria-label="切换声音">声音 开</button><button id="pauseButton" type="button" aria-label="暂停游戏">暂停 <kbd>Esc</kbd></button></div>
 </header>
-<aside class="mission-paper"><div class="paper-heading"><span>长坂战令</span><span id="timeLabel">00:00</span></div><h2 id="missionTitle">枪起长坂</h2><p id="missionText"></p><div id="objectiveList" class="objective-list"></div><button id="mapButton" type="button">查看军图 <kbd>M</kbd></button></aside>
+<aside class="mission-paper"><div class="paper-heading"><span>长坂战令</span><span id="timeLabel">00:00</span></div><h2 id="missionTitle">枪起长坂</h2><p id="missionText"></p><div id="tutorialHint" class="tutorial-hint hidden"><small id="tutorialStep"></small><strong id="tutorialTitle"></strong><p id="tutorialText"></p></div><div id="objectiveList" class="objective-list"></div><button id="mapButton" type="button">查看军图 <kbd>M</kbd></button></aside>
 <aside class="minimap-wrap"><canvas id="minimap" width="176" height="128" aria-label="当前区域地图"></canvas><span id="minimapCaption">溃军山道 · 北 ↑</span></aside>
 <div id="bossHud" class="boss-hud hidden"><div><span id="bossName"></span><span id="bossHpLabel"></span></div><div class="meter boss"><i id="bossHpFill"></i></div><div class="meter stagger"><i id="staggerFill"></i></div><small id="bossMove"></small></div>
 <div id="counterHint" class="counter-hint hidden">精准闪避 · 现在出枪接回马枪</div>
@@ -746,9 +748,87 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     g.beginPath(); g.moveTo(nose, -4); g.quadraticCurveTo(nose + 14, 12, nose - 18, 23); g.strokeStyle = '#c5ffff'; g.lineWidth = 1; g.stroke();
     g.fillStyle = '#1c9794'; g.fillRect(nose - 8, -13, 3, 2);
   }
+  function threatPath(g, radius, angle, travel) {
+    g.beginPath(); g.moveTo(0, 0);
+    g.lineTo(Math.cos(-angle) * radius, Math.sin(-angle) * radius);
+    if (travel > 0) g.lineTo(travel + Math.cos(-angle) * radius, Math.sin(-angle) * radius);
+    g.arc(travel, 0, radius, -angle, angle);
+    if (travel > 0) g.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+    g.closePath();
+  }
+  function warning(g, enemy, threat) {
+    if (!threat) return;
+    const a = enemy.action, active = threat.state === 'active';
+    g.save(); g.translate(enemy.x, enemy.y);
+    if (threat.state === 'recovery') {
+      if (threat.opening && enemy.type !== 'archer') {
+        g.strokeStyle = '#a5dec4'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(0, 3, 23, 8, 0, 0, TAU); g.stroke();
+        g.font = '11px Microsoft YaHei'; g.textAlign = 'center'; g.fillStyle = '#d0ecd2'; g.fillText('收招 · 可反击', 0, 25);
+      }
+      g.restore(); return;
+    }
+    g.save(); if (enemy.type === 'archer') g.translate(0, -8); g.rotate(a.dir);
+    const fill = active ? '#d0524040' : threat.imminent ? '#d9724a40' : '#a943352a';
+    const stroke = active ? '#f4a086' : threat.imminent ? '#ffd395' : '#dd8b6cc0';
+    if (enemy.type === 'archer') {
+      g.fillStyle = fill; g.fillRect(0, -threat.laneWidth, threat.radius, threat.laneWidth * 2);
+      if (threat.tracking) g.setLineDash([6, 5]);
+      line(g, [[0, 0], [threat.radius, 0]], stroke, 1.5);
+      g.setLineDash([8, 8]); line(g, [[0, -threat.laneWidth], [threat.radius, -threat.laneWidth]], '#d48c6866');
+      line(g, [[0, threat.laneWidth], [threat.radius, threat.laneWidth]], '#d48c6866');
+    } else {
+      threatPath(g, threat.radius, threat.arc, threat.travel); g.fillStyle = fill; g.fill();
+      g.strokeStyle = stroke; g.lineWidth = active || threat.imminent ? 2 : 1;
+      if (threat.tracking) g.setLineDash([6, 5]); g.stroke();
+      g.setLineDash([]);
+      if (threat.travel > 0) {
+        line(g, [[20, 0], [threat.travel + 28, 0]], '#e5ac8670', 1.5);
+        poly(g, [[threat.travel + 30, 0], [threat.travel + 20, -5], [threat.travel + 20, 5]], '#e5ac86aa');
+      }
+    }
+    g.restore();
+    g.fillStyle = '#192c26ee'; g.fillRect(-22, 10, 44, 3); g.fillStyle = stroke; g.fillRect(-22, 10, 44 * threat.progress, 3);
+    if (enemy.type !== 'boss') { g.fillStyle = '#f2c6a2'; g.font = '10px Microsoft YaHei'; g.textAlign = 'center'; g.fillText(active ? '出手' : enemy.type === 'archer' ? '弓射 · 留意箭路' : threat.imminent ? '将出手' : '蓄力', 0, 27); }
+    g.restore();
+  }
+  function propWarning(g, prop, playerRadius) {
+    if (prop.spent || prop.fuse == null) return;
+    const radius = prop.blastRadius + playerRadius, progress = 1 - prop.fuse / prop.fuseTime;
+    g.save(); g.translate(prop.x, prop.y); g.fillStyle = '#b84b362f'; g.strokeStyle = '#f1a578'; g.lineWidth = 2;
+    g.beginPath(); g.arc(0, 0, radius, 0, TAU); g.fill(); g.stroke();
+    arc(g, radius - 4, -Math.PI / 2, -Math.PI / 2 + TAU * progress, '#ffd293', 3);
+    g.textAlign = 'center'; g.font = 'bold 12px Microsoft YaHei'; g.fillStyle = '#ffe0a8'; g.fillText('油车将爆 · 闪开红圈', 0, -75); g.restore();
+  }
+  function prop(g, item, time) {
+    g.save(); g.translate(item.x, item.y);
+    g.fillStyle = '#1e302653'; g.beginPath(); g.ellipse(0, 5, 40, 13, 0, 0, TAU); g.fill();
+    if (item.spent) {
+      for (let i = 0; i < 6; i++) { g.save(); g.translate((i - 2.5) * 9, i % 2 * 9); g.rotate(i * 1.7); g.fillStyle = i % 2 ? '#524638' : '#302e28'; g.fillRect(-12, -2, 23, 4); g.restore(); }
+      g.strokeStyle = '#564939'; g.lineWidth = 4; g.beginPath(); g.arc(20, 5, 11, .4, 5.1); g.stroke(); g.restore(); return;
+    }
+    for (const x of [-29, 29]) {
+      g.fillStyle = '#3c3329'; g.beginPath(); g.ellipse(x, 0, 9, 16, 0, 0, TAU); g.fill();
+      g.strokeStyle = '#94784f'; g.lineWidth = 2; g.stroke(); line(g, [[x - 5, -10], [x + 5, 10]], '#806d48', 2);
+    }
+    poly(g, [[-32, -29], [22, -34], [33, -8], [-25, 0]], '#79613e');
+    poly(g, [[-25, 0], [33, -8], [33, 4], [-25, 11]], '#5a472e');
+    line(g, [[-30, -26], [24, -31]], '#b19460', 2); line(g, [[-25, 1], [33, -7]], '#b19460', 2);
+    for (const [x, y] of [[-13, -28], [10, -34]]) {
+      g.fillStyle = '#7d4435'; g.beginPath(); g.ellipse(x, y, 13, 16, -.1, 0, TAU); g.fill();
+      line(g, [[x - 11, y], [x + 11, y - 2]], '#b29062', 3); g.fillStyle = '#35372b'; g.fillRect(x - 5, y - 16, 10, 5);
+      g.textAlign = 'center'; g.fillStyle = '#edd2a3'; g.font = '11px KaiTi,serif'; g.fillText('油', x, y + 3);
+    }
+    if (item.fuse != null) {
+      glow(g, 0, -35, 40, '#ffd291', .23);
+      for (let i = 0; i < 3; i++) { const sway = Math.sin(time * 16 + i) * 4, x = (i - 1) * 10;
+        poly(g, [[x - 8, -28], [x + sway, -56 - i % 2 * 8], [x + 8, -28]], '#efad62');
+        poly(g, [[x - 4, -28], [x + sway * .5, -46], [x + 4, -28]], '#fff0aa'); }
+    } else { g.textAlign = 'center'; g.font = '11px Microsoft YaHei'; g.fillStyle = '#efcc9e'; g.fillText('油车 · 出枪引爆', 0, -59); }
+    g.restore();
+  }
   function effect(g, e, reduced, art, time) {
     const t = clamp(1 - e.life / e.maxLife), fade = 1 - t;
-    if (!['slash', 'impact', 'shockwave', 'dashGhost', 'cast', 'perfect', 'shatter'].includes(e.type)) return false;
+    if (!['slash', 'impact', 'shockwave', 'dashGhost', 'cast', 'perfect', 'shatter', 'explosion'].includes(e.type)) return false;
     g.save(); g.translate(e.x, e.y); g.lineCap = 'round'; g.lineJoin = 'round';
     if (e.type === 'dashGhost') {
       g.globalAlpha = fade * (reduced ? .13 : .3);
@@ -802,6 +882,14 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       g.globalAlpha = fade * (reduced ? .4 : .7); g.scale(1, .6);
       for (let i = 0; i < 2; i++) arc(g, Math.max(1, radius - i * 9), 0, TAU, color, i ? 1 : 3 * fade + .5);
       if (e.type === 'perfect') for (let i = 0; i < 8; i++) { const angle = i * TAU / 8; line(g, [[Math.cos(angle) * radius, Math.sin(angle) * radius], [Math.cos(angle) * (radius + 8), Math.sin(angle) * (radius + 8)]], '#efffff', 2); }
+    } else if (e.type === 'explosion') {
+      const radius = e.radius * (.2 + .8 * (1 - Math.pow(fade, 3)));
+      g.globalAlpha = fade * .7; if (!reduced) glow(g, 0, -15, radius * .7, '#ffd193', .34 * fade);
+      arc(g, radius, 0, TAU, '#f9c083', 7 * fade + 1);
+      for (let i = 0; i < (reduced ? 6 : 15); i++) {
+        const angle = i * 2.399, distance = radius * (.45 + i % 4 * .15), x = Math.cos(angle) * distance, y = Math.sin(angle) * distance;
+        line(g, [[x, y], [x + Math.cos(angle) * (10 + fade * 12), y + Math.sin(angle) * (10 + fade * 12)]], i % 2 ? '#f8c08a' : '#fff2ba', 2 * fade + 1);
+      }
     } else if (e.type === 'cast') {
       // Local calligraphy avoids a full-screen flash or obscuring enemy telegraphs.
       g.globalAlpha = Math.min(1, t * 10) * Math.min(1, fade * 3); g.translate(0, -102 - t * 14);
@@ -810,7 +898,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     }
     g.restore(); return true;
   }
-  globalThis.LongdanCombatArt = { charge, effect, colors };
+  globalThis.LongdanCombatArt = { charge, effect, colors, warning, propWarning, prop, threatPath };
 })();
 
 (() => {
@@ -824,11 +912,12 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       roads: [[[160, 940], [550, 840], [700, 590], [1080, 410], [1190, 210]]], huts: [],
       objects: [{ id: 'campMountain', kind: 'camp', x: 1180, y: 230, label: '山道营火' },
         { id: 'toVillage', kind: 'exit', x: 1350, y: 180, label: '前往荒村', to: 'village', need: 'mountain' }],
+      props: [{ id: 'mountainOil', kind: 'oilCart', x: 1130, y: 380, r: 25, group: 'm3', blastRadius: 145, fuseTime: .9 }],
       groups: [
         { id: 'm1', units: [['sword', 545, 835]] },
         { id: 'm2', units: [['sword', 765, 595], ['spear', 830, 530]] },
-        { id: 'm3', units: [['spear', 1070, 395], ['archer', 1150, 330]] },
-      ], tutorial: '移动接近敌人，出枪可接三式。红色蓄力结束时闪避，抓住收招出枪。',
+        { id: 'm3', units: [['shield', 1070, 395], ['archer', 1150, 330]] },
+      ], tutorial: '沿山道向前，每场遭遇会提示一项新技巧。金色箭头指向当前目标。',
     },
     village: {
       name: '荒村小巷', chapter: '二 · 人间烟火', seed: 31, mood: 'village', spawn: [180, 940],
@@ -875,6 +964,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       objects: [{ id: 'supplies', kind: 'supplies', x: 1280, y: 775, label: '粮营 · 盾阵校尉', group: 'fSupply' },
         { id: 'toBridge', kind: 'exit', x: 1330, y: 180, label: '整军前往北桥', to: 'bridge', group: 'f1', need: 'house' },
         { id: 'backHouse', kind: 'exit', x: 145, y: 980, label: '返回旧宅', to: 'house' }],
+      props: [{ id: 'supplyOil', kind: 'oilCart', x: 1160, y: 785, r: 25, group: 'fSupply', blastRadius: 145, fuseTime: .9 }],
       groups: [{ id: 'f1', units: [['spear', 750, 555], ['sword', 940, 425], ['archer', 960, 345]] },
         { id: 'fSupply', units: [['shield', 1090, 780], ['sword', 1190, 700], ['archer', 1360, 850]] }],
       tutorial: '北面是退路，东面是粮营。焚粮会撤走北桥弓阵，并打开侧道。',
@@ -914,6 +1004,19 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
   const total = a => a.windup + a.active + a.recovery;
+  const learningKeys = ['move', 'combo', 'dodge', 'shield', 'cart'];
+  const INPUT_BUFFER = .12;
+  const ARROW_SPEED = 400, ARROW_LIFE = 2.1, ARROW_RADIUS = 8;
+  const attackHits = (origin, target, definition, dir) => dist(origin, target) <= definition.range + (target.r || 0) &&
+    Math.abs(angleDiff(Math.atan2(target.y - origin.y, target.x - origin.x), dir)) <= definition.arc;
+  function enemyThreat(e, radius = 16) {
+    const a = e.action; if (!a || e.hp <= 0 || e.stunned > 0 || e.phaseTime > 0) return null;
+    const state = a.t < a.def.windup ? 'windup' : a.t < a.def.windup + a.def.active ? 'active' : 'recovery';
+    return { radius: e.type === 'archer' ? ARROW_SPEED * ARROW_LIFE : a.def.range + radius, laneWidth: radius + ARROW_RADIUS,
+      arc: a.def.arc, travel: Math.max(0, (a.def.lunge || 0) - (a.travel || 0)),
+      state, tracking: a.t < a.def.windup * .45, progress: clamp(a.t / a.def.windup, 0, 1),
+      imminent: a.def.windup - a.t <= .12, opening: state === 'recovery' && !e.sequence.length };
+  }
   const flagKeys = ['mountain', 'civilians', 'healer', 'temple', 'sword', 'adou', 'house', 'mother', 'motherDecision', 'supplies', 'elite', 'boss', 'committed'];
   const bossMoves = {
     xiahou: [
@@ -936,6 +1039,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       this.difficulty = difficulty === 'story' ? 'story' : 'normal'; this.seed = 82713; this.mode = 'menu';
       this.events = []; this.effects = []; this.projectiles = []; this.floaters = []; this.loot = []; this.history = [];
       this.flags = Object.fromEntries(flagKeys.map(k => [k, false])); this.cleared = new Set(); this.visited = new Set(); this.seen = new Set();
+      this.learned = new Set(); this.actionBuffer = null;
       this.time = 0; this.kills = 0; this.precisionCount = 0; this.nextId = 10; this.attackId = 1;
       this.screenShake = 0; this.hitStop = 0; this.command = 'follow'; this.rescue = null; this.activeBoss = null; this.boss = null;
       this.checkpoint = { stage: 'mountain', x: 190, y: 910, encounter: null }; this.selectedRoute = 'bridge';
@@ -954,7 +1058,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     }
     say(text) { this.events.push({ kind: 'toast', text }); }
     record(text) { if (!this.history.includes(text)) this.history.push(text); }
-    dialog(title, text, choices, speaker = '未来记忆') { this.mode = 'dialog'; this.events.push({ kind: 'dialog', title, text, choices, speaker }); }
+    dialog(title, text, choices, speaker = '未来记忆') { this.clearActionBuffer(); this.mode = 'dialog'; this.events.push({ kind: 'dialog', title, text, choices, speaker }); }
     save() { this.events.push({ kind: 'save' }); }
     groupDone(id) { return !id || this.cleared.has(this.stage + ':' + id); }
     groupAlive(id) { return this.enemies.some(e => e.hp > 0 && (!id || e.group === id)); }
@@ -971,7 +1075,10 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       this.stage = id; this.definition = StageDefinition[id]; this.visited.add(id);
       const point = position || this.definition.spawn; this.player.x = point[0]; this.player.y = point[1]; this.player.action = null;
       this.player.attackTimer = 0; this.player.dashTime = 0; this.player.moving = false; this.player.invincible = .7;
+      this.player.comboWindow = 0; this.player.combo = 0; this.player.comboTarget = null; this.clearActionBuffer();
       this.objects = this.definition.objects.map(o => ({ ...o }));
+      // Props reset with an unfinished encounter, so a retry retains its tactical options.
+      this.props = (this.definition.props || []).map(o => ({ ...o, fuse: null, spent: this.groupDone(o.group) }));
       this.huts = this.definition.huts.map(([x, y, w, h, type]) => ({ x, y, w, h, type }));
       this.trees = []; this.rocks = []; this.seed = this.definition.seed;
       for (let i = 0; i < 150; i++) {
@@ -1015,7 +1122,8 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       if (this.stage === 'bridge' && y < 285 && (x < 1170 + radius || x > 1370 - radius)) return true;
       if (this.stage === 'bridge' && !this.flags.supplies && x > 1070 - radius && x < 1150 + radius && y > 725 - radius) return true;
       return this.huts.some(h => x > h.x - h.w / 2 - radius && x < h.x + h.w / 2 + radius && y > h.y - h.h / 2 + 15 - radius && y < h.y + h.h / 2 + radius) ||
-        this.rocks.some(r => Math.hypot(x - r.x, y - r.y) < r.r * .7 + radius);
+        this.rocks.some(r => Math.hypot(x - r.x, y - r.y) < r.r * .7 + radius) ||
+        this.props.some(prop => !prop.spent && Math.hypot(x - prop.x, y - prop.y) < prop.r + radius);
     }
     move(a, dx, dy) {
       const beforeX = a.x, beforeY = a.y, radius = a.r || 14;
@@ -1070,13 +1178,17 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       if (e.hp <= 0 || e.phaseTime > 0 || (this.activeBoss && e !== this.boss)) return;
       const armored = (e.type === 'shield' || e.type === 'elite') && e.shieldBroken <= 0;
       if (armored && Math.abs(angleDiff(dir + Math.PI, e.dir)) < 1.15 && !breakShield) { damage *= .24; stagger *= .45; this.floater(e.x, e.y, '盾挡', '#b9cdd4'); }
-      if (breakShield && armored) { e.shieldBroken = 2.8; e.stunned = .8; this.floater(e.x, e.y, '破盾'); this.effects.push({ type: 'shatter', x: e.x, y: e.y, dir, color: '#ffe1a0', life: .4, maxLife: .4 }); }
+      if (breakShield && armored) {
+        e.shieldBroken = 2.8; e.stunned = .8; e.action = null; e.sequence = []; e.windup = 0; e.cooldown = Math.max(e.cooldown, .8);
+        this.floater(e.x, e.y, '破盾'); this.effects.push({ type: 'shatter', x: e.x, y: e.y, dir, color: '#ffe1a0', life: .4, maxLife: .4 });
+        if (source === 'player') this.learn('shield');
+      }
       const floor = source === 'ally' ? e.maxHp * .22 : 0;
       const actual = Math.min(Math.max(0, e.hp - floor), damage); if (actual <= 0) return;
       e.hp = Math.max(floor, e.hp - actual); e.hurtFlash = .16; e.alerted = true;
-      if (source === 'player') this.effects.push({ type: 'impact', x: e.x, y: e.y, dir, seed: e.id * 1.7, color: breakShield ? '#ffdfa0' : '#b5f4f5', life: .25, maxLife: .25 });
+      if (source !== 'ally') this.effects.push({ type: 'impact', x: e.x, y: e.y, dir, seed: e.id * 1.7, color: breakShield || source === 'environment' ? '#ffdfa0' : '#b5f4f5', life: .25, maxLife: .25 });
       if (source === 'player') { this.player.rage = Math.min(100, this.player.rage + 4); this.player.lastCombat = this.time; }
-      if (e.type !== 'boss') { e.knockX += Math.cos(dir) * knock; e.knockY += Math.sin(dir) * knock; if (source === 'player' && e.type !== 'elite') { e.stunned = .12; e.action = null; } }
+      if (e.type !== 'boss') { e.knockX += Math.cos(dir) * knock; e.knockY += Math.sin(dir) * knock; if (source === 'player' && e.type !== 'elite') { e.stunned = Math.max(e.stunned, .12); e.action = null; e.windup = 0; } }
       if (e.staggerShield <= 0) {
         e.stagger += stagger;
         if (e.stagger >= e.staggerMax) { e.stagger = 0; e.stunned = e.type === 'boss' ? 2.1 : 1.3; e.staggerShield = 4.4; e.action = null; e.sequence = []; e.cooldown = 1.2; this.floater(e.x, e.y, '破势 · 反击'); this.events.push({ kind: 'sound', sound: 'break' }); }
@@ -1095,6 +1207,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       if (target.hp <= 0) return false;
       const p = this.player;
       if (target === p && p.invincible > 0) {
+        if (attackId != null && p.dashTime > 0) this.learn('dodge');
         const window = this.difficulty === 'story' ? .18 : .12;
         if (attackId != null && p.dashTime > 0 && p.dashAge <= window && p.lastPrecisionAttack !== attackId) {
           p.lastPrecisionAttack = attackId; p.counterWindow = 1.2; p.qi = Math.min(100, p.qi + 12); p.rage = Math.min(100, p.rage + 8); this.precisionCount++;
@@ -1114,10 +1227,39 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       return true;
     }
     newAction(key, definition, dir) { return { id: this.attackId++, key, def: definition, t: 0, dir, hits: new Set(), fired: false }; }
+    clearActionBuffer() { this.actionBuffer = null; }
+    performAction(kind, input = {}) {
+      if (kind === 'attack') return this.attack(input.aim);
+      if (kind === 'dash') return this.dash(input.x, input.y);
+      if (['heavy', 'ultimate'].includes(kind) && !this.player.action && this.player.dashTime <= 0 && Number.isFinite(input.aim)) this.player.dir = input.aim;
+      if (kind === 'heavy') return this.heavy();
+      if (kind === 'ultimate') return this.ultimate();
+      return false;
+    }
+    requestAction(kind, input = {}) {
+      if (this.mode !== 'playing') return false;
+      // A new deliberate press replaces any previous request; holding attack never queues one.
+      this.clearActionBuffer();
+      if (this.performAction(kind, input)) return true;
+      const p = this.player, actionLeft = p.action ? Math.max(0, total(p.action.def) - p.action.t) : 0;
+      const wait = kind === 'dash' ? Math.max(p.dashCd, p.dashTime) : Math.max(actionLeft, p.dashTime, kind === 'heavy' ? p.heavyCd : kind === 'attack' ? p.attackCd : 0);
+      const resourceReady = kind === 'dash' ? p.qi >= 16 : kind === 'heavy' ? p.qi >= 30 : kind === 'ultimate' ? this.flags.sword && p.rage >= 100 : kind === 'attack';
+      if (resourceReady && wait > 0 && wait <= INPUT_BUFFER + 1e-6) {
+        this.actionBuffer = { kind, input: { ...input }, expires: this.time + INPUT_BUFFER }; return true;
+      }
+      return false;
+    }
+    consumeBufferedAction() {
+      const buffered = this.actionBuffer; if (!buffered) return;
+      if (this.mode !== 'playing' || this.time > buffered.expires + 1e-6) { this.clearActionBuffer(); return; }
+      if (this.performAction(buffered.kind, buffered.input)) this.clearActionBuffer();
+    }
     attack(aim) {
       const p = this.player; if (this.mode !== 'playing' || p.action || p.dashTime > 0 || p.attackCd > 0) return false;
-      const target = this.nearbyEnemy(p, 205);
+      const heldTarget = p.comboWindow > 0 && this.enemies.find(e => e.id === p.comboTarget && e.hp > 0 && dist(e, p) < 205 && (!this.activeBoss || e === this.boss));
+      const target = heldTarget || this.nearbyEnemy(p, 205);
       if (Number.isFinite(aim)) p.dir = aim; else if (target) p.dir = Math.atan2(target.y - p.y, target.x - p.x);
+      p.comboTarget = Number.isFinite(aim) ? null : target?.id || null;
       p.combo = p.comboWindow > 0 ? p.combo % 3 + 1 : 1;
       const key = p.counterWindow > 0 ? 'counter' : 'thrust' + p.combo; p.counterWindow = 0;
       p.action = this.newAction(key, AttackDefinition[key], p.dir); p.comboWindow = 1.2; p.attackPose = 'normal'; return true;
@@ -1166,16 +1308,52 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
           }
         }
         if (a.key !== 'heal') for (const e of this.enemies) {
-          if (e.hp <= 0 || a.hits.has(e.id) || dist(p, e) > a.def.range + e.r || Math.abs(angleDiff(Math.atan2(e.y - p.y, e.x - p.x), a.dir)) > a.def.arc) continue;
+          if (e.hp <= 0 || a.hits.has(e.id) || !attackHits(p, e, a.def, a.dir)) continue;
           a.hits.add(e.id); const before = e.hp;
           this.damageEnemy(e, a.def.damage, a.dir, a.key === 'sweep' ? 200 : 50, 'player', a.def.stagger, ['sweep', 'sword'].includes(a.key));
           if (e.hp < before) {
+            if (a.key === 'thrust3') this.learn('combo');
             this.screenShake = Math.max(this.screenShake, a.key === 'sword' ? 5 : ['thrust3', 'sweep', 'counter'].includes(a.key) ? 3.2 : 1.6);
             if (!a.impactStopped) { this.hitStop = a.key === 'sword' ? .065 : ['thrust3', 'sweep', 'counter'].includes(a.key) ? .045 : .022; a.impactStopped = true; }
           }
         }
+        if (a.key !== 'heal') for (const prop of this.props) {
+          if (prop.spent || prop.fuse != null || a.hits.has(prop.id) || !attackHits(p, prop, a.def, a.dir)) continue;
+          a.hits.add(prop.id); prop.fuse = prop.fuseTime; this.say('油车已引燃，闪开红圈！'); this.events.push({ kind: 'sound', sound: 'ignite' });
+        }
       }
       if (a.t >= total(a.def)) { p.action = null; p.attackTimer = 0; }
+    }
+    learn(key) {
+      if (this.learned.has(key)) return;
+      this.learned.add(key);
+      if (this.stage === 'mountain' && key !== 'move') this.floater(this.player.x, this.player.y - 35,
+        { combo: '三式已成', dodge: '避开锋芒', shield: '盾阵可破', cart: '借势破阵' }[key], '#c3e9bc');
+      this.save();
+    }
+    mountainGroup() { return this.stage === 'mountain' ? this.definition.groups.find(group => this.groupAlive(group.id))?.id : null; }
+    getTutorial() {
+      if (this.stage !== 'mountain' || this.flags.mountain) return null;
+      const group = this.mountainGroup(), prop = this.props[0];
+      if (prop?.fuse != null && !prop.spent) return { step: 3, title: '油车将爆 · 立即撤开', text: '空格 / K 向红圈外闪避。爆裂会伤到圈内的所有人。', skill: 'dash' };
+      if (group === 'm1') return this.learned.has('move') ?
+        { step: 1, title: '出枪接三式', text: '按住 J / 左键可连击。第三式威力大，收招较慢。', skill: 'attack', done: this.learned.has('combo') } :
+        { step: 1, title: '沿山道接敌', text: 'WASD / 方向键移动，跟随金色箭头找到前方剑兵。', skill: '', done: false };
+      if (group === 'm2') return { step: 2, title: '看红区 · 闪避反击', text: '红区亮起后，按空格 / K 闪避。敌人收招时再出枪；精准闪避可接回马枪。', skill: 'dash', done: this.learned.has('dodge') };
+      return { step: 3, title: '破盾，或借油车破阵', text: 'Q / 右键横扫可破盾，也可绕后出枪。击中油车可引爆，点燃后及时闪开。', skill: 'sweep', done: this.learned.has('shield') || this.learned.has('cart') };
+    }
+    updateProps(dt) {
+      for (const prop of this.props) {
+        if (prop.spent || prop.fuse == null) continue;
+        prop.fuse -= dt; if (prop.fuse > 0) continue;
+        prop.spent = true; prop.fuse = null;
+        this.effects.push({ type: 'explosion', x: prop.x, y: prop.y, radius: prop.blastRadius, life: .65, maxLife: .65 });
+        this.screenShake = Math.max(this.screenShake, 4); this.hitStop = .045; this.events.push({ kind: 'sound', sound: 'explosion' }); this.learn('cart');
+        for (const e of this.enemies) if (e.hp > 0 && dist(prop, e) <= prop.blastRadius + e.r)
+          this.damageEnemy(e, 85, Math.atan2(e.y - prop.y, e.x - prop.x), 190, 'environment', 48, true);
+        for (const friend of [this.player, ...(this.squadActive() ? this.allies : []), ...(this.rescue ? [this.rescue.healer] : [])])
+          if (friend.hp > 0 && dist(prop, friend) <= prop.blastRadius + friend.r) this.damageFriend(friend, 28);
+      }
     }
     checkGroups() {
       for (const group of this.definition.groups) {
@@ -1222,7 +1400,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       const o = this.nearestObject(); if (!o) return false;
       if (o.kind === 'camp') {
         if (this.enemies.some(e => e.hp > 0 && e.alerted && dist(e, o) < 350)) { this.say(this.interactionText(o)); return false; }
-        Object.assign(this.player, { hp: this.player.maxHp, qi: 100, potions: 3, action: null, invincible: .5 });
+        this.clearActionBuffer(); Object.assign(this.player, { hp: this.player.maxHp, qi: 100, potions: 3, action: null, invincible: .5 });
         this.allies.forEach(a => { a.hp = a.maxHp; }); this.checkpoint = { stage: this.stage, x: o.x, y: o.y + 35, encounter: null };
         this.say('营火已记住你的来路。体力、气力、行军药已补满。'); this.events.push({ kind: 'sound', sound: 'heal' }); this.save(); return true;
       }
@@ -1290,6 +1468,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       this.save();
     }
     beginBoss(id) {
+      this.clearActionBuffer();
       this.activeBoss = id; this.enemies = this.enemies.filter(e => e.hp <= 0); this.projectiles = [];
       const arena = this.definition.arena;
       this.player.x = arena.x - 145; this.player.y = arena.y + 90; this.player.action = null; this.player.invincible = .8;
@@ -1305,7 +1484,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
         this.flags.temple = this.flags.sword = true; this.player.rage = 100;
         this.checkpoint = { stage: 'temple', x: 1090, y: 550, encounter: null };
         this.record('夏侯恩败于破庙，赵云夺得青釭剑，荒村侧门随之打开。');
-        this.dialog('青釭入手 · 路已不同', '你收起青釭剑，重新握紧长枪。\n\n新招「青釭断势」已习得：战意满时，拔剑打出高破势一击。\n\n破庙侧门已开，回荒村不必再走长路。井畔还有人在等你。', [{ text: '持剑前行', detail: 'R 或手机青釭键发动；接下来前往井畔旧宅。', route: 'continue' }], '赵云');
+        this.dialog('青釭入手 · 路已不同', '你收起青釭剑，重新握紧长枪。\n\n新招「青釭断势」已习得：战意满时，拔剑打出高破势一击。\n\n破庙侧门已开，回荒村不必再走长路。井畔还有人在等你。', [{ text: '持剑前行', detail: 'R 发动青釭断势；接下来前往井畔旧宅。', route: 'continue' }], '赵云');
       } else {
         this.flags.boss = true; this.checkpoint = { stage: 'bridge', x: 1100, y: 340, encounter: null };
         this.record('北桥枪阵被破，张郃退去，赵云守住了队伍的撤离。');
@@ -1345,7 +1524,12 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       if (this.activeBoss) return { title: this.boss.name + ' · 单挑', text: this.boss.phase2 ? '新的追枪加入了连招。不要抢出枪，等收招，再抓破绽。' : '观察蓄力，闪避后出枪。精准闪避可接回马枪，破势后可打连续重击。', target: this.boss };
       if (this.rescue) return { title: '守住井畔', text: `第 ${this.rescue.wave} / 2 波 · 医者体力 ${Math.ceil(this.rescue.healer.hp)}。用军令牵制敌人，你亲自清掉追兵。`, target: this.rescue.healer };
       switch (this.stage) {
-        case 'mountain': return { title: this.flags.mountain ? '营火与前路' : '枪起长坂', text: this.flags.mountain ? '前方营火可补药并保存进度，之后继续进入荒村。' : '沿山道清开敌军。连击第三式收招较慢，别站着硬换血。', target: this.flags.mountain ? o('toVillage') : targetEnemy() };
+        case 'mountain': {
+          const group = this.mountainGroup(), target = this.enemies.find(e => e.hp > 0 && e.group === group);
+          return { title: this.flags.mountain ? '营火与前路' : { m1: '枪起长坂', m2: '识破枪势', m3: '破盾开路' }[group] || '枪起长坂',
+            text: this.flags.mountain ? '前方营火可补药并保存进度，之后继续进入荒村。' : { m1: '击退山道上的剑兵，熟悉长枪连击。', m2: '继续清开两名追兵，留意突刺方向与出手时机。', m3: '盾兵与弓手守住出口，借地形和破盾技打开前路。' }[group] || '沿山道向前，清开守军。',
+            target: this.flags.mountain ? o('toVillage') : target || this.player };
+        }
         case 'village': return { title: this.selectedRoute === 'healer' && !this.flags.healer ? '寻访医者' : '穿过荒村', text: '西巷有被困医者与百姓；北面破庙有曹将守路。救援是可选的，也会打开新的结局。', target: this.selectedRoute === 'healer' && !this.flags.healer ? o('civilians') : o('toTemple') };
         case 'temple': return { title: this.flags.temple ? '侧门已开' : '破庙夺剑', text: this.flags.temple ? '东路通向井畔旧宅，西侧门直回荒村。' : '清开庙外守军，在营火休整，随后独自挑战夏侯恩。', target: this.flags.temple ? this.selectedRoute === 'healer' && !this.flags.healer ? o('shortcut') : o('toHouse') : o('xiahouGate') };
         case 'house': return { title: this.flags.house ? '护主向北' : this.flags.adou ? '井畔还有一人' : '寻回阿斗', text: this.flags.house ? '糜夫人' + (this.flags.mother ? '已获救。' : '仍可营救。') + '前往粮道岔口，也可以回头寻找医者。' : this.flags.adou ? '保护医者救下糜夫人，或先护阿斗撤离。渡桥前还可以回头。' : '击退守军后，靠近井畔旧宅，寻回阿斗与糜夫人。', target: this.selectedRoute === 'healer' && !this.flags.healer ? o('backTemple') : this.flags.house ? o('toFork') : o('adou') };
@@ -1353,7 +1537,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
         default: return { title: this.flags.boss ? '渡桥重逢' : '一枪断后', text: this.flags.boss ? '沿木桥向北，与刘备会合，看看你改写了哪些命运。' : this.flags.supplies ? '弓阵已撤，东侧道已打开。清开盾阵，让随军先走，再独自接下张郃的枪。' : '随军协助牵制盾兵，赵云先破弓阵。清开桥头后，单挑张郃。', target: this.flags.boss ? o('exit') : this.groupAlive() ? targetEnemy() : o('zhangheGate') };
       }
     }
-    defeat(title, text) { if (this.mode !== 'playing') return; this.mode = 'defeat'; this.events.push({ kind: 'defeat', title, text }); this.events.push({ kind: 'sound', sound: 'defeat' }); this.save(); }
+    defeat(title, text) { if (this.mode !== 'playing') return; this.clearActionBuffer(); this.mode = 'defeat'; this.events.push({ kind: 'defeat', title, text }); this.events.push({ kind: 'sound', sound: 'defeat' }); this.save(); }
     retry() {
       if (this.mode !== 'defeat') return false;
       const cp = { ...this.checkpoint }; this.mode = 'playing'; this.enterStage(cp.stage, [cp.x, cp.y], false); this.checkpoint = cp;
@@ -1362,7 +1546,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       this.say('重新握枪。已完成的救援与夺剑仍在，当前战斗重新开始。'); this.save(); return true;
     }
     finish() {
-      this.mode = 'ending';
+      this.clearActionBuffer(); this.mode = 'ending';
       const title = this.flags.mother ? '长坂逆命 · 母子同归' : this.flags.civilians ? '一骑护众 · 仁心归来' : '孤胆归来 · 命有未竟';
       const text = this.flags.mother ? '刘备先接过阿斗，随后看见担架上的糜夫人。\n「子龙……你竟把她也带回来了。」\n\n记忆里的诀别没有发生。你改写的第一件事，是让一个人活下来。' : '刘备接过阿斗，伸手扶起浑身尘土的你。\n「子龙，今日全赖你了。」\n\n你护住了孩子，也记住了井畔未能兑现的承诺。长坂的命运，还有另一种写法。';
       this.result = { won: true, title, text, people: this.flags.civilians ? 3 : 0, soldiers: 3, kills: this.kills, time: this.time, mother: this.flags.mother, supplies: this.flags.supplies, history: [...this.history] };
@@ -1371,7 +1555,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     snapshot() {
       return { version: 1, difficulty: this.difficulty, stage: this.stage, checkpoint: { ...this.checkpoint }, flags: { ...this.flags }, cleared: [...this.cleared],
         visited: [...this.visited], seen: [...this.seen], history: [...this.history], time: this.time, kills: this.kills, precisionCount: this.precisionCount,
-        route: this.selectedRoute, complete: this.mode === 'ending' };
+        route: this.selectedRoute, learned: [...this.learned], complete: this.mode === 'ending' };
     }
     static validSnapshot(s) {
       if (!s || s.version !== 1 || !StageDefinition[s.stage] || !s.checkpoint || !StageDefinition[s.checkpoint.stage] || !['normal', 'story'].includes(s.difficulty)) return false;
@@ -1380,12 +1564,14 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       const groups = new Set(Object.entries(StageDefinition).flatMap(([stage, def]) => def.groups.map(g => stage + ':' + g.id)));
       if (s.cleared.some(k => !groups.has(k)) || s.visited.some(k => !StageDefinition[k]) || s.history.length > 30 || s.history.some(t => typeof t !== 'string' || t.length > 300)) return false;
       if (s.seen.some(k => !['xiahou', 'zhanghe'].includes(k)) || ![null, 'xiahou', 'zhanghe', 'rescue'].includes(s.checkpoint.encounter)) return false;
+      if (s.learned !== undefined && (!Array.isArray(s.learned) || s.learned.length > learningKeys.length || s.learned.some(k => !learningKeys.includes(k)))) return false;
       if (s.flags.sword !== s.flags.temple || s.flags.mother && (!s.flags.adou || !s.flags.healer) || s.flags.boss && !s.flags.adou || s.flags.committed && !s.flags.adou) return false;
       return [s.time, s.kills, s.precisionCount].every(v => Number.isFinite(v) && v >= 0 && v < 1e7);
     }
     restore(s) {
       if (!Campaign.validSnapshot(s) || s.complete) return false;
       this.reset(s.difficulty); this.flags = { ...s.flags }; this.cleared = new Set(s.cleared); this.visited = new Set(s.visited); this.seen = new Set(s.seen);
+      this.learned = new Set(s.learned || []);
       this.history = [...s.history]; this.time = s.time; this.kills = s.kills; this.precisionCount = s.precisionCount; this.selectedRoute = s.route === 'healer' ? 'healer' : 'bridge';
       this.checkpoint = { ...s.checkpoint }; this.mode = 'playing'; this.enterStage(s.checkpoint.stage, [s.checkpoint.x, s.checkpoint.y], false);
       if (s.checkpoint.encounter === 'rescue' && !this.flags.mother) this.startRescue();
@@ -1429,23 +1615,37 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       e.attackDir = Math.atan2(target.y - e.y, target.x - e.x); e.dir = e.attackDir;
       e.action = this.newAction('enemy', definition, e.attackDir); e.windupMax = definition.windup; e.windup = definition.windup;
     }
+    projectileReach(e, dir, reach) {
+      for (let distance = 8; distance < reach; distance += 8)
+        if (this.blocking(e.x + Math.cos(dir) * distance, e.y - 8 + Math.sin(dir) * distance, 2)) return distance;
+      return reach;
+    }
     updateEnemyAction(e, dt, target) {
-      const a = e.action; a.t += dt;
+      const a = e.action, previous = a.t; a.t += dt;
       if (target && a.t < a.def.windup * .45) { a.dir = Math.atan2(target.y - e.y, target.x - e.x); e.attackDir = e.dir = a.dir; }
       e.windup = Math.max(0, a.def.windup - a.t);
-      if (a.t >= a.def.windup && a.t < a.def.windup + a.def.active) {
+      if (!a.readySound && a.t >= a.def.windup - .12 && previous < a.def.windup) { a.readySound = true; this.events.push({ kind: 'sound', sound: 'enemyReady' }); }
+      const activeDt = Math.max(0, Math.min(a.t, a.def.windup + a.def.active) - Math.max(previous, a.def.windup));
+      if (activeDt > 0) {
         if (!a.fired) {
           a.fired = true;
-          if (e.type === 'archer') this.projectiles.push({ id: a.id, x: e.x, y: e.y - 8, vx: Math.cos(a.dir) * 400, vy: Math.sin(a.dir) * 400, dir: a.dir, damage: a.def.damage, life: 2.1 });
+          if (e.type === 'archer') this.projectiles.push({ id: a.id, x: e.x, y: e.y - 8, vx: Math.cos(a.dir) * ARROW_SPEED, vy: Math.sin(a.dir) * ARROW_SPEED, dir: a.dir, damage: a.def.damage, life: ARROW_LIFE });
           else this.effects.push({ type: 'enemySlash', x: e.x, y: e.y, dir: a.dir, radius: a.def.range, arc: a.def.arc, life: a.def.active + .06, maxLife: a.def.active + .06 });
-          this.events.push({ kind: 'sound', sound: 'enemy' });
+          this.events.push({ kind: 'sound', sound: a.def.lunge || a.def.windup >= .85 || a.def.arc > 2 ? 'enemyHeavy' : 'enemy' });
         }
-        if (a.def.lunge) this.move(e, Math.cos(a.dir) * a.def.lunge / a.def.active * dt, Math.sin(a.dir) * a.def.lunge / a.def.active * dt);
         if (e.type !== 'archer') {
           const targets = this.activeBoss ? [this.player] : [this.player, ...(this.squadActive() ? this.allies : []), ...(this.rescue ? [this.rescue.healer] : [])];
-          for (const friend of targets) {
-            if (friend.hp <= 0 || a.hits.has(friend.id) || dist(e, friend) > a.def.range + friend.r || Math.abs(angleDiff(Math.atan2(friend.y - e.y, friend.x - e.x), a.dir)) > a.def.arc) continue;
-            a.hits.add(friend.id); this.damageFriend(friend, a.def.damage, a.id);
+          const travel = (a.def.lunge || 0) * activeDt / a.def.active, segments = Math.max(1, Math.ceil(travel / 8));
+          // Integrate only the active part of this frame and sample the path to prevent tunnelling.
+          for (let segment = 0; segment <= segments; segment++) {
+            if (segment > 0 && travel > 0) {
+              const moved = this.move(e, Math.cos(a.dir) * travel / segments, Math.sin(a.dir) * travel / segments);
+              a.travel = (a.travel || 0) + moved;
+            }
+            for (const friend of targets) {
+              if (friend.hp <= 0 || a.hits.has(friend.id) || !attackHits(e, friend, a.def, a.dir)) continue;
+              a.hits.add(friend.id); this.damageFriend(friend, a.def.damage, a.id);
+            }
           }
         }
       }
@@ -1486,10 +1686,15 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     }
     updateProjectiles(dt) {
       for (let i = this.projectiles.length - 1; i >= 0; i--) {
-        const a = this.projectiles[i]; a.life -= dt; a.x += a.vx * dt; a.y += a.vy * dt;
-        let hit = false;
-        for (const target of [this.player, ...(this.squadActive() ? this.allies : []), ...(this.rescue ? [this.rescue.healer] : [])]) if (target.hp > 0 && dist(a, target) < target.r + 8) { this.damageFriend(target, a.damage, a.id); hit = true; break; }
-        if (hit || a.life <= 0 || this.blocking(a.x, a.y, 2)) this.projectiles.splice(i, 1);
+        const a = this.projectiles[i], travelDt = Math.min(dt, Math.max(0, a.life)); a.life -= dt;
+        const segments = Math.max(1, Math.ceil(Math.hypot(a.vx, a.vy) * travelDt / 8)); let hit = false;
+        const targets = [this.player, ...(this.squadActive() ? this.allies : []), ...(this.rescue ? [this.rescue.healer] : [])];
+        for (let segment = 0; segment < segments && !hit; segment++) {
+          a.x += a.vx * travelDt / segments; a.y += a.vy * travelDt / segments;
+          if (this.blocking(a.x, a.y, 2)) { hit = true; break; }
+          for (const target of targets) if (target.hp > 0 && dist(a, target) < target.r + ARROW_RADIUS) { this.damageFriend(target, a.damage, a.id); hit = true; break; }
+        }
+        if (hit || a.life <= 0) this.projectiles.splice(i, 1);
       }
     }
     step(dt, input = {}) {
@@ -1498,6 +1703,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       const p = this.player; this.screenShake = Math.max(0, this.screenShake - dt * 20);
       for (const key of ['attackCd', 'comboWindow', 'heavyCd', 'dashCd', 'dashTime', 'invincible', 'hurtFlash', 'healCd', 'counterWindow']) p[key] = Math.max(0, p[key] - dt);
       p.dashAge += dt; p.qi = Math.min(100, p.qi + dt * (p.dashTime > 0 ? 0 : 18));
+      this.consumeBufferedAction();
       let dx = input.x || 0, dy = input.y || 0; const magnitude = Math.hypot(dx, dy); if (magnitude > 1) { dx /= magnitude; dy /= magnitude; }
       p.moving = false; p.vx = dx; p.vy = dy;
       if (!p.action) { if (Number.isFinite(input.aim)) p.dir = input.aim; else if (magnitude > .06) p.dir = Math.atan2(dy, dx); }
@@ -1518,22 +1724,26 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
           this.effects.push({ type: 'dust', x: p.x + Math.sin(p.dir) * (p.footStep % 2 ? 7 : -7), y: p.y, radius: 6, life: .28, maxLife: .28 });
         }
       }
-      if (input.attack) this.attack(input.aim);
+      if (this.stage === 'mountain' && p.walkDistance > 70) this.learn('move');
+      if (input.attack && !this.actionBuffer) this.attack(input.aim);
       this.updatePlayerAction(dt); if (this.mode !== 'playing') return;
+      this.consumeBufferedAction();
       this.updateFriends(dt); this.updateEnemies(dt); if (this.mode !== 'playing') return;
-      this.updateProjectiles(dt); this.updateRescue(dt);
+      this.updateProjectiles(dt); if (this.mode !== 'playing') return;
+      this.updateProps(dt); if (this.mode !== 'playing') return;
+      this.updateRescue(dt);
       for (let i = this.loot.length - 1; i >= 0; i--) { const item = this.loot[i]; item.life -= dt; if (dist(p, item) < 35) { p.hp = Math.min(p.maxHp, p.hp + 18); this.loot.splice(i, 1); } else if (item.life <= 0) this.loot.splice(i, 1); }
       for (const e of this.effects) { e.life -= dt; if (e.vx != null) { e.x += e.vx * dt; e.y += e.vy * dt; } }
       this.effects = this.effects.filter(e => e.life > 0);
       for (const f of this.floaters) { f.life -= dt; f.y -= dt * 22; } this.floaters = this.floaters.filter(f => f.life > 0);
     }
   }
-  globalThis.LongdanCore = { Campaign, StageDefinition, AttackDefinition, W, H, dist, clamp, angleDiff };
+  globalThis.LongdanCore = { Campaign, StageDefinition, AttackDefinition, W, H, dist, clamp, angleDiff, attackHits, enemyThreat };
 })();
 
 (() => {
   'use strict';
-  const { Campaign, StageDefinition, W, H, dist, clamp, angleDiff } = globalThis.LongdanCore;
+  const { Campaign, StageDefinition, W, H, dist, clamp, angleDiff, enemyThreat } = globalThis.LongdanCore;
   const art = globalThis.LongdanArt, sceneArt = globalThis.LongdanScene, combatArt = globalThis.LongdanCombatArt, $ = id => document.getElementById(id), TAU = Math.PI * 2;
   const campaign = new Campaign('normal');
   const canvas = $('battlefield'), ctx = canvas.getContext('2d', { alpha: false });
@@ -1556,7 +1766,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     const saved = readSave(); $('continueButton').classList.toggle('hidden', !saved || saved.complete);
     $('saveInfo').textContent = !saveAvailable ? '此浏览器无法保存进度，本次仍可游玩。' : saved ? saved.complete ? '长坂已通关。开始新征程，可尝试另一种命运。' : '最近进度：' + StageDefinition[saved.checkpoint.stage].name + ' · ' + (saved.difficulty === 'story' ? '初入战场' : '龙胆') : '营火、战斗入口与完成的救援会自动保存。';
   }
-  function clearInput() { keys.clear(); mouseAttack = false; aimUntil = 0; }
+  function clearInput() { keys.clear(); mouseAttack = false; aimUntil = 0; campaign.clearActionBuffer(); }
   function hideOverlays() { overlays.forEach(id => $(id).classList.add('hidden')); }
   function resize() {
     viewW = innerWidth; viewH = innerHeight; dpr = Math.min(devicePixelRatio || 1, 2);
@@ -1578,6 +1788,8 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       kill: [260, 110, .12, 'triangle', .025], heal: [400, 700, .25, 'sine', .04], victory: [330, 660, .65, 'sine', .055],
       defeat: [160, 70, .6, 'triangle', .04], command: [240, 180, .12, 'triangle', .03], ultimate: [100, 510, .48, 'sawtooth', .04],
       step: [75, 50, .035, 'triangle', .013], enemy: [160, 90, .1, 'triangle', .016], perfect: [520, 950, .16, 'sine', .045],
+      enemyReady: [620, 780, .045, 'triangle', .014], enemyHeavy: [115, 45, .16, 'sawtooth', .026],
+      ignite: [360, 145, .13, 'sawtooth', .025], explosion: [95, 32, .28, 'sawtooth', .055],
       break: [190, 580, .18, 'square', .025], phase: [110, 280, .65, 'triangle', .045] }[name];
     if (!notes) return;
     try { const [from, to, duration, type, volume] = notes, now = audioContext.currentTime;
@@ -1585,7 +1797,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       osc.frequency.setValueAtTime(from, now); osc.frequency.exponentialRampToValueAtTime(to, now + duration);
       gain.gain.setValueAtTime(volume, now); gain.gain.exponentialRampToValueAtTime(.001, now + duration);
       osc.connect(gain); gain.connect(audioContext.destination); osc.start(now); osc.stop(now + duration);
-      if (['swing', 'heavy', 'hit', 'ultimate', 'break', 'dash'].includes(name)) {
+      if (['swing', 'heavy', 'hit', 'ultimate', 'break', 'dash', 'explosion'].includes(name)) {
         const length = name === 'ultimate' ? .28 : name === 'heavy' ? .16 : .085;
         const buffer = audioContext.createBuffer(1, Math.ceil(audioContext.sampleRate * length), audioContext.sampleRate), data = buffer.getChannelData(0);
         for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 1.8);
@@ -1644,7 +1856,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     if (pendingSave) writeSave();
   }
   function updateHud() {
-    const p = campaign.player, mission = campaign.getMission();
+    const p = campaign.player, mission = campaign.getMission(), tutorial = campaign.getTutorial();
     $('hpLabel').textContent = Math.ceil(p.hp) + ' / ' + p.maxHp; $('hpFill').style.width = p.hp / p.maxHp * 100 + '%';
     $('qiLabel').textContent = Math.floor(p.qi); $('qiFill').style.width = p.qi + '%';
     $('regionLabel').textContent = '长坂逆命 · ' + campaign.definition.name; $('minimapCaption').textContent = campaign.definition.name + ' · 北 ↑';
@@ -1652,6 +1864,12 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     $('pressureLabel').textContent = campaign.rescue ? '医者施救 ' + Math.floor(campaign.rescue.progress / 20 * 100) + '%' : p.action?.key === 'heal' ? '服药中 · 留意敌军' : '观察 · 闪避 · 反击';
     $('missionTitle').textContent = mission.title; $('missionText').textContent = mission.text; $('timeLabel').textContent = formatTime(campaign.time);
     $('objectiveList').innerHTML = [['temple', '破庙夺剑'], ['adou', '寻回阿斗'], ['mother', '救下糜夫人（可选）'], ['supplies', '焚毁粮草（可选）'], ['boss', '击退张郃']].map(([id, label]) => `<div class="${campaign.flags[id] ? 'done' : 'todo'}">${label}</div>`).join('');
+    $('objectiveList').classList.toggle('hidden', !!tutorial);
+    $('tutorialHint').classList.toggle('hidden', !tutorial); $('tutorialHint').classList.toggle('learned', !!tutorial?.done);
+    if (tutorial) {
+      $('tutorialStep').textContent = '实战引导 ' + tutorial.step + ' / 3' + (tutorial.done ? ' · 已尝试' : '');
+      $('tutorialTitle').textContent = tutorial.title; $('tutorialText').textContent = tutorial.text;
+    }
     $('heavyState').textContent = p.heavyCd > 0 ? p.heavyCd.toFixed(1) + '秒后可用' : '消耗30气力';
     $('dashState').textContent = p.dashCd > 0 ? '整步再出' : '消耗16气力';
     $('rageState').textContent = !campaign.flags.sword ? '夺剑后习得' : '战意 ' + Math.floor(p.rage) + ' / 100';
@@ -1661,6 +1879,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       const key = el.dataset.skill, active = key === 'dash' ? p.dashTime > 0 : key === 'attack' ? p.action?.key.startsWith('thrust') || p.action?.key === 'counter' : p.action?.key === key;
       const progress = key === 'sweep' ? 1 - p.heavyCd / 3.6 : key === 'dash' ? 1 - p.dashCd / .61 : key === 'sword' ? campaign.flags.sword ? p.rage / 100 : 0 : 1;
       el.style.setProperty('--charge', clamp(progress, 0, 1) * 100 + '%'); el.classList.toggle('casting', !!active);
+      el.classList.toggle('guided', tutorial?.skill === key && !tutorial.done);
       el.classList.toggle('unavailable', key === 'sweep' ? p.heavyCd > 0 || p.qi < 30 : key === 'dash' ? p.dashCd > 0 || p.qi < 16 : key === 'sword' ? !campaign.flags.sword || p.rage < 100 : false);
     }
     const o = campaign.nearestObject(); $('interaction').classList.toggle('hidden', !o || campaign.mode !== 'playing');
@@ -1669,8 +1888,8 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     const boss = campaign.boss, visible = boss && boss.hp > 0 && dist(boss, p) < 650;
     $('bossHud').classList.toggle('hidden', !visible);
     document.body.classList.toggle('has-boss', !!visible);
-    if (visible) { $('bossName').textContent = boss.name + (boss.phase2 ? ' · 二势' : ''); $('bossHpFill').style.width = boss.hp / boss.maxHp * 100 + '%'; $('bossHpLabel').textContent = Math.ceil(boss.hp); $('staggerFill').style.width = boss.stagger / boss.staggerMax * 100 + '%'; $('bossMove').textContent = boss.stunned > .3 ? '破勢 · 趁机出枪' : boss.action ? boss.action.t < boss.action.def.windup ? boss.action.def.name + ' · 蓄势' : boss.action.t < boss.action.def.windup + boss.action.def.active ? '枪锋已出' : '收招 · 可反击' : '观察起手'; }
-    canvas.dataset.state = campaign.mode; canvas.dataset.stage = campaign.stage; canvas.dataset.mission = mission.title; canvas.dataset.x = Math.round(p.x); canvas.dataset.y = Math.round(p.y); canvas.dataset.combo = p.combo;
+    if (visible) { $('bossName').textContent = boss.name + (boss.phase2 ? ' · 二势' : ''); $('bossHpFill').style.width = boss.hp / boss.maxHp * 100 + '%'; $('bossHpLabel').textContent = Math.ceil(boss.hp); $('staggerFill').style.width = boss.stagger / boss.staggerMax * 100 + '%'; $('bossMove').textContent = boss.stunned > .3 ? '破势 · 趁机出枪' : boss.action ? boss.action.t < boss.action.def.windup ? boss.action.def.name + (boss.action.t < boss.action.def.windup * .45 ? ' · 尚在追踪' : ' · 方向已定') : boss.action.t < boss.action.def.windup + boss.action.def.active ? '锋芒已出' : boss.sequence.length ? '连招未完 · 留意下一式' : '收招 · 可反击' : '观察起手'; }
+    canvas.dataset.state = campaign.mode; canvas.dataset.stage = campaign.stage; canvas.dataset.mission = mission.title; canvas.dataset.x = Math.round(p.x); canvas.dataset.y = Math.round(p.y); canvas.dataset.combo = p.combo; canvas.dataset.action = p.dashTime > 0 ? 'dash' : p.action?.key || 'idle';
     document.querySelectorAll('[data-command]').forEach(b => b.classList.toggle('inactive', !campaign.squadActive()));
     drawMap(mini, 176, 128, false);
   }
@@ -1685,8 +1904,8 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
   function renderBigMap() { const c = $('bigmap'), width = Math.max(250, Math.round(c.getBoundingClientRect().width)); c.width = width; c.height = Math.round(width * H / W); drawMap(bigmap, width, c.height, true); }
   function act(action) {
     if (campaign.mode !== 'playing') return; unlockAudio();
-    if (action === 'heavy') campaign.heavy(); else if (action === 'dash') { const input = inputState(); campaign.dash(input.x, input.y); }
-    else if (action === 'ultimate') campaign.ultimate(); else if (action === 'heal') campaign.heal(); else if (action === 'interact') campaign.interact();
+    if (['attack', 'heavy', 'dash', 'ultimate'].includes(action)) campaign.requestAction(action, inputState());
+    else if (action === 'heal') campaign.heal(); else if (action === 'interact') campaign.interact();
     processEvents(); updateHud();
   }
   document.addEventListener('keydown', e => {
@@ -1694,7 +1913,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     if (key === 'escape') { campaign.mode === 'map' ? toggleMap() : togglePause(); return; }
     if (key === 'm' || key === 'tab') { toggleMap(); return; }
     if (campaign.mode !== 'playing') return; keys.add(key);
-    if (key === 'j') campaign.attack(inputState().aim);
+    if (key === 'j') act('attack');
     else if (key === 'e') act('interact'); else if (key === 'q') act('heavy'); else if (key === 'r') act('ultimate'); else if (key === 'f') act('heal'); else if (key === ' ' || key === 'k') act('dash');
     else if (['1', '2', '3'].includes(key)) { campaign.setCommand({ 1: 'follow', 2: 'hold', 3: 'charge' }[key]); processEvents(); }
   });
@@ -1702,7 +1921,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
   window.addEventListener('blur', () => { clearInput(); if (campaign.mode === 'playing') togglePause(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { clearInput(); if (campaign.mode === 'playing') togglePause(); } });
   canvas.addEventListener('pointermove', e => { if (e.pointerType === 'touch') return; const rect = canvas.getBoundingClientRect(); mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top }; aimUntil = performance.now() + 1400; });
-  canvas.addEventListener('pointerdown', e => { if (campaign.mode !== 'playing' || e.pointerType === 'touch') return; unlockAudio(); if (e.button === 0) { mouseAttack = true; campaign.attack(inputState().aim); canvas.setPointerCapture(e.pointerId); } else if (e.button === 2) act('heavy'); });
+  canvas.addEventListener('pointerdown', e => { if (campaign.mode !== 'playing' || e.pointerType === 'touch') return; unlockAudio(); const rect = canvas.getBoundingClientRect(); mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top }; aimUntil = performance.now() + 1400; if (e.button === 0) { mouseAttack = true; act('attack'); canvas.setPointerCapture(e.pointerId); } else if (e.button === 2) act('heavy'); });
   window.addEventListener('pointerup', () => { mouseAttack = false; });
   window.addEventListener('pointercancel', () => { mouseAttack = false; }); canvas.addEventListener('contextmenu', e => e.preventDefault());
   $('startButton').addEventListener('click', start); $('continueButton').addEventListener('click', continueGame); $('restartButton').addEventListener('click', start); $('playAgainButton').addEventListener('click', start);
@@ -1762,13 +1981,12 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     if (campaign.activeBoss) { const a = campaign.definition.arena; g.strokeStyle = '#dac08d99'; g.lineWidth = 2; g.setLineDash([12, 10]); g.strokeRect(a.x - a.rx, a.y - a.ry, a.rx * 2, a.ry * 2); g.setLineDash([]); }
   }
   function drawWarnings(g) {
+    for (const prop of campaign.props) if (onScreen(prop.x, prop.y, 230)) combatArt.propWarning(g, prop, campaign.player.r);
     for (const e of campaign.enemies) {
       if (e.hp <= 0 || !e.action || !onScreen(e.x, e.y, 240)) continue;
-      const a = e.action; if (a.t >= a.def.windup) continue;
-      g.save(); g.translate(e.x, e.y); g.rotate(a.dir); const progress = a.t / a.def.windup;
-      if (e.type === 'archer') { g.strokeStyle = '#ce8d5550'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, 0); g.lineTo(a.def.range, 0); g.stroke(); }
-      else { g.fillStyle = `rgba(169,68,42,${.08 + progress * .17})`; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, a.def.range, -a.def.arc, a.def.arc); g.closePath(); g.fill(); g.strokeStyle = '#e3a673aa'; g.lineWidth = progress > .78 ? 2 : 1; g.beginPath(); g.arc(0, 0, a.def.range, -a.def.arc, a.def.arc); g.stroke(); }
-      g.restore();
+      const threat = enemyThreat(e, campaign.player.r);
+      if (threat && e.type === 'archer') threat.radius = campaign.projectileReach(e, e.action.dir, threat.radius);
+      combatArt.warning(g, e, threat);
     }
   }
   function drawEffects(g) {
@@ -1795,6 +2013,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     if (campaign.stage === 'bridge') { g.fillStyle = '#52766d'; g.fillRect(0, 70 * sy, width, 210 * sy); g.fillStyle = '#ac996c'; g.fillRect(1170 * sx, 60 * sy, 200 * sx, 240 * sy); }
     for (const road of campaign.definition.roads) { g.beginPath(); road.forEach(([x, y], i) => i ? g.lineTo(x * sx, y * sy) : g.moveTo(x * sx, y * sy)); g.strokeStyle = '#d6c49566'; g.lineWidth = detailed ? 9 : 2; g.stroke(); }
     for (const h of campaign.huts) { g.fillStyle = '#a8b69840'; g.fillRect((h.x - h.w / 2) * sx, (h.y - h.h / 2) * sy, h.w * sx, h.h * sy); }
+    for (const prop of campaign.props) if (!prop.spent) { g.fillStyle = '#e5ae71'; g.fillRect(prop.x * sx - 2, prop.y * sy - 2, 4, 4); }
     for (const o of campaign.objects) {
       const color = objectDone(o) ? '#95ba94' : o.kind === 'boss' || o.kind === 'supplies' ? '#d59476' : o.kind === 'camp' || o.kind === 'rescue' ? '#91c4ba' : '#e7cf99';
       g.fillStyle = color; g.beginPath(); g.arc(o.x * sx, o.y * sy, detailed ? 6 : 3, 0, TAU); g.fill();
@@ -1834,8 +2053,8 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     if (campaign.stage === 'house' && !campaign.flags.mother) actors.push([{ id: 1001, x: 1117, y: 462, hp: 80, maxHp: 80, dir: 2.3, moving: false, injured: true }, 'civil']);
     if (campaign.stage === 'house' && campaign.flags.healer && !campaign.flags.mother && !campaign.rescue) actors.push([{ id: 7, x: 1180, y: 475, hp: 100, maxHp: 100, dir: 2.5, moving: false }, 'civil']);
     if (campaign.rescue) actors.push([campaign.rescue.healer, 'civil']);
-    const depth = [...actors.filter(([a]) => onScreen(a.x, a.y)).map(([a, role]) => ({ y: a.y, actor: a, role })), ...scenery.filter(a => onScreen(a.x, a.y, 180)).map(a => ({ y: a.y, scenery: a }))].sort((a, b) => a.y - b.y);
-    for (const item of depth) if (item.scenery) drawScenery(g, item.scenery); else { if (item.role === 'hero') art.hero(g, item.actor, time, 1.08, campaign.flags.adou); else art.unit(g, item.actor, item.role, time); }
+    const depth = [...actors.filter(([a]) => onScreen(a.x, a.y)).map(([a, role]) => ({ y: a.y, actor: a, role })), ...scenery.filter(a => onScreen(a.x, a.y, 180)).map(a => ({ y: a.y, scenery: a })), ...campaign.props.filter(a => onScreen(a.x, a.y)).map(a => ({ y: a.y, prop: a }))].sort((a, b) => a.y - b.y);
+    for (const item of depth) if (item.scenery) drawScenery(g, item.scenery); else if (item.prop) combatArt.prop(g, item.prop, time); else { if (item.role === 'hero') art.hero(g, item.actor, time, 1.08, campaign.flags.adou); else art.unit(g, item.actor, item.role, time); }
     for (const a of campaign.projectiles) { g.strokeStyle = '#e0d0a3'; g.lineWidth = 2; g.beginPath(); g.moveTo(a.x - Math.cos(a.dir) * 23, a.y - Math.sin(a.dir) * 23); g.lineTo(a.x, a.y); g.stroke(); }
     if (campaign.rescue) { const h = campaign.rescue.healer; g.fillStyle = '#22372d'; g.fillRect(h.x - 24, h.y - 62, 48, 4); g.fillStyle = '#bcdbb0'; g.fillRect(h.x - 24, h.y - 62, 48 * h.hp / h.maxHp, 4); }
     drawEffects(g);

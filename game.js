@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const { Campaign, StageDefinition, W, H, dist, clamp, angleDiff } = globalThis.LongdanCore;
+  const { Campaign, StageDefinition, W, H, dist, clamp, angleDiff, enemyThreat } = globalThis.LongdanCore;
   const art = globalThis.LongdanArt, sceneArt = globalThis.LongdanScene, combatArt = globalThis.LongdanCombatArt, $ = id => document.getElementById(id), TAU = Math.PI * 2;
   const campaign = new Campaign('normal');
   const canvas = $('battlefield'), ctx = canvas.getContext('2d', { alpha: false });
@@ -23,7 +23,7 @@
     const saved = readSave(); $('continueButton').classList.toggle('hidden', !saved || saved.complete);
     $('saveInfo').textContent = !saveAvailable ? '此浏览器无法保存进度，本次仍可游玩。' : saved ? saved.complete ? '长坂已通关。开始新征程，可尝试另一种命运。' : '最近进度：' + StageDefinition[saved.checkpoint.stage].name + ' · ' + (saved.difficulty === 'story' ? '初入战场' : '龙胆') : '营火、战斗入口与完成的救援会自动保存。';
   }
-  function clearInput() { keys.clear(); mouseAttack = false; aimUntil = 0; }
+  function clearInput() { keys.clear(); mouseAttack = false; aimUntil = 0; campaign.clearActionBuffer(); }
   function hideOverlays() { overlays.forEach(id => $(id).classList.add('hidden')); }
   function resize() {
     viewW = innerWidth; viewH = innerHeight; dpr = Math.min(devicePixelRatio || 1, 2);
@@ -45,6 +45,8 @@
       kill: [260, 110, .12, 'triangle', .025], heal: [400, 700, .25, 'sine', .04], victory: [330, 660, .65, 'sine', .055],
       defeat: [160, 70, .6, 'triangle', .04], command: [240, 180, .12, 'triangle', .03], ultimate: [100, 510, .48, 'sawtooth', .04],
       step: [75, 50, .035, 'triangle', .013], enemy: [160, 90, .1, 'triangle', .016], perfect: [520, 950, .16, 'sine', .045],
+      enemyReady: [620, 780, .045, 'triangle', .014], enemyHeavy: [115, 45, .16, 'sawtooth', .026],
+      ignite: [360, 145, .13, 'sawtooth', .025], explosion: [95, 32, .28, 'sawtooth', .055],
       break: [190, 580, .18, 'square', .025], phase: [110, 280, .65, 'triangle', .045] }[name];
     if (!notes) return;
     try { const [from, to, duration, type, volume] = notes, now = audioContext.currentTime;
@@ -52,7 +54,7 @@
       osc.frequency.setValueAtTime(from, now); osc.frequency.exponentialRampToValueAtTime(to, now + duration);
       gain.gain.setValueAtTime(volume, now); gain.gain.exponentialRampToValueAtTime(.001, now + duration);
       osc.connect(gain); gain.connect(audioContext.destination); osc.start(now); osc.stop(now + duration);
-      if (['swing', 'heavy', 'hit', 'ultimate', 'break', 'dash'].includes(name)) {
+      if (['swing', 'heavy', 'hit', 'ultimate', 'break', 'dash', 'explosion'].includes(name)) {
         const length = name === 'ultimate' ? .28 : name === 'heavy' ? .16 : .085;
         const buffer = audioContext.createBuffer(1, Math.ceil(audioContext.sampleRate * length), audioContext.sampleRate), data = buffer.getChannelData(0);
         for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 1.8);
@@ -111,7 +113,7 @@
     if (pendingSave) writeSave();
   }
   function updateHud() {
-    const p = campaign.player, mission = campaign.getMission();
+    const p = campaign.player, mission = campaign.getMission(), tutorial = campaign.getTutorial();
     $('hpLabel').textContent = Math.ceil(p.hp) + ' / ' + p.maxHp; $('hpFill').style.width = p.hp / p.maxHp * 100 + '%';
     $('qiLabel').textContent = Math.floor(p.qi); $('qiFill').style.width = p.qi + '%';
     $('regionLabel').textContent = '长坂逆命 · ' + campaign.definition.name; $('minimapCaption').textContent = campaign.definition.name + ' · 北 ↑';
@@ -119,6 +121,12 @@
     $('pressureLabel').textContent = campaign.rescue ? '医者施救 ' + Math.floor(campaign.rescue.progress / 20 * 100) + '%' : p.action?.key === 'heal' ? '服药中 · 留意敌军' : '观察 · 闪避 · 反击';
     $('missionTitle').textContent = mission.title; $('missionText').textContent = mission.text; $('timeLabel').textContent = formatTime(campaign.time);
     $('objectiveList').innerHTML = [['temple', '破庙夺剑'], ['adou', '寻回阿斗'], ['mother', '救下糜夫人（可选）'], ['supplies', '焚毁粮草（可选）'], ['boss', '击退张郃']].map(([id, label]) => `<div class="${campaign.flags[id] ? 'done' : 'todo'}">${label}</div>`).join('');
+    $('objectiveList').classList.toggle('hidden', !!tutorial);
+    $('tutorialHint').classList.toggle('hidden', !tutorial); $('tutorialHint').classList.toggle('learned', !!tutorial?.done);
+    if (tutorial) {
+      $('tutorialStep').textContent = '实战引导 ' + tutorial.step + ' / 3' + (tutorial.done ? ' · 已尝试' : '');
+      $('tutorialTitle').textContent = tutorial.title; $('tutorialText').textContent = tutorial.text;
+    }
     $('heavyState').textContent = p.heavyCd > 0 ? p.heavyCd.toFixed(1) + '秒后可用' : '消耗30气力';
     $('dashState').textContent = p.dashCd > 0 ? '整步再出' : '消耗16气力';
     $('rageState').textContent = !campaign.flags.sword ? '夺剑后习得' : '战意 ' + Math.floor(p.rage) + ' / 100';
@@ -128,6 +136,7 @@
       const key = el.dataset.skill, active = key === 'dash' ? p.dashTime > 0 : key === 'attack' ? p.action?.key.startsWith('thrust') || p.action?.key === 'counter' : p.action?.key === key;
       const progress = key === 'sweep' ? 1 - p.heavyCd / 3.6 : key === 'dash' ? 1 - p.dashCd / .61 : key === 'sword' ? campaign.flags.sword ? p.rage / 100 : 0 : 1;
       el.style.setProperty('--charge', clamp(progress, 0, 1) * 100 + '%'); el.classList.toggle('casting', !!active);
+      el.classList.toggle('guided', tutorial?.skill === key && !tutorial.done);
       el.classList.toggle('unavailable', key === 'sweep' ? p.heavyCd > 0 || p.qi < 30 : key === 'dash' ? p.dashCd > 0 || p.qi < 16 : key === 'sword' ? !campaign.flags.sword || p.rage < 100 : false);
     }
     const o = campaign.nearestObject(); $('interaction').classList.toggle('hidden', !o || campaign.mode !== 'playing');
@@ -136,8 +145,8 @@
     const boss = campaign.boss, visible = boss && boss.hp > 0 && dist(boss, p) < 650;
     $('bossHud').classList.toggle('hidden', !visible);
     document.body.classList.toggle('has-boss', !!visible);
-    if (visible) { $('bossName').textContent = boss.name + (boss.phase2 ? ' · 二势' : ''); $('bossHpFill').style.width = boss.hp / boss.maxHp * 100 + '%'; $('bossHpLabel').textContent = Math.ceil(boss.hp); $('staggerFill').style.width = boss.stagger / boss.staggerMax * 100 + '%'; $('bossMove').textContent = boss.stunned > .3 ? '破勢 · 趁机出枪' : boss.action ? boss.action.t < boss.action.def.windup ? boss.action.def.name + ' · 蓄势' : boss.action.t < boss.action.def.windup + boss.action.def.active ? '枪锋已出' : '收招 · 可反击' : '观察起手'; }
-    canvas.dataset.state = campaign.mode; canvas.dataset.stage = campaign.stage; canvas.dataset.mission = mission.title; canvas.dataset.x = Math.round(p.x); canvas.dataset.y = Math.round(p.y); canvas.dataset.combo = p.combo;
+    if (visible) { $('bossName').textContent = boss.name + (boss.phase2 ? ' · 二势' : ''); $('bossHpFill').style.width = boss.hp / boss.maxHp * 100 + '%'; $('bossHpLabel').textContent = Math.ceil(boss.hp); $('staggerFill').style.width = boss.stagger / boss.staggerMax * 100 + '%'; $('bossMove').textContent = boss.stunned > .3 ? '破势 · 趁机出枪' : boss.action ? boss.action.t < boss.action.def.windup ? boss.action.def.name + (boss.action.t < boss.action.def.windup * .45 ? ' · 尚在追踪' : ' · 方向已定') : boss.action.t < boss.action.def.windup + boss.action.def.active ? '锋芒已出' : boss.sequence.length ? '连招未完 · 留意下一式' : '收招 · 可反击' : '观察起手'; }
+    canvas.dataset.state = campaign.mode; canvas.dataset.stage = campaign.stage; canvas.dataset.mission = mission.title; canvas.dataset.x = Math.round(p.x); canvas.dataset.y = Math.round(p.y); canvas.dataset.combo = p.combo; canvas.dataset.action = p.dashTime > 0 ? 'dash' : p.action?.key || 'idle';
     document.querySelectorAll('[data-command]').forEach(b => b.classList.toggle('inactive', !campaign.squadActive()));
     drawMap(mini, 176, 128, false);
   }
@@ -152,8 +161,8 @@
   function renderBigMap() { const c = $('bigmap'), width = Math.max(250, Math.round(c.getBoundingClientRect().width)); c.width = width; c.height = Math.round(width * H / W); drawMap(bigmap, width, c.height, true); }
   function act(action) {
     if (campaign.mode !== 'playing') return; unlockAudio();
-    if (action === 'heavy') campaign.heavy(); else if (action === 'dash') { const input = inputState(); campaign.dash(input.x, input.y); }
-    else if (action === 'ultimate') campaign.ultimate(); else if (action === 'heal') campaign.heal(); else if (action === 'interact') campaign.interact();
+    if (['attack', 'heavy', 'dash', 'ultimate'].includes(action)) campaign.requestAction(action, inputState());
+    else if (action === 'heal') campaign.heal(); else if (action === 'interact') campaign.interact();
     processEvents(); updateHud();
   }
   document.addEventListener('keydown', e => {
@@ -161,7 +170,7 @@
     if (key === 'escape') { campaign.mode === 'map' ? toggleMap() : togglePause(); return; }
     if (key === 'm' || key === 'tab') { toggleMap(); return; }
     if (campaign.mode !== 'playing') return; keys.add(key);
-    if (key === 'j') campaign.attack(inputState().aim);
+    if (key === 'j') act('attack');
     else if (key === 'e') act('interact'); else if (key === 'q') act('heavy'); else if (key === 'r') act('ultimate'); else if (key === 'f') act('heal'); else if (key === ' ' || key === 'k') act('dash');
     else if (['1', '2', '3'].includes(key)) { campaign.setCommand({ 1: 'follow', 2: 'hold', 3: 'charge' }[key]); processEvents(); }
   });
@@ -169,7 +178,7 @@
   window.addEventListener('blur', () => { clearInput(); if (campaign.mode === 'playing') togglePause(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { clearInput(); if (campaign.mode === 'playing') togglePause(); } });
   canvas.addEventListener('pointermove', e => { if (e.pointerType === 'touch') return; const rect = canvas.getBoundingClientRect(); mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top }; aimUntil = performance.now() + 1400; });
-  canvas.addEventListener('pointerdown', e => { if (campaign.mode !== 'playing' || e.pointerType === 'touch') return; unlockAudio(); if (e.button === 0) { mouseAttack = true; campaign.attack(inputState().aim); canvas.setPointerCapture(e.pointerId); } else if (e.button === 2) act('heavy'); });
+  canvas.addEventListener('pointerdown', e => { if (campaign.mode !== 'playing' || e.pointerType === 'touch') return; unlockAudio(); const rect = canvas.getBoundingClientRect(); mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top }; aimUntil = performance.now() + 1400; if (e.button === 0) { mouseAttack = true; act('attack'); canvas.setPointerCapture(e.pointerId); } else if (e.button === 2) act('heavy'); });
   window.addEventListener('pointerup', () => { mouseAttack = false; });
   window.addEventListener('pointercancel', () => { mouseAttack = false; }); canvas.addEventListener('contextmenu', e => e.preventDefault());
   $('startButton').addEventListener('click', start); $('continueButton').addEventListener('click', continueGame); $('restartButton').addEventListener('click', start); $('playAgainButton').addEventListener('click', start);
@@ -229,13 +238,12 @@
     if (campaign.activeBoss) { const a = campaign.definition.arena; g.strokeStyle = '#dac08d99'; g.lineWidth = 2; g.setLineDash([12, 10]); g.strokeRect(a.x - a.rx, a.y - a.ry, a.rx * 2, a.ry * 2); g.setLineDash([]); }
   }
   function drawWarnings(g) {
+    for (const prop of campaign.props) if (onScreen(prop.x, prop.y, 230)) combatArt.propWarning(g, prop, campaign.player.r);
     for (const e of campaign.enemies) {
       if (e.hp <= 0 || !e.action || !onScreen(e.x, e.y, 240)) continue;
-      const a = e.action; if (a.t >= a.def.windup) continue;
-      g.save(); g.translate(e.x, e.y); g.rotate(a.dir); const progress = a.t / a.def.windup;
-      if (e.type === 'archer') { g.strokeStyle = '#ce8d5550'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, 0); g.lineTo(a.def.range, 0); g.stroke(); }
-      else { g.fillStyle = `rgba(169,68,42,${.08 + progress * .17})`; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, a.def.range, -a.def.arc, a.def.arc); g.closePath(); g.fill(); g.strokeStyle = '#e3a673aa'; g.lineWidth = progress > .78 ? 2 : 1; g.beginPath(); g.arc(0, 0, a.def.range, -a.def.arc, a.def.arc); g.stroke(); }
-      g.restore();
+      const threat = enemyThreat(e, campaign.player.r);
+      if (threat && e.type === 'archer') threat.radius = campaign.projectileReach(e, e.action.dir, threat.radius);
+      combatArt.warning(g, e, threat);
     }
   }
   function drawEffects(g) {
@@ -262,6 +270,7 @@
     if (campaign.stage === 'bridge') { g.fillStyle = '#52766d'; g.fillRect(0, 70 * sy, width, 210 * sy); g.fillStyle = '#ac996c'; g.fillRect(1170 * sx, 60 * sy, 200 * sx, 240 * sy); }
     for (const road of campaign.definition.roads) { g.beginPath(); road.forEach(([x, y], i) => i ? g.lineTo(x * sx, y * sy) : g.moveTo(x * sx, y * sy)); g.strokeStyle = '#d6c49566'; g.lineWidth = detailed ? 9 : 2; g.stroke(); }
     for (const h of campaign.huts) { g.fillStyle = '#a8b69840'; g.fillRect((h.x - h.w / 2) * sx, (h.y - h.h / 2) * sy, h.w * sx, h.h * sy); }
+    for (const prop of campaign.props) if (!prop.spent) { g.fillStyle = '#e5ae71'; g.fillRect(prop.x * sx - 2, prop.y * sy - 2, 4, 4); }
     for (const o of campaign.objects) {
       const color = objectDone(o) ? '#95ba94' : o.kind === 'boss' || o.kind === 'supplies' ? '#d59476' : o.kind === 'camp' || o.kind === 'rescue' ? '#91c4ba' : '#e7cf99';
       g.fillStyle = color; g.beginPath(); g.arc(o.x * sx, o.y * sy, detailed ? 6 : 3, 0, TAU); g.fill();
@@ -301,8 +310,8 @@
     if (campaign.stage === 'house' && !campaign.flags.mother) actors.push([{ id: 1001, x: 1117, y: 462, hp: 80, maxHp: 80, dir: 2.3, moving: false, injured: true }, 'civil']);
     if (campaign.stage === 'house' && campaign.flags.healer && !campaign.flags.mother && !campaign.rescue) actors.push([{ id: 7, x: 1180, y: 475, hp: 100, maxHp: 100, dir: 2.5, moving: false }, 'civil']);
     if (campaign.rescue) actors.push([campaign.rescue.healer, 'civil']);
-    const depth = [...actors.filter(([a]) => onScreen(a.x, a.y)).map(([a, role]) => ({ y: a.y, actor: a, role })), ...scenery.filter(a => onScreen(a.x, a.y, 180)).map(a => ({ y: a.y, scenery: a }))].sort((a, b) => a.y - b.y);
-    for (const item of depth) if (item.scenery) drawScenery(g, item.scenery); else { if (item.role === 'hero') art.hero(g, item.actor, time, 1.08, campaign.flags.adou); else art.unit(g, item.actor, item.role, time); }
+    const depth = [...actors.filter(([a]) => onScreen(a.x, a.y)).map(([a, role]) => ({ y: a.y, actor: a, role })), ...scenery.filter(a => onScreen(a.x, a.y, 180)).map(a => ({ y: a.y, scenery: a })), ...campaign.props.filter(a => onScreen(a.x, a.y)).map(a => ({ y: a.y, prop: a }))].sort((a, b) => a.y - b.y);
+    for (const item of depth) if (item.scenery) drawScenery(g, item.scenery); else if (item.prop) combatArt.prop(g, item.prop, time); else { if (item.role === 'hero') art.hero(g, item.actor, time, 1.08, campaign.flags.adou); else art.unit(g, item.actor, item.role, time); }
     for (const a of campaign.projectiles) { g.strokeStyle = '#e0d0a3'; g.lineWidth = 2; g.beginPath(); g.moveTo(a.x - Math.cos(a.dir) * 23, a.y - Math.sin(a.dir) * 23); g.lineTo(a.x, a.y); g.stroke(); }
     if (campaign.rescue) { const h = campaign.rescue.healer; g.fillStyle = '#22372d'; g.fillRect(h.x - 24, h.y - 62, 48, 4); g.fillStyle = '#bcdbb0'; g.fillRect(h.x - 24, h.y - 62, 48 * h.hp / h.maxHp, 4); }
     drawEffects(g);
