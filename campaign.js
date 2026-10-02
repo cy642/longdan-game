@@ -77,7 +77,7 @@
         this.rocks.push({ x, y, r: 12 + this.random() * 12 });
       }
       this.enemies = []; this.boss = null; this.activeBoss = null; this.rescue = null;
-      this.effects = []; this.projectiles = []; this.loot = []; this.floaters = [];
+      this.effects = []; this.projectiles = []; this.loot = []; this.floaters = []; this.hitStop = 0; this.screenShake = 0;
       for (const group of this.definition.groups) {
         if (this.groupDone(group.id) || (group.unless && this.flags[group.unless])) continue;
         group.units.forEach(([type, x, y]) => this.spawnEnemy(type, x, y, group.id));
@@ -161,10 +161,11 @@
       if (e.hp <= 0 || e.phaseTime > 0 || (this.activeBoss && e !== this.boss)) return;
       const armored = (e.type === 'shield' || e.type === 'elite') && e.shieldBroken <= 0;
       if (armored && Math.abs(angleDiff(dir + Math.PI, e.dir)) < 1.15 && !breakShield) { damage *= .24; stagger *= .45; this.floater(e.x, e.y, '盾挡', '#b9cdd4'); }
-      if (breakShield && armored) { e.shieldBroken = 2.8; e.stunned = .8; this.floater(e.x, e.y, '破盾'); }
+      if (breakShield && armored) { e.shieldBroken = 2.8; e.stunned = .8; this.floater(e.x, e.y, '破盾'); this.effects.push({ type: 'shatter', x: e.x, y: e.y, dir, color: '#ffe1a0', life: .4, maxLife: .4 }); }
       const floor = source === 'ally' ? e.maxHp * .22 : 0;
       const actual = Math.min(Math.max(0, e.hp - floor), damage); if (actual <= 0) return;
       e.hp = Math.max(floor, e.hp - actual); e.hurtFlash = .16; e.alerted = true;
+      if (source === 'player') this.effects.push({ type: 'impact', x: e.x, y: e.y, dir, seed: e.id * 1.7, color: breakShield ? '#ffdfa0' : '#b5f4f5', life: .25, maxLife: .25 });
       if (source === 'player') { this.player.rage = Math.min(100, this.player.rage + 4); this.player.lastCombat = this.time; }
       if (e.type !== 'boss') { e.knockX += Math.cos(dir) * knock; e.knockY += Math.sin(dir) * knock; if (source === 'player' && e.type !== 'elite') { e.stunned = .12; e.action = null; } }
       if (e.staggerShield <= 0) {
@@ -188,7 +189,7 @@
         const window = this.difficulty === 'story' ? .18 : .12;
         if (attackId != null && p.dashTime > 0 && p.dashAge <= window && p.lastPrecisionAttack !== attackId) {
           p.lastPrecisionAttack = attackId; p.counterWindow = 1.2; p.qi = Math.min(100, p.qi + 12); p.rage = Math.min(100, p.rage + 8); this.precisionCount++;
-          this.floater(p.x, p.y, '精准闪避 · 回马枪', '#b6e9ee'); this.effects.push({ type: 'ring', x: p.x, y: p.y, radius: 47, color: '#ade1e4', life: .38, maxLife: .38 }); this.events.push({ kind: 'sound', sound: 'perfect' });
+          this.floater(p.x, p.y, '精准闪避 · 回马枪', '#b6e9ee'); this.effects.push({ type: 'perfect', x: p.x, y: p.y, radius: 72, color: '#c1f9f8', life: .42, maxLife: .42 }); this.events.push({ kind: 'sound', sound: 'perfect' });
         }
         return false;
       }
@@ -221,6 +222,8 @@
       const p = this.player; if (this.mode !== 'playing' || p.dashCd > 0 || p.qi < 16 || p.dashTime > 0) return false;
       p.action = null; p.attackTimer = 0; p.attackCd = 0; p.qi -= 16; p.dashCd = .61; p.dashTime = .22; p.dashAge = 0; p.invincible = .24;
       p.dashDir = Math.hypot(dx, dy) > .1 ? Math.atan2(dy, dx) : p.dir;
+      p.dashTrailClock = 0;
+      this.effects.push({ type: 'shockwave', x: p.x, y: p.y, radius: 32, color: '#c1ded1', life: .25, maxLife: .25 });
       this.events.push({ kind: 'sound', sound: 'dash' }); return true;
     }
     ultimate() {
@@ -242,11 +245,25 @@
         if (!a.fired) {
           a.fired = true;
           if (a.key === 'heal') { p.hp = Math.min(p.maxHp, p.hp + 85); this.events.push({ kind: 'sound', sound: 'heal' }); this.effects.push({ type: 'ring', x: p.x, y: p.y, radius: 50, color: '#a7d5a6', life: .55, maxLife: .55 }); }
-          else { this.effects.push({ type: 'slash', x: p.x, y: p.y, dir: a.dir, radius: a.def.range, arc: a.def.arc, heavy: ['sweep', 'sword', 'thrust3'].includes(a.key), life: a.def.active + .09, maxLife: a.def.active + .09 }); this.events.push({ kind: 'sound', sound: a.key === 'sword' ? 'ultimate' : a.key === 'sweep' || a.key === 'thrust3' ? 'heavy' : 'swing' }); }
+          else {
+            const life = a.def.active + (a.key === 'sword' ? .34 : a.key === 'sweep' ? .22 : .12);
+            this.effects.push({ type: 'slash', key: a.key, x: p.x, y: p.y, dir: a.dir, radius: a.def.range, arc: a.def.arc, heavy: ['sweep', 'sword', 'thrust3'].includes(a.key), life, maxLife: life });
+            if (['sweep', 'sword', 'counter'].includes(a.key)) {
+              const color = a.key === 'sweep' ? '#f3cf88' : '#9ff5ef';
+              this.effects.push({ type: 'shockwave', x: p.x, y: p.y, radius: a.def.range * .84, color, life: .46, maxLife: .46 });
+              this.effects.push({ type: 'cast', x: p.x, y: p.y, text: a.def.name, color, life: .8, maxLife: .8 });
+            }
+            this.events.push({ kind: 'sound', sound: a.key === 'sword' ? 'ultimate' : a.key === 'sweep' || a.key === 'thrust3' ? 'heavy' : 'swing' });
+          }
         }
         if (a.key !== 'heal') for (const e of this.enemies) {
           if (e.hp <= 0 || a.hits.has(e.id) || dist(p, e) > a.def.range + e.r || Math.abs(angleDiff(Math.atan2(e.y - p.y, e.x - p.x), a.dir)) > a.def.arc) continue;
-          a.hits.add(e.id); this.damageEnemy(e, a.def.damage, a.dir, a.key === 'sweep' ? 200 : 50, 'player', a.def.stagger, ['sweep', 'sword'].includes(a.key)); this.screenShake = a.key === 'thrust3' ? 3 : 1.8;
+          a.hits.add(e.id); const before = e.hp;
+          this.damageEnemy(e, a.def.damage, a.dir, a.key === 'sweep' ? 200 : 50, 'player', a.def.stagger, ['sweep', 'sword'].includes(a.key));
+          if (e.hp < before) {
+            this.screenShake = Math.max(this.screenShake, a.key === 'sword' ? 5 : ['thrust3', 'sweep', 'counter'].includes(a.key) ? 3.2 : 1.6);
+            if (!a.impactStopped) { this.hitStop = a.key === 'sword' ? .065 : ['thrust3', 'sweep', 'counter'].includes(a.key) ? .045 : .022; a.impactStopped = true; }
+          }
         }
       }
       if (a.t >= total(a.def)) { p.action = null; p.attackTimer = 0; }
@@ -575,7 +592,15 @@
       let dx = input.x || 0, dy = input.y || 0; const magnitude = Math.hypot(dx, dy); if (magnitude > 1) { dx /= magnitude; dy /= magnitude; }
       p.moving = false; p.vx = dx; p.vy = dy;
       if (!p.action) { if (Number.isFinite(input.aim)) p.dir = input.aim; else if (magnitude > .06) p.dir = Math.atan2(dy, dx); }
-      if (p.dashTime > 0) { this.move(p, Math.cos(p.dashDir) * 505 * dt, Math.sin(p.dashDir) * 505 * dt); }
+      if (p.dashTime > 0) {
+        p.dashTrailClock = (p.dashTrailClock || 0) - dt;
+        if (p.dashTrailClock <= 0) {
+          p.dashTrailClock += .035;
+          this.effects.push({ type: 'dashGhost', x: p.x, y: p.y, dir: p.dashDir, adou: this.flags.adou,
+            pose: { dir: p.dir, hp: p.hp, moving: true, walkDistance: p.walkDistance, action: null }, life: .22, maxLife: .22 });
+        }
+        this.move(p, Math.cos(p.dashDir) * 505 * dt, Math.sin(p.dashDir) * 505 * dt);
+      }
       else {
         const slow = p.action ? p.action.key === 'heal' ? .12 : p.action.t < p.action.def.windup ? .4 : .65 : 1;
         this.move(p, dx * p.speed * slow * dt, dy * p.speed * slow * dt);

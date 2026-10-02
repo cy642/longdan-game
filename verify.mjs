@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { build } from './build.mjs';
 const context = vm.createContext({ console });
 for (const name of ['stages.js', 'campaign.js']) vm.runInContext(readFileSync(new URL(name, import.meta.url), 'utf8'), context);
 const { Campaign, StageDefinition, AttackDefinition } = context.LongdanCore;
@@ -61,7 +62,21 @@ g = fresh(); g.enterStage('temple'); clear(g); use(g, 'xiahouGate'); g.chooseRou
 g = fresh(); g.enterStage('village'); g.rocks = []; g.huts = [{ x: 800, y: 550, w: 180, h: 150 }]; const escort = { x: 580, y: 550, r: 12, moving: false }; const path = g.findPath(escort.x, escort.y, 1040, 550, 12); assert(path.length); assert(path.every(p => !g.blocking(p.x, p.y, 12)));
 for (let i = 0; i < 700; i++) { g.time += .02; g.navigate(escort, 1040, 550, 180, .02); } assert(Math.hypot(escort.x - 1040, escort.y - 550) < 50, 'Escorts must go around hut corners');
 g = fresh(); g.enterStage('bridge'); const walker = { x: 930, y: 420, r: 12 }; const bridgePath = g.findPath(walker.x, walker.y, 1270, 130, 12); assert(bridgePath.length); assert(bridgePath.filter(p => p.y < 285).every(p => p.x > 1170 && p.x < 1370));
-const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8'); assert(!html.includes('GAME_SCRIPT')); assert(!html.includes('GAME_STYLES')); assert(!/<script[^>]+src=/.test(html)); assert.equal((html.match(/data:image\/png;base64,/g) || []).length, 6);
+// Lingering artwork may never extend the damaging frames or survive a region change.
+g = fresh(); g.enemies = []; g.allies = []; g.rocks = []; g.huts = [];
+g.player.dir = 0; assert(g.heavy()); tick(g, .12); assert(!g.effects.some(e => e.type === 'slash'));
+tick(g, .28); assert(g.effects.some(e => e.type === 'slash'), 'The visual follow-through should still be visible');
+e = g.spawnEnemy('sword', g.player.x + 70, g.player.y); e.cooldown = 99; const lateHp = e.hp;
+tick(g, .17); assert.equal(e.hp, lateHp, 'Entering a lingering trail must not take damage');
+g.player.action = null; assert(g.dash(1, 0)); tick(g, .1); assert(g.effects.some(e => e.type === 'dashGhost'));
+tick(g, .6); assert(!g.effects.some(e => e.type === 'dashGhost'), 'Dash echoes must expire');
+for (let i = 0; i < 360; i++) { if (i % 36 === 0) g.dash(0, 1); g.step(.02, { attack: true, aim: 0 }); assert(g.effects.length < 100, 'Effects must stay bounded during sustained inputs'); }
+g.effects.push({ type: 'cast', life: 1 }); g.hitStop = .05; g.enterStage('village'); assert.equal(g.effects.length, 0); assert.equal(g.hitStop, 0);
+const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8'); assert(!html.includes('GAME_SCRIPT')); assert(!html.includes('GAME_STYLES')); assert(!/<script[^>]+src=/.test(html));
+assert.equal(html, build(), 'Published entry must match the current source build');
+assert(html.length < 250000, 'Online entry should allow images to be cached independently');
+const offlineHtml = build({ offline: true }); assert.equal((offlineHtml.match(/data:image\/png;base64,/g) || []).length, 6);
+assert(!/"assets\/[^"\n]+\.png"/.test(offlineHtml), 'Offline game must retain every embedded character image');
 assert(!/data-device|touchControls|joystick|切换手机|选择你的游玩方式/.test(html), 'The desktop build must not retain a mobile control flow');
 const script = readFileSync(new URL('./game.js', import.meta.url), 'utf8'), shell = readFileSync(new URL('./shell.html', import.meta.url), 'utf8');
 for (const [, id] of script.matchAll(/\$\('([^']+)'\)/g)) assert(shell.includes('id="' + id + '"'), 'Missing desktop UI element: ' + id);

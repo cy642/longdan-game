@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const { Campaign, StageDefinition, W, H, dist, clamp, angleDiff } = globalThis.LongdanCore;
-  const art = globalThis.LongdanArt, $ = id => document.getElementById(id), TAU = Math.PI * 2;
+  const art = globalThis.LongdanArt, sceneArt = globalThis.LongdanScene, combatArt = globalThis.LongdanCombatArt, $ = id => document.getElementById(id), TAU = Math.PI * 2;
   const campaign = new Campaign('normal');
   const canvas = $('battlefield'), ctx = canvas.getContext('2d', { alpha: false });
   const mini = $('minimap').getContext('2d'), bigmap = $('bigmap').getContext('2d');
@@ -11,6 +11,9 @@
   let terrain, scenery = [], menuDifficulty = 'normal', lastFrame = performance.now(), hudClock = 0;
   let toastTimer = 0, commandTimer = 0, stageTimer = 0, audioContext = null, muted = false, saveAvailable = true;
   let mouseAttack = false, mouse = { x: 0, y: 0 }, aimUntil = 0;
+  let reducedEffects = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false;
+  try { const saved = localStorage.getItem('longdan.effects'); if (saved) reducedEffects = saved === 'soft'; } catch {}
+  document.body.classList.toggle('soft-effects', reducedEffects);
   const keys = new Set(), camera = { x: 650, y: 750 };
   const overlays = ['menu', 'dialog', 'pause', 'map', 'defeat', 'ending'];
   const desktopHelp = 'WASD / 方向键 移动\nJ / 鼠标左键 龙枪三式　空格 / K 闪避\nQ / 右键 横扫破阵　R 青釭断势（夺剑后）\nF 行军药（可被打断）　E 互动 / 休整 / 前进\n1 集合　2 守点　3 冲阵　M 军图　Esc 暂停\n精准闪避后，1.2秒内出枪可接回马枪。';
@@ -49,6 +52,15 @@
       osc.frequency.setValueAtTime(from, now); osc.frequency.exponentialRampToValueAtTime(to, now + duration);
       gain.gain.setValueAtTime(volume, now); gain.gain.exponentialRampToValueAtTime(.001, now + duration);
       osc.connect(gain); gain.connect(audioContext.destination); osc.start(now); osc.stop(now + duration);
+      if (['swing', 'heavy', 'hit', 'ultimate', 'break', 'dash'].includes(name)) {
+        const length = name === 'ultimate' ? .28 : name === 'heavy' ? .16 : .085;
+        const buffer = audioContext.createBuffer(1, Math.ceil(audioContext.sampleRate * length), audioContext.sampleRate), data = buffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 1.8);
+        const noise = audioContext.createBufferSource(), filter = audioContext.createBiquadFilter(), volumeNode = audioContext.createGain();
+        noise.buffer = buffer; filter.type = 'bandpass'; filter.frequency.setValueAtTime(name === 'hit' || name === 'break' ? 1900 : 900, now);
+        filter.frequency.exponentialRampToValueAtTime(170, now + length); volumeNode.gain.value = name === 'ultimate' ? .055 : .028;
+        noise.connect(filter); filter.connect(volumeNode); volumeNode.connect(audioContext.destination); noise.start(now); noise.stop(now + length);
+      }
     } catch {}
   }
   function formatTime(t) { return Math.floor(t / 60).toString().padStart(2, '0') + ':' + Math.floor(t % 60).toString().padStart(2, '0'); }
@@ -112,6 +124,12 @@
     $('rageState').textContent = !campaign.flags.sword ? '夺剑后习得' : '战意 ' + Math.floor(p.rage) + ' / 100';
     document.querySelector('.ultimate').classList.toggle('ready', campaign.flags.sword && p.rage >= 100);
     $('potionState').textContent = '剩余' + p.potions + '份';
+    for (const el of document.querySelectorAll('[data-skill]')) {
+      const key = el.dataset.skill, active = key === 'dash' ? p.dashTime > 0 : key === 'attack' ? p.action?.key.startsWith('thrust') || p.action?.key === 'counter' : p.action?.key === key;
+      const progress = key === 'sweep' ? 1 - p.heavyCd / 3.6 : key === 'dash' ? 1 - p.dashCd / .61 : key === 'sword' ? campaign.flags.sword ? p.rage / 100 : 0 : 1;
+      el.style.setProperty('--charge', clamp(progress, 0, 1) * 100 + '%'); el.classList.toggle('casting', !!active);
+      el.classList.toggle('unavailable', key === 'sweep' ? p.heavyCd > 0 || p.qi < 30 : key === 'dash' ? p.dashCd > 0 || p.qi < 16 : key === 'sword' ? !campaign.flags.sword || p.rage < 100 : false);
+    }
     const o = campaign.nearestObject(); $('interaction').classList.toggle('hidden', !o || campaign.mode !== 'playing');
     if (o) { $('interaction').replaceChildren(); const key = document.createElement('kbd'); key.textContent = 'E'; $('interaction').append(key, document.createTextNode(campaign.interactionText(o))); }
     $('counterHint').classList.toggle('hidden', p.counterWindow <= 0 || campaign.mode !== 'playing');
@@ -159,6 +177,11 @@
   $('mapButton').addEventListener('click', toggleMap); $('quickMapButton').addEventListener('click', toggleMap); $('closeMapButton').addEventListener('click', toggleMap);
   $('healButton').addEventListener('click', () => act('heal'));
   $('soundButton').addEventListener('click', () => { muted = !muted; unlockAudio(); $('soundButton').textContent = '声音 ' + (muted ? '关' : '开'); });
+  $('effectsButton').addEventListener('click', () => {
+    reducedEffects = !reducedEffects; document.body.classList.toggle('soft-effects', reducedEffects);
+    $('effectsButton').textContent = '技能特效：' + (reducedEffects ? '柔和（减弱光效与震屏）' : '完整');
+    try { localStorage.setItem('longdan.effects', reducedEffects ? 'soft' : 'full'); } catch {}
+  });
   for (const id of ['backMenuButton', 'pauseMenuButton', 'defeatMenuButton']) $(id).addEventListener('click', returnMenu);
   $('retryButton').addEventListener('click', () => { clearInput(); $('defeat').classList.add('hidden'); campaign.retry(); processEvents(); updateHud(); });
   $('fullscreenButton').addEventListener('click', async () => { try { if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); else showToast('可使用浏览器的全屏模式。'); } catch { showToast('可使用浏览器的全屏模式。'); } });
@@ -167,8 +190,8 @@
   function ellipse(g, x, y, rx, ry, color) { g.fillStyle = color; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fill(); }
   function polygon(g, points, color) { g.fillStyle = color; g.beginPath(); points.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); }
   function buildTerrain() {
-    const ratio = Math.min(dpr, 1.25); terrain = art.stageLandscape(campaign, W, H, ratio);
-    scenery = [...campaign.trees.map(t => art.scenerySprite('tree', t, ratio)), ...campaign.huts.map(h => art.scenerySprite('hut', h, ratio))];
+    const ratio = Math.min(dpr, 1.25); terrain = sceneArt.landscape(campaign, W, H, ratio);
+    scenery = terrain.scenery;
   }
   function onScreen(x, y, margin = 120) { return Math.abs(x - camera.x) < viewW / zoom / 2 + margin && Math.abs(y - camera.y) < viewH / zoom / 2 + margin; }
   function drawScenery(g, item) { const p = campaign.player, behind = p.y < item.y + 8 && p.y > item.y - item.height + 20 && Math.abs(p.x - item.x) < item.width * .38; g.save(); if (behind && campaign.mode !== 'menu') g.globalAlpha = item.kind === 'tree' ? .42 : .65; g.drawImage(item.canvas, item.x - item.anchorX, item.y - item.anchorY, item.width, item.height); g.restore(); }
@@ -178,6 +201,8 @@
     g.fillStyle = '#e8d9b1'; g.font = '20px KaiTi, SimSun, serif'; g.textAlign = 'center'; g.fillText(text, x + 18, y - 45 + wave * .5);
   }
   function drawFire(g, x, y, time, count = 3) {
+    const radius = 57 + Math.sin(time * 8 + x) * 4, halo = g.createRadialGradient(x, y - 12, 3, x, y - 12, radius);
+    halo.addColorStop(0, '#ffc86932'); halo.addColorStop(1, '#ffb35700'); g.fillStyle = halo; g.fillRect(x - radius, y - radius - 12, radius * 2, radius * 2);
     ellipse(g, x, y + 2, 29, 9, '#392e254b');
     for (let i = 0; i < count; i++) { const px = x + (i - (count - 1) / 2) * 12, sway = Math.sin(time * 6 + i) * 4; polygon(g, [[px - 10, y], [px - 7 + sway, y - 16], [px + 2, y - 37 - sway], [px + 9, y - 14], [px + 11, y]], '#d07745cc'); polygon(g, [[px - 5, y], [px + sway, y - 26], [px + 5, y]], '#eed891dc'); ellipse(g, px + Math.sin(time + i) * 9, y - 55 - (time * 14 + i * 20) % 50, 13, 21, '#46504b20'); }
   }
@@ -215,8 +240,10 @@
   }
   function drawEffects(g) {
     for (const e of campaign.effects) {
+      if (e.type === 'dashGhost') continue;
       if (!onScreen(e.x, e.y, 230)) continue; const t = 1 - e.life / e.maxLife;
       g.save(); g.globalAlpha = clamp(e.life / e.maxLife, 0, 1);
+      if (combatArt.effect(g, e, reducedEffects, art, campaign.time)) { g.restore(); continue; }
       if (e.type === 'particle') ellipse(g, e.x, e.y, e.size, e.size * .6, e.color);
       else if (e.type === 'dust') { ellipse(g, e.x, e.y + 1, 4 + t * 8, 2 + t * 2, '#ddd0a17a'); }
       else if (e.type === 'slash' || e.type === 'enemySlash') {
@@ -231,6 +258,7 @@
   }
   function drawMap(g, width, height, detailed) {
     const sx = width / W, sy = height / H; g.clearRect(0, 0, width, height); g.fillStyle = '#344d40'; g.fillRect(0, 0, width, height);
+    if (terrain?.map) { g.drawImage(terrain.map, 0, 0, width, height); g.fillStyle = '#15362d45'; g.fillRect(0, 0, width, height); }
     if (campaign.stage === 'bridge') { g.fillStyle = '#52766d'; g.fillRect(0, 70 * sy, width, 210 * sy); g.fillStyle = '#ac996c'; g.fillRect(1170 * sx, 60 * sy, 200 * sx, 240 * sy); }
     for (const road of campaign.definition.roads) { g.beginPath(); road.forEach(([x, y], i) => i ? g.lineTo(x * sx, y * sy) : g.moveTo(x * sx, y * sy)); g.strokeStyle = '#d6c49566'; g.lineWidth = detailed ? 9 : 2; g.stroke(); }
     for (const h of campaign.huts) { g.fillStyle = '#a8b69840'; g.fillRect((h.x - h.w / 2) * sx, (h.y - h.h / 2) * sy, h.w * sx, h.h * sy); }
@@ -240,7 +268,11 @@
       if (detailed) { g.textAlign = 'center'; g.font = '11px Microsoft YaHei'; g.fillStyle = '#e6dec1'; const offset = o.y < 150 ? 20 : -12; g.fillText(o.label, clamp(o.x * sx, 65, width - 65), o.y * sy + offset); }
     }
     for (const e of campaign.enemies) if (e.hp > 0 && dist(e, campaign.player) < 430) { g.fillStyle = '#cf886688'; g.beginPath(); g.arc(e.x * sx, e.y * sy, e.type === 'boss' ? 5 : 2, 0, TAU); g.fill(); }
-    g.fillStyle = '#fff0cb'; g.beginPath(); g.arc(campaign.player.x * sx, campaign.player.y * sy, detailed ? 5 : 3, 0, TAU); g.fill();
+    const target = campaign.getMission().target;
+    if (target) { g.strokeStyle = '#ffe1a2'; g.lineWidth = 1.5; g.beginPath(); g.arc(target.x * sx, target.y * sy, detailed ? 10 : 5, 0, TAU); g.stroke(); }
+    if (!detailed) { g.strokeStyle = '#e2edc566'; g.lineWidth = .7; g.strokeRect(clamp(camera.x - viewW / zoom / 2, 0, W) * sx, clamp(camera.y - viewH / zoom / 2, 0, H) * sy, (Math.min(W, camera.x + viewW / zoom / 2) - Math.max(0, camera.x - viewW / zoom / 2)) * sx, (Math.min(H, camera.y + viewH / zoom / 2) - Math.max(0, camera.y - viewH / zoom / 2)) * sy); }
+    g.save(); g.translate(campaign.player.x * sx, campaign.player.y * sy); g.rotate(campaign.player.dir); const size = detailed ? 7 : 5;
+    polygon(g, [[size, 0], [-size * .6, -size * .6], [-size * .3, 0], [-size * .6, size * .6]], '#fff4d7'); g.restore();
   }
   function drawNavigation(g, time) {
     if (!['playing', 'paused', 'map'].includes(campaign.mode)) return;
@@ -254,10 +286,14 @@
     const g = ctx, time = now / 1000, p = campaign.player, halfW = viewW / zoom / 2, halfH = viewH / zoom / 2;
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.fillStyle = '#657d67'; g.fillRect(0, 0, viewW, viewH);
     if (campaign.mode !== 'menu') { camera.x += (p.x - camera.x) * .13; camera.y += (p.y - camera.y) * .13; }
-    const sx = Math.sin(time * 61) * campaign.screenShake, sy = Math.cos(time * 73) * campaign.screenShake * .65;
+    const shake = reducedEffects ? 0 : campaign.screenShake;
+    const sx = Math.sin(time * 61) * shake, sy = Math.cos(time * 73) * shake * .65;
     g.save(); g.translate(viewW / 2 + sx, viewH / 2 + sy); g.scale(zoom, zoom); g.translate(-camera.x, -camera.y);
     if (terrain) g.drawImage(terrain.canvas, -terrain.pad, -terrain.pad, W + terrain.pad * 2, H + terrain.pad * 2);
+    sceneArt.groundMotion(g, campaign, reducedEffects ? time * .4 : time, onScreen);
     drawObjects(g, time); drawWarnings(g);
+    combatArt.charge(g, p, reducedEffects);
+    for (const e of campaign.effects) if (e.type === 'dashGhost' && onScreen(e.x, e.y)) combatArt.effect(g, e, reducedEffects, art, time);
     for (const item of campaign.loot) if (onScreen(item.x, item.y)) { ellipse(g, item.x, item.y, 8, 3, '#274d3c50'); g.fillStyle = '#d4d0b0'; g.fillRect(item.x - 5, item.y - 10, 10, 9); g.fillStyle = '#6d9b79'; g.fillRect(item.x - 2, item.y - 8, 4, 6); }
     const actors = [...campaign.enemies.map(a => [a, 'enemy']), ...campaign.allies.map(a => [a, 'ally']), ...campaign.civilians.map(a => [a, 'civil']), [p, 'hero']];
     if (campaign.stage === 'village' && !campaign.flags.civilians) for (let i = 0; i < 3; i++) actors.push([{ id: 1000 + i, x: 290 + i * 28, y: 405 + i % 2 * 15, r: 11, hp: 85, maxHp: 85, dir: .5, moving: false }, 'civil']);
@@ -271,12 +307,14 @@
     if (campaign.rescue) { const h = campaign.rescue.healer; g.fillStyle = '#22372d'; g.fillRect(h.x - 24, h.y - 62, 48, 4); g.fillStyle = '#bcdbb0'; g.fillRect(h.x - 24, h.y - 62, 48 * h.hp / h.maxHp, 4); }
     drawEffects(g);
     if (campaign.mode === 'menu') { const x = camera.x + halfW * .48, y = camera.y + 68; drawFlag(g, x + 80, y - 30, '赵', '#335c51', time); art.hero(g, { ...p, x, y, dir: -.4, moving: false }, time, 2.9); }
-    art.atmosphere(g, camera, viewW / zoom, viewH / zoom, time); g.restore();
+    sceneArt.atmosphere(g, camera, viewW / zoom, viewH / zoom, time, campaign.definition.mood, reducedEffects); g.restore();
     const vignette = g.createRadialGradient(viewW / 2, viewH / 2, viewH * .25, viewW / 2, viewH / 2, Math.max(viewW, viewH) * .67); vignette.addColorStop(0, '#10261900'); vignette.addColorStop(1, '#0b24195d'); g.fillStyle = vignette; g.fillRect(0, 0, viewW, viewH); drawNavigation(g, time);
   }
   function frame(now) {
     const dt = Math.min((now - lastFrame) / 1000, .04); lastFrame = now;
-    campaign.step(dt, inputState()); processEvents(); render(now);
+    let simDt = dt;
+    if (campaign.mode === 'playing' && campaign.hitStop > 0) { const held = Math.min(dt, campaign.hitStop); campaign.hitStop -= held; if (!reducedEffects) simDt -= held; }
+    if (simDt > 0) campaign.step(simDt, inputState()); processEvents(); render(now);
     toastTimer -= dt; commandTimer -= dt; stageTimer -= dt;
     if (toastTimer <= 0) $('toast').classList.add('hidden'); if (commandTimer <= 0) $('commandBanner').classList.remove('show'); if (stageTimer <= 0) $('stageBanner').classList.add('hidden');
     hudClock += dt; if (hudClock >= .1) { hudClock = 0; if (campaign.mode !== 'menu') updateHud(); } requestAnimationFrame(frame);
@@ -285,6 +323,7 @@
   async function boot() {
     resize(); buildTerrain(); refreshSaveMenu();
     $('menuControls').textContent = 'WASD 移动 · J / 左键出枪 · 空格闪避 · E 互动\nQ / 右键破阵 · R 青釭 · M 军图 · Esc 暂停'; $('pauseControls').textContent = desktopHelp;
+    $('effectsButton').textContent = '技能特效：' + (reducedEffects ? '柔和（减弱光效与震屏）' : '完整');
     try { await art.loadCharacters(); } catch (error) { $('loading').textContent = '角色素材未能载入，请重新打开游戏。'; console.error(error); return; }
     // Discard construction events; show the region only after entering gameplay.
     campaign.events = []; $('loading').classList.add('hidden'); lastFrame = performance.now(); requestAnimationFrame(frame);

@@ -1,4 +1,12 @@
 :root{color-scheme:dark;--paper:#ece2c9;--ink:#142d27;--jade:#9bc7b9;--gold:#d9c58e;--muted:#b9c9b7}
+.skill[data-skill]{position:relative;overflow:hidden;transition:border-color .12s,box-shadow .12s}
+.skill[data-skill]::after{content:"";position:absolute;bottom:0;left:0;height:2px;width:var(--charge,100%);background:linear-gradient(90deg,#6aaba3,#c7eee0);transition:width .1s}
+.skill[data-skill="sword"]::after{background:linear-gradient(90deg,#bc944d,#ffe3a5)}
+.skill.unavailable b{color:#a6b8a5}.skill.casting{border-color:#dffbf3;box-shadow:0 0 18px #91e8e344,inset 0 0 20px #90dfd626}
+.skill.ready{animation:skill-breathe 1.9s ease-in-out infinite}
+@keyframes skill-breathe{50%{box-shadow:0 0 21px #d9bd6854,inset 0 0 14px #d9bd681a}}
+.soft-effects .skill.ready{animation:none}
+@media(prefers-reduced-motion:reduce){.skill.ready{animation:none}}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#122923;color:var(--paper);font-family:"Microsoft YaHei UI","Microsoft YaHei",sans-serif;overflow:hidden;overscroll-behavior:none}
 button{font:inherit;color:inherit;cursor:pointer;border:1px solid #d6cc9e48;background:#172f28ed;border-radius:5px;transition:background .15s,border-color .15s;}
 button:hover{background:#2d4b3d;border-color:#d8bf84}button:focus-visible{outline:2px solid #e7ca88;outline-offset:3px}button:disabled{opacity:.5;cursor:default}
