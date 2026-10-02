@@ -6,35 +6,33 @@
   const canvas = $('battlefield'), ctx = canvas.getContext('2d', { alpha: false });
   const mini = $('minimap').getContext('2d'), bigmap = $('bigmap').getContext('2d');
   const SAVE_KEY = 'longdan.changban.v2';
-  let viewW = innerWidth, viewH = innerHeight, dpr = 1, zoom = 1, controlMode = 'desktop';
+  let viewW = innerWidth, viewH = innerHeight, dpr = 1;
+  const zoom = 1;
   let terrain, scenery = [], menuDifficulty = 'normal', lastFrame = performance.now(), hudClock = 0;
   let toastTimer = 0, commandTimer = 0, stageTimer = 0, audioContext = null, muted = false, saveAvailable = true;
-  let mouseAttack = false, mouse = { x: 0, y: 0 }, aimUntil = 0, deviceReturn = 'menu';
-  let stickPointer = null, touchVector = { x: 0, y: 0 };
-  const attackPointers = new Set(), keys = new Set(), camera = { x: 650, y: 750 };
+  let mouseAttack = false, mouse = { x: 0, y: 0 }, aimUntil = 0;
+  const keys = new Set(), camera = { x: 650, y: 750 };
   const overlays = ['menu', 'dialog', 'pause', 'map', 'defeat', 'ending'];
   const desktopHelp = 'WASD / 方向键 移动\nJ / 鼠标左键 龙枪三式　空格 / K 闪避\nQ / 右键 横扫破阵　R 青釭断势（夺剑后）\nF 行军药（可被打断）　E 互动 / 休整 / 前进\n1 集合　2 守点　3 冲阵　M 军图　Esc 暂停\n精准闪避后，1.2秒内出枪可接回马枪。';
-  const mobileHelp = '左手拖动摇杆，右手按出枪；可以同时移动与攻击。\n闪避消耗16气力，破阵消耗30气力。\n青釭在夺剑后解锁，战意满时可用。\n互动用于救援、休整、进入下一区域。\n行军药有服用时间，受击会被打断。\n推荐横屏；上方军图查看路线，军令控制三名随军。';
   function readSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return Campaign.validSnapshot(s) ? s : null; } catch { return null; } }
   function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(campaign.snapshot())); saveAvailable = true; } catch { saveAvailable = false; } }
   function refreshSaveMenu() {
     const saved = readSave(); $('continueButton').classList.toggle('hidden', !saved || saved.complete);
     $('saveInfo').textContent = !saveAvailable ? '此浏览器无法保存进度，本次仍可游玩。' : saved ? saved.complete ? '长坂已通关。开始新征程，可尝试另一种命运。' : '最近进度：' + StageDefinition[saved.checkpoint.stage].name + ' · ' + (saved.difficulty === 'story' ? '初入战场' : '龙胆') : '营火、战斗入口与完成的救援会自动保存。';
   }
-  function clearInput() { keys.clear(); mouseAttack = false; attackPointers.clear(); touchVector = { x: 0, y: 0 }; stickPointer = null; $('joystick').firstElementChild.style.transform = ''; aimUntil = 0; }
+  function clearInput() { keys.clear(); mouseAttack = false; aimUntil = 0; }
   function hideOverlays() { overlays.forEach(id => $(id).classList.add('hidden')); }
   function resize() {
-    viewW = innerWidth; viewH = innerHeight; dpr = Math.min(devicePixelRatio || 1, controlMode === 'mobile' ? 1.5 : 2);
-    zoom = controlMode === 'mobile' ? viewW > viewH ? .85 : .82 : 1;
+    viewW = innerWidth; viewH = innerHeight; dpr = Math.min(devicePixelRatio || 1, 2);
     canvas.width = Math.round(viewW * dpr); canvas.height = Math.round(viewH * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (campaign.mode === 'map') renderBigMap();
   }
   function inputState() {
-    let x = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0) + touchVector.x;
-    let y = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0) + touchVector.y;
+    const x = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
+    const y = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
     const p = campaign.player;
-    const aim = controlMode === 'desktop' && performance.now() < aimUntil ? Math.atan2((mouse.y - viewH / 2) / zoom + camera.y - p.y, (mouse.x - viewW / 2) / zoom + camera.x - p.x) : undefined;
-    return { x, y, aim, attack: keys.has('j') || mouseAttack || attackPointers.size > 0 };
+    const aim = performance.now() < aimUntil ? Math.atan2((mouse.y - viewH / 2) / zoom + camera.y - p.y, (mouse.x - viewW / 2) / zoom + camera.x - p.x) : undefined;
+    return { x, y, aim, attack: keys.has('j') || mouseAttack };
   }
   function unlockAudio() { try { if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)(); if (audioContext.state === 'suspended') audioContext.resume().catch(() => {}); } catch {} }
   function sound(name) {
@@ -55,13 +53,6 @@
   }
   function formatTime(t) { return Math.floor(t / 60).toString().padStart(2, '0') + ':' + Math.floor(t % 60).toString().padStart(2, '0'); }
   function showToast(text) { $('toast').textContent = text; $('toast').classList.remove('hidden'); toastTimer = 5; }
-  function setDevice(mode) {
-    controlMode = mode; document.body.dataset.controlMode = mode; clearInput(); $('device').classList.add('hidden');
-    $('menuControls').textContent = mode === 'mobile' ? '左手摇杆 · 右手出枪 / 闪避\n推荐横屏 · 同时支持移动与战斗' : 'WASD 移动 · J 出枪 · 空格闪避 · E 互动\nQ 破阵 · R 青釭 · 1 / 2 / 3 军令 · M 军图';
-    $('pauseControls').textContent = mode === 'mobile' ? mobileHelp : desktopHelp;
-    resize(); if (deviceReturn === 'paused') $('pause').classList.remove('hidden');
-  }
-  function openDevice() { clearInput(); deviceReturn = campaign.mode; if (campaign.mode === 'playing') { campaign.mode = 'paused'; deviceReturn = 'paused'; } $('device').classList.remove('hidden'); }
   function togglePause() {
     if (campaign.mode === 'playing') { campaign.mode = 'paused'; $('checkpointInfo').textContent = '最近的落脚点：' + StageDefinition[campaign.checkpoint.stage].name; $('pause').classList.remove('hidden'); writeSave(); }
     else if (campaign.mode === 'paused') { campaign.mode = 'playing'; $('pause').classList.add('hidden'); }
@@ -120,10 +111,9 @@
     $('dashState').textContent = p.dashCd > 0 ? '整步再出' : '消耗16气力';
     $('rageState').textContent = !campaign.flags.sword ? '夺剑后习得' : '战意 ' + Math.floor(p.rage) + ' / 100';
     document.querySelector('.ultimate').classList.toggle('ready', campaign.flags.sword && p.rage >= 100);
-    $('potionState').textContent = '剩余' + p.potions + '份'; $('touchPotion').textContent = p.potions + ' 份';
-    $('touchRage').textContent = campaign.flags.sword ? Math.floor(p.rage) + '%' : '待夺剑'; $('touchHeavy').textContent = p.heavyCd > 0 ? p.heavyCd.toFixed(1) + 's' : '30 气力'; $('touchDash').textContent = p.dashCd > 0 ? '整步' : '16 气力';
+    $('potionState').textContent = '剩余' + p.potions + '份';
     const o = campaign.nearestObject(); $('interaction').classList.toggle('hidden', !o || campaign.mode !== 'playing');
-    if (o) { $('interaction').replaceChildren(); if (controlMode === 'desktop') { const key = document.createElement('kbd'); key.textContent = 'E'; $('interaction').append(key); } $('interaction').append(document.createTextNode(campaign.interactionText(o))); }
+    if (o) { $('interaction').replaceChildren(); const key = document.createElement('kbd'); key.textContent = 'E'; $('interaction').append(key, document.createTextNode(campaign.interactionText(o))); }
     $('counterHint').classList.toggle('hidden', p.counterWindow <= 0 || campaign.mode !== 'playing');
     const boss = campaign.boss, visible = boss && boss.hp > 0 && dist(boss, p) < 650;
     $('bossHud').classList.toggle('hidden', !visible);
@@ -149,7 +139,7 @@
     processEvents(); updateHud();
   }
   document.addEventListener('keydown', e => {
-    const key = e.key.toLowerCase(); if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'tab'].includes(key)) e.preventDefault(); if (e.repeat || !$('device').classList.contains('hidden')) return;
+    const key = e.key.toLowerCase(); if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'tab'].includes(key)) e.preventDefault(); if (e.repeat) return;
     if (key === 'escape') { campaign.mode === 'map' ? toggleMap() : togglePause(); return; }
     if (key === 'm' || key === 'tab') { toggleMap(); return; }
     if (campaign.mode !== 'playing') return; keys.add(key);
@@ -160,12 +150,10 @@
   document.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
   window.addEventListener('blur', () => { clearInput(); if (campaign.mode === 'playing') togglePause(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { clearInput(); if (campaign.mode === 'playing') togglePause(); } });
-  canvas.addEventListener('pointermove', e => { if (e.pointerType === 'touch' || controlMode === 'mobile') return; const rect = canvas.getBoundingClientRect(); mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top }; aimUntil = performance.now() + 1400; });
-  canvas.addEventListener('pointerdown', e => { if (campaign.mode !== 'playing' || e.pointerType === 'touch' || controlMode === 'mobile') return; unlockAudio(); if (e.button === 0) { mouseAttack = true; campaign.attack(inputState().aim); canvas.setPointerCapture(e.pointerId); } else if (e.button === 2) act('heavy'); });
-  window.addEventListener('pointerup', e => { if (e.pointerType !== 'touch') mouseAttack = false; attackPointers.delete(e.pointerId); });
-  window.addEventListener('pointercancel', e => { mouseAttack = false; attackPointers.delete(e.pointerId); }); canvas.addEventListener('contextmenu', e => e.preventDefault());
-  document.querySelectorAll('[data-device]').forEach(b => b.addEventListener('click', () => setDevice(b.dataset.device)));
-  $('menuDeviceButton').addEventListener('click', openDevice); $('switchDeviceButton').addEventListener('click', openDevice);
+  canvas.addEventListener('pointermove', e => { if (e.pointerType === 'touch') return; const rect = canvas.getBoundingClientRect(); mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top }; aimUntil = performance.now() + 1400; });
+  canvas.addEventListener('pointerdown', e => { if (campaign.mode !== 'playing' || e.pointerType === 'touch') return; unlockAudio(); if (e.button === 0) { mouseAttack = true; campaign.attack(inputState().aim); canvas.setPointerCapture(e.pointerId); } else if (e.button === 2) act('heavy'); });
+  window.addEventListener('pointerup', () => { mouseAttack = false; });
+  window.addEventListener('pointercancel', () => { mouseAttack = false; }); canvas.addEventListener('contextmenu', e => e.preventDefault());
   $('startButton').addEventListener('click', start); $('continueButton').addEventListener('click', continueGame); $('restartButton').addEventListener('click', start); $('playAgainButton').addEventListener('click', start);
   $('pauseButton').addEventListener('click', togglePause); $('resumeButton').addEventListener('click', togglePause);
   $('mapButton').addEventListener('click', toggleMap); $('quickMapButton').addEventListener('click', toggleMap); $('closeMapButton').addEventListener('click', toggleMap);
@@ -173,21 +161,13 @@
   $('soundButton').addEventListener('click', () => { muted = !muted; unlockAudio(); $('soundButton').textContent = '声音 ' + (muted ? '关' : '开'); });
   for (const id of ['backMenuButton', 'pauseMenuButton', 'defeatMenuButton']) $(id).addEventListener('click', returnMenu);
   $('retryButton').addEventListener('click', () => { clearInput(); $('defeat').classList.add('hidden'); campaign.retry(); processEvents(); updateHud(); });
-  $('fullscreenButton').addEventListener('click', async () => { try { if (document.documentElement.requestFullscreen) { await document.documentElement.requestFullscreen(); if (controlMode === 'mobile' && screen.orientation?.lock) await screen.orientation.lock('landscape').catch(() => {}); } else showToast('可旋转手机，使用横屏游玩。'); } catch { showToast('可旋转手机，使用横屏游玩。'); } });
+  $('fullscreenButton').addEventListener('click', async () => { try { if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); else showToast('可使用浏览器的全屏模式。'); } catch { showToast('可使用浏览器的全屏模式。'); } });
   document.querySelectorAll('[data-difficulty]').forEach(b => b.addEventListener('click', () => { menuDifficulty = b.dataset.difficulty; document.querySelectorAll('[data-difficulty]').forEach(o => o.classList.toggle('selected', o === b)); }));
   document.querySelectorAll('[data-command]').forEach(b => b.addEventListener('click', () => { campaign.setCommand(b.dataset.command); processEvents(); updateHud(); }));
-  document.querySelectorAll('[data-action]').forEach(b => {
-    b.addEventListener('pointerdown', e => { if (campaign.mode !== 'playing') return; e.preventDefault(); unlockAudio(); b.setPointerCapture(e.pointerId); if (b.dataset.action === 'attack') { attackPointers.add(e.pointerId); campaign.attack(); } else act(b.dataset.action); });
-    for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(event, e => attackPointers.delete(e.pointerId));
-  });
-  $('joystick').addEventListener('pointerdown', e => { if (campaign.mode !== 'playing' || stickPointer !== null) return; e.preventDefault(); stickPointer = e.pointerId; $('joystick').setPointerCapture(e.pointerId); updateStick(e); });
-  $('joystick').addEventListener('pointermove', e => { if (e.pointerId === stickPointer) { e.preventDefault(); updateStick(e); } });
-  for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) $('joystick').addEventListener(event, e => { if (e.pointerId !== stickPointer) return; stickPointer = null; touchVector = { x: 0, y: 0 }; $('joystick').firstElementChild.style.transform = ''; });
-  function updateStick(e) { const r = $('joystick').getBoundingClientRect(), radius = r.width * .34, dx = e.clientX - r.left - r.width / 2, dy = e.clientY - r.top - r.height / 2, length = Math.hypot(dx, dy), ratio = length > radius ? radius / length : 1; touchVector = { x: dx * ratio / radius, y: dy * ratio / radius }; if (length < radius * .12) touchVector = { x: 0, y: 0 }; $('joystick').firstElementChild.style.transform = `translate(${dx * ratio}px,${dy * ratio}px)`; }
   function ellipse(g, x, y, rx, ry, color) { g.fillStyle = color; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fill(); }
   function polygon(g, points, color) { g.fillStyle = color; g.beginPath(); points.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); }
   function buildTerrain() {
-    const ratio = controlMode === 'mobile' ? 1 : Math.min(dpr, 1.25); terrain = art.stageLandscape(campaign, W, H, ratio);
+    const ratio = Math.min(dpr, 1.25); terrain = art.stageLandscape(campaign, W, H, ratio);
     scenery = [...campaign.trees.map(t => art.scenerySprite('tree', t, ratio)), ...campaign.huts.map(h => art.scenerySprite('hut', h, ratio))];
   }
   function onScreen(x, y, margin = 120) { return Math.abs(x - camera.x) < viewW / zoom / 2 + margin && Math.abs(y - camera.y) < viewH / zoom / 2 + margin; }
@@ -267,7 +247,7 @@
     const target = campaign.getMission().target; if (!target || dist(target, campaign.player) < 150) return;
     let x = (target.x - camera.x) * zoom + viewW / 2, y = (target.y - camera.y) * zoom + viewH / 2;
     if (x > 80 && x < viewW - 80 && y > 100 && y < viewH - 155) return;
-    const dx = x - viewW / 2, dy = y - viewH / 2, f = Math.min((viewW / 2 - 48) / Math.max(Math.abs(dx), 1), (viewH / 2 - (controlMode === 'mobile' ? 85 : 110)) / Math.max(Math.abs(dy), 1));
+    const dx = x - viewW / 2, dy = y - viewH / 2, f = Math.min((viewW / 2 - 48) / Math.max(Math.abs(dx), 1), (viewH / 2 - 110) / Math.max(Math.abs(dy), 1));
     x = viewW / 2 + dx * f; y = viewH / 2 + dy * f; g.save(); g.translate(x, y); g.rotate(Math.atan2(dy, dx)); polygon(g, [[12 + Math.sin(time * 2) * 2, 0], [-6, -7], [-2, 0], [-6, 7]], '#e9d398'); g.restore();
   }
   function render(now) {
@@ -304,9 +284,7 @@
   window.addEventListener('resize', resize);
   async function boot() {
     resize(); buildTerrain(); refreshSaveMenu();
-    const suggestedMobile = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
-    $(suggestedMobile ? 'mobileRecommended' : 'desktopRecommended').classList.remove('hidden');
-    $('menuControls').textContent = 'WASD 移动 · J 出枪 · 空格闪避 · E 互动'; $('pauseControls').textContent = desktopHelp;
+    $('menuControls').textContent = 'WASD 移动 · J / 左键出枪 · 空格闪避 · E 互动\nQ / 右键破阵 · R 青釭 · M 军图 · Esc 暂停'; $('pauseControls').textContent = desktopHelp;
     try { await art.loadCharacters(); } catch (error) { $('loading').textContent = '角色素材未能载入，请重新打开游戏。'; console.error(error); return; }
     // Discard construction events; show the region only after entering gameplay.
     campaign.events = []; $('loading').classList.add('hidden'); lastFrame = performance.now(); requestAnimationFrame(frame);

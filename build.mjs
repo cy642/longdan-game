@@ -9,6 +9,7 @@ const artwork = readFileSync(path.join(root, 'visuals.js'), 'utf8').replace('/* 
   units: pngData('chibi-units-v1.png'),
   walk: pngData('zhaoyun-walk-v2.png'),
   chapter: pngData('chapter1-units-v2.png'),
+  attack: pngData('zhaoyun-attack-v3.png'),
 }));
 const html = readFileSync(path.join(root, 'shell.html'), 'utf8')
   .replace('/* GAME_STYLES */', readFileSync(path.join(root, 'styles.css'), 'utf8'))

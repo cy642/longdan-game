@@ -211,7 +211,20 @@
     return { canvas, ratio, pad };
   }
   const characterAssets = /* HERO_ASSETS */ null;
-  let portraitImage, heroFrames = [], unitFrames = [], walkFrames = [], chapterFrames = [], walkFactor = .25;
+  let portraitImage, heroFrames = [], unitFrames = [], walkFrames = [], chapterFrames = [], attackFrames = [];
+  const HERO_HEAD_HEIGHT = 22;
+  // Atlas directions follow the actual artwork, including mirrored preparatory poses.
+  const walkDirections = [
+    { frame: 12 }, { frame: 2, flip: -1 }, { frame: 0 }, { frame: 2 },
+    { frame: 4 }, { frame: 6 }, { frame: 8 }, { frame: 10 },
+  ];
+  const attackDirections = [
+    [{ frame: 12 }, { frame: 5 }], [{ frame: 2, flip: -1 }, { frame: 3 }],
+    [{ frame: 0 }, { frame: 1 }], [{ frame: 2 }, { frame: 3, flip: -1 }],
+    [{ frame: 12, flip: -1 }, { frame: 5, flip: -1 }],
+    [{ frame: 10, flip: -1 }, { frame: 7, flip: -1 }],
+    [{ frame: 8 }, { frame: 9 }], [{ frame: 10 }, { frame: 7 }],
+  ];
   function loadImage(url) {
     return new Promise((resolve, reject) => {
       const image = new Image();
@@ -257,12 +270,18 @@
       const g = canvas.getContext('2d'); g.drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh);
       const cut = g.getImageData(0, 0, sw, sh);
       let headX = 0, headWeight = 0, hairX = 0, hairWeight = 0, hairTop = sh;
+      const hairRows = new Float64Array(sh);
       for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
         const global = (sy + y) * width + sx + x, alpha = pixels[global * 4 + 3];
-        if (labels[global] === c.id && y < sh * 0.38) {
-          headX += x * alpha; headWeight += alpha;
+        if (labels[global] === c.id) {
+          if (y < sh * .38) { headX += x * alpha; headWeight += alpha; }
           const r = pixels[global * 4], green = pixels[global * 4 + 1], b = pixels[global * 4 + 2];
-          if (r > 75 && r > green * 1.18 && r > b * 1.25) { hairX += x * alpha; hairWeight += alpha; hairTop = Math.min(hairTop, y); }
+          // Brown hair gives a scale reference independent of spear length, scarf
+          // width or a crouching pose. Inspect the whole sprite: northern spears
+          // can extend well above the head.
+          if (r > 65 && r > green * 1.18 && b < green * .72) {
+            hairX += x * alpha; hairWeight += alpha; hairTop = Math.min(hairTop, y); hairRows[y] += alpha;
+          }
         }
         if (labels[global] === c.id) continue;
         let edge = false;
@@ -275,18 +294,44 @@
         if (!edge) cut.data[(y * sw + x) * 4 + 3] = 0;
       }
       g.putImageData(cut, 0, 0);
-      return { canvas, width: sw, height: sh, ax: hairWeight > headWeight * 0.04 ? hairX / hairWeight : headX / headWeight, ay: c.y1 - sy + 1, bodyHeight: sh - (hairTop < sh ? hairTop : 0) };
+      let headTop = 0, headBottom = sh, weight = 0;
+      for (let y = 0; y < sh; y++) { weight += hairRows[y]; if (weight < hairWeight * .02) headTop = y + 1; if (weight >= hairWeight * .96) { headBottom = y; break; } }
+      return { canvas, width: sw, height: sh, ax: hairWeight > headWeight * .04 ? hairX / hairWeight : headX / Math.max(1, headWeight), ay: c.y1 - sy + 1, headHeight: hairWeight > 0 ? Math.max(1, headBottom - headTop) : sh * .4, bodyHeight: sh - (hairTop < sh ? hairTop : 0) };
     });
   }
   async function loadCharacters() {
     if (!characterAssets) throw new Error('请先生成离线游戏文件');
-    const images = await Promise.all([loadImage(characterAssets.portrait), loadImage(characterAssets.hero), loadImage(characterAssets.units), loadImage(characterAssets.walk), loadImage(characterAssets.chapter)]);
-    portraitImage = images[0]; heroFrames = splitAtlas(images[1]); unitFrames = splitAtlas(images[2]); walkFrames = splitAtlas(images[3], 16, 4); chapterFrames = splitAtlas(images[4]);
-    walkFactor = 78 / (walkFrames.reduce((sum, f) => sum + f.bodyHeight, 0) / walkFrames.length);
+    const images = await Promise.all([loadImage(characterAssets.portrait), loadImage(characterAssets.hero), loadImage(characterAssets.units), loadImage(characterAssets.walk), loadImage(characterAssets.chapter), loadImage(characterAssets.attack)]);
+    portraitImage = images[0]; heroFrames = splitAtlas(images[1]); unitFrames = splitAtlas(images[2]); walkFrames = splitAtlas(images[3], 16, 4); chapterFrames = splitAtlas(images[4]); attackFrames = splitAtlas(images[5], 16, 4);
+    for (const frame of [...heroFrames, ...walkFrames, ...attackFrames]) frame.heroFactor = HERO_HEAD_HEIGHT / frame.headHeight;
+    // These downward spear tips extend below the boots; anchor to the planted
+    // feet rather than the lowest opaque weapon pixel.
+    attackFrames[1].ay -= 35;
+    attackFrames[3].ay -= 22;
   }
   function paintFrame(g, frame, x, y, factor, facing, tilt = 0) {
     g.save(); g.translate(x, y); g.scale(facing * factor, factor); g.rotate(tilt);
     g.drawImage(frame.canvas, -frame.ax, -frame.ay); g.restore();
+  }
+  function heroPose(a) {
+    const dir = Number.isFinite(a.action?.dir) && a.action.key !== 'heal' ? a.action.dir : Number.isFinite(a.dir) ? a.dir : 0;
+    const direction = (Math.round(dir / (Math.PI / 4)) + 8) % 8;
+    const walk = walkDirections[direction];
+    if (a.hp <= 0) return { frame: heroFrames[7], flip: Math.cos(dir) >= 0 ? -1 : 1, x: 0, y: 0, tilt: -.08 };
+    if (a.action && a.action.key !== 'heal') {
+      const { windup, active, recovery } = a.action.def, t = a.action.t;
+      const activePose = t >= windup && t < windup + active + recovery * .45;
+      const pose = attackDirections[direction][activePose ? 1 : 0];
+      const progress = clamp((t - windup) / Math.max(.01, active), 0, 1);
+      const settle = t > windup + active ? 1 - clamp((t - windup - active) / recovery, 0, 1) : 1;
+      const surge = activePose ? Math.sin(progress * Math.PI * .5) * 4 * settle : 0;
+      const sweep = ['sweep', 'sword', 'thrust2'].includes(a.action.key);
+      const tilt = sweep ? Math.sin(clamp(t / (windup + active + recovery), 0, 1) * Math.PI * 2) * .09 : 0;
+      const lateralSweep = sweep && (direction === 0 || direction === 4);
+      return { frame: lateralSweep ? heroFrames[activePose ? 5 : 3] : attackFrames[pose.frame], flip: lateralSweep ? direction === 0 ? -1 : 1 : pose.flip || 1, x: Math.cos(dir) * surge, y: Math.sin(dir) * surge, tilt };
+    }
+    const step = a.moving ? Math.floor((a.walkDistance || 0) / 37) % 2 : 0;
+    return { frame: walkFrames[walk.frame + step], flip: walk.flip || 1, x: 0, y: 0, tilt: a.dashTime > 0 ? -.1 : a.action?.key === 'heal' ? .03 : 0 };
   }
   function hero(g, a, time, scale = 1, carriesAdou = false) {
     if (!heroFrames.length) return;
@@ -300,24 +345,9 @@
       g.drawImage(portraitImage, -320 * factor, -530 * factor, portraitImage.naturalWidth * factor, portraitImage.naturalHeight * factor);
       g.restore(); return;
     }
-    let frame = 0, tilt = 0, bob = 0, surge = 0;
-    if (a.hp <= 0 || a.hurtFlash > 0.1) frame = 7;
-    else if (a.dashTime > 0) { frame = 6; bob = -2; }
-    else if (a.attackTimer > 0) {
-      const heavy = a.attackPose === 'heavy', progress = a.action ? clamp(a.action.t / (a.action.def.windup + a.action.def.active + a.action.def.recovery), 0, 1) : 0;
-      frame = progress < 0.17 ? 3 : heavy || a.combo === 2 ? 5 : 4;
-      surge = Math.sin(progress * Math.PI) * (heavy ? 3 : 7);
-      tilt = (progress - 0.5) * (heavy ? 0.12 : 0.035);
-    } else if (a.moving) {
-      frame = Math.floor((a.walkDistance || 0) / 37) % 2 + 1;
-    }
+    const pose = heroPose(a), bob = 0;
     if (a.hurtFlash > 0) g.globalAlpha *= 0.65 + Math.abs(Math.sin(a.hurtFlash * 35)) * 0.35;
-    if (walkFrames.length && a.hp > 0 && a.hurtFlash <= .1 && a.dashTime <= 0 && (!a.action || a.action.key === 'heal' || Math.abs(Math.sin(dir)) > .75)) {
-      const direction = (Math.round(dir / (Math.PI / 4)) + 8) % 8;
-      const bases = [12, 2, 0, 2, 4, 6, 8, 10], flip = direction === 1 ? -1 : 1;
-      const step = a.moving ? Math.floor((a.walkDistance || 0) / 37) % 2 : 0;
-      paintFrame(g, walkFrames[bases[direction] + step], 0, 0, walkFactor, flip, a.action ? Math.sin(a.action.t * 8) * .025 : 0);
-    } else paintFrame(g, heroFrames[frame], Math.cos(dir) * surge, bob + Math.sin(dir) * surge, 75 / heroFrames[0].height, facing, tilt);
+    paintFrame(g, pose.frame, pose.x, pose.y, pose.frame.heroFactor, pose.flip, pose.tilt);
     if (carriesAdou) {
       oval(g, -facing * 14, -29 + bob, 5, 7, '#eee0bd');
       line(g, [[-facing * 17, -26 + bob], [-facing * 10, -31 + bob]], '#aa9472', 1.5);
