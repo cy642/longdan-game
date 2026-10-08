@@ -372,11 +372,46 @@
       const opacity = clamp(1 - (a.deadTime || 0) / 20, 0, 1) * 0.3;
       g.globalAlpha *= opacity; paintFrame(g, frame, 0, 4, 43 / frame.height, facing, -0.95); g.restore(); return;
     }
-    const bob = 0;
     oval(g, 0, 1, boss ? 21 : 14, boss ? 5 : 4, '#193d3c55');
     if (a.hurtFlash > 0) g.globalAlpha *= 0.58 + Math.abs(Math.sin(a.hurtFlash * 36)) * 0.42;
-    const lean = a.windup > 0 ? -0.05 : a.moving ? Math.sin((a.walkDistance || 0) / 12) * .018 : 0;
-    paintFrame(g, frame, 0, bob, (boss ? 73 : civil ? 44 : 53) / frame.height, facing, lean);
+    let poseX = 0, poseY = a.moving ? Math.sin((a.walkDistance || 0) / 11) * 1.8 : 0;
+    let lean = a.moving ? Math.sin((a.walkDistance || 0) / 12) * .035 : 0;
+    let widthScale = 1, heightScale = 1;
+    if (role === 'enemy' && a.action) {
+      const action = a.action, direction = action.dir;
+      const windup = action.def.windup, active = action.def.active;
+      if (action.t < windup) {
+        const progress = clamp(action.t / Math.max(.01, windup), 0, 1);
+        poseX = -Math.cos(direction) * (boss ? 11 : 7) * progress;
+        poseY = -Math.sin(direction) * 5 * progress + (a.type === 'shield' || a.type === 'elite' ? 4 : -3) * progress;
+        lean = (a.type === 'archer' ? -.18 : -.12) * progress;
+        widthScale = 1 + .04 * progress;
+        heightScale = 1 - .06 * progress;
+      } else if (action.t < windup + active) {
+        const progress = clamp((action.t - windup) / Math.max(.01, active), 0, 1);
+        poseX = Math.cos(direction) * (boss ? 13 : 9) * Math.min(1, progress * 4);
+        poseY = Math.sin(direction) * 6 * Math.min(1, progress * 4) - 4;
+        lean = a.type === 'archer' ? .14 : .2;
+        widthScale = .94;
+        heightScale = 1.08;
+      } else {
+        const progress = 1 - clamp((action.t - windup - active) / Math.max(.01, action.def.recovery), 0, 1);
+        poseX = Math.cos(direction) * 5 * progress;
+        poseY = 3 * progress;
+        lean = -.1 * progress;
+      }
+    } else if (role === 'enemy' && a.stunned > 0) {
+      lean = Math.sin(time * 15 + a.id) * .11;
+      poseY = 3;
+      heightScale = .94;
+    }
+    if (a.hurtFlash > 0) {
+      poseX -= Math.cos(a.dir || 0) * 5 * clamp(a.hurtFlash / .16, 0, 1);
+      lean += Math.sin(time * 43 + a.id) * .07;
+    }
+    g.save(); g.translate(poseX, poseY); g.scale(widthScale, heightScale);
+    paintFrame(g, frame, 0, 0, (boss ? 73 : civil ? 44 : 53) / frame.height, facing, lean);
+    g.restore();
     if (!boss && a.hp < a.maxHp) {
       const bar = civil ? 26 : 31, y = civil ? -49 : -59;
       g.fillStyle = '#233b2dc7'; g.fillRect(-bar / 2, y, bar, 3);

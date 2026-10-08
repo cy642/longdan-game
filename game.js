@@ -311,8 +311,14 @@
     if (campaign.stage === 'house' && campaign.flags.healer && !campaign.flags.mother && !campaign.rescue) actors.push([{ id: 7, x: 1180, y: 475, hp: 100, maxHp: 100, dir: 2.5, moving: false }, 'civil']);
     if (campaign.rescue) actors.push([campaign.rescue.healer, 'civil']);
     const depth = [...actors.filter(([a]) => onScreen(a.x, a.y)).map(([a, role]) => ({ y: a.y, actor: a, role })), ...scenery.filter(a => onScreen(a.x, a.y, 180)).map(a => ({ y: a.y, scenery: a })), ...campaign.props.filter(a => onScreen(a.x, a.y)).map(a => ({ y: a.y, prop: a }))].sort((a, b) => a.y - b.y);
-    for (const item of depth) if (item.scenery) drawScenery(g, item.scenery); else if (item.prop) combatArt.prop(g, item.prop, time); else { if (item.role === 'hero') art.hero(g, item.actor, time, 1.08, campaign.flags.adou); else art.unit(g, item.actor, item.role, time); }
-    for (const a of campaign.projectiles) { g.strokeStyle = '#e0d0a3'; g.lineWidth = 2; g.beginPath(); g.moveTo(a.x - Math.cos(a.dir) * 23, a.y - Math.sin(a.dir) * 23); g.lineTo(a.x, a.y); g.stroke(); }
+    for (const item of depth) if (item.scenery) drawScenery(g, item.scenery); else if (item.prop) combatArt.prop(g, item.prop, time); else {
+      if (item.role === 'hero') art.hero(g, item.actor, time, 1.08, campaign.flags.adou);
+      else {
+        art.unit(g, item.actor, item.role, time);
+        if (item.role === 'enemy') combatArt.enemyCharge(g, item.actor, reducedEffects, time);
+      }
+    }
+    for (const arrow of campaign.projectiles) combatArt.projectile(g, arrow);
     if (campaign.rescue) { const h = campaign.rescue.healer; g.fillStyle = '#22372d'; g.fillRect(h.x - 24, h.y - 62, 48, 4); g.fillStyle = '#bcdbb0'; g.fillRect(h.x - 24, h.y - 62, 48 * h.hp / h.maxHp, 4); }
     drawEffects(g);
     if (campaign.mode === 'menu') { const x = camera.x + halfW * .48, y = camera.y + 68; drawFlag(g, x + 80, y - 30, '赵', '#335c51', time); art.hero(g, { ...p, x, y, dir: -.4, moving: false }, time, 2.9); }

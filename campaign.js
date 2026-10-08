@@ -192,7 +192,7 @@
       if (e.type !== 'boss') { e.knockX += Math.cos(dir) * knock; e.knockY += Math.sin(dir) * knock; if (source === 'player' && e.type !== 'elite') { e.stunned = Math.max(e.stunned, .12); e.action = null; e.windup = 0; } }
       if (e.staggerShield <= 0) {
         e.stagger += stagger;
-        if (e.stagger >= e.staggerMax) { e.stagger = 0; e.stunned = e.type === 'boss' ? 2.1 : 1.3; e.staggerShield = 4.4; e.action = null; e.sequence = []; e.cooldown = 1.2; this.floater(e.x, e.y, '破势 · 反击'); this.events.push({ kind: 'sound', sound: 'break' }); }
+        if (e.stagger >= e.staggerMax) { e.stagger = 0; e.stunned = e.type === 'boss' ? 2.1 : 1.3; e.staggerShield = 4.4; e.action = null; e.sequence = []; e.cooldown = 1.2; this.floater(e.x, e.y, '破势 · 反击'); this.effects.push({ type: 'shatter', x: e.x, y: e.y, dir, color: '#f6d89d', life: .42, maxLife: .42 }); this.events.push({ kind: 'sound', sound: 'break' }); }
       }
       this.floater(e.x, e.y, String(Math.round(actual)), source === 'ally' ? '#a7c6b0' : '#fff0bb');
       if (e.hp <= 0) {
@@ -630,8 +630,11 @@
       if (activeDt > 0) {
         if (!a.fired) {
           a.fired = true;
-          if (e.type === 'archer') this.projectiles.push({ id: a.id, x: e.x, y: e.y - 8, vx: Math.cos(a.dir) * ARROW_SPEED, vy: Math.sin(a.dir) * ARROW_SPEED, dir: a.dir, damage: a.def.damage, life: ARROW_LIFE });
-          else this.effects.push({ type: 'enemySlash', x: e.x, y: e.y, dir: a.dir, radius: a.def.range, arc: a.def.arc, life: a.def.active + .06, maxLife: a.def.active + .06 });
+          if (e.type === 'archer') {
+            this.projectiles.push({ id: a.id, x: e.x, y: e.y - 8, vx: Math.cos(a.dir) * ARROW_SPEED, vy: Math.sin(a.dir) * ARROW_SPEED, dir: a.dir, damage: a.def.damage, life: ARROW_LIFE });
+            this.effects.push({ type: 'arrowFlash', x: e.x, y: e.y - 8, dir: a.dir, life: .18, maxLife: .18 });
+          } else this.effects.push({ type: 'enemySlash', x: e.x, y: e.y, dir: a.dir, radius: a.def.range, arc: a.def.arc,
+            enemyType: e.type, bossId: e.bossId, move: a.def.name, lunge: a.def.lunge || 0, life: a.def.active + .14, maxLife: a.def.active + .14 });
           this.events.push({ kind: 'sound', sound: a.def.lunge || a.def.windup >= .85 || a.def.arc > 2 ? 'enemyHeavy' : 'enemy' });
         }
         if (e.type !== 'archer') {
@@ -665,6 +668,7 @@
         if (e.stunned > 0 || e.phaseTime > 0) { e.windup = 0; continue; }
         if (e.bossId === 'zhanghe' && !e.phase2 && e.hp <= e.maxHp * .5) {
           e.phase2 = true; e.phaseTime = 1.35; e.action = null; e.sequence = []; e.windup = 0;
+          this.effects.push({ type: 'phaseBurst', x: e.x, y: e.y, radius: 96, color: '#e78570', life: 1.35, maxLife: 1.35 });
           this.say('张郃变招：回身反刺与迟势追枪。仍要等连招收完。'); this.floater(e.x, e.y, '张郃 · 枪势再起', '#f4c994'); this.events.push({ kind: 'sound', sound: 'phase' }); continue;
         }
         let target = this.activeBoss ? p : this.nearbyEnemy(e, e.alerted ? 540 : e.type === 'archer' ? 400 : 260, true);

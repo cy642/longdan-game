@@ -3,6 +3,8 @@
   'use strict';
   const TAU = Math.PI * 2, clamp = n => Math.max(0, Math.min(1, n));
   const colors = { thrust1: '#83dce9', thrust2: '#a6edf3', thrust3: '#f7d990', counter: '#c0fbff', sweep: '#f2ca75', sword: '#65e4dd' };
+  const enemyColors = { sword: '#e89a76', spear: '#d6a0b1', shield: '#e5b979', elite: '#efae70', archer: '#f0ca91', xiahou: '#c9a7e4', zhanghe: '#ec806c' };
+  const enemyColor = enemy => enemyColors[enemy.bossId] || enemyColors[enemy.enemyType || enemy.type] || enemyColors.sword;
   function line(g, pts, color, width = 1) { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.strokeStyle = color; g.lineWidth = width; g.stroke(); }
   function poly(g, pts, color) { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fillStyle = color; g.fill(); }
   function glow(g, x, y, radius, color, opacity = .5) {
@@ -23,6 +25,32 @@
       line(g, [[Math.cos(angle) * r, Math.sin(angle) * r * .6], [Math.cos(angle) * (r + 9), Math.sin(angle) * (r + 9) * .6]], color, 1.5);
     }
     g.rotate(a.dir); line(g, [[17, -4], [35 + t * 35, -4]], '#e6ffff', 1 + t * 2); g.restore();
+  }
+  function enemyCharge(g, enemy, reduced, time) {
+    const action = enemy.action;
+    if (!action || action.t >= action.def.windup || enemy.stunned > 0 || enemy.hp <= 0) return;
+    const progress = clamp(action.t / Math.max(.01, action.def.windup));
+    const color = enemyColor(enemy), heavy = enemy.type === 'boss' || enemy.type === 'elite' || action.def.lunge;
+    g.save(); g.translate(enemy.x, enemy.y - 28); g.rotate(action.dir); g.globalAlpha = .18 + progress * .58;
+    if (heavy && !reduced) glow(g, 29, 0, 21 + progress * 17, color, .35);
+    const reach = 26 + progress * (heavy ? 38 : 22);
+    line(g, [[14, -7], [reach, -3]], color, 1.2 + progress * 2);
+    line(g, [[14, 5], [reach - 7, 3]], '#fff0ce', .8 + progress);
+    if (enemy.type === 'archer') poly(g, [[reach + 7, 0], [reach - 2, -4], [reach - 2, 4]], '#ffe4b5');
+    if (heavy) for (let index = 0; index < (reduced ? 2 : 4); index++) {
+      const offset = Math.sin(time * 11 + index * 2.4) * 3;
+      line(g, [[20 + index * 7, -10 - offset], [28 + index * 8, -19 - offset]], index % 2 ? '#ffe8bd' : color, 1.4);
+    }
+    g.restore();
+  }
+  function projectile(g, arrow) {
+    g.save(); g.translate(arrow.x, arrow.y); g.rotate(arrow.dir); g.lineCap = 'round';
+    line(g, [[-25, 0], [2, 0]], '#5a4736', 3);
+    line(g, [[-19, -1], [2, -1]], '#e9d09f', 1.3);
+    poly(g, [[8, 0], [-2, -5], [0, 0], [-2, 5]], '#f6e4c2');
+    line(g, [[-19, 0], [-27, -6]], '#cfaa80', 1.4);
+    line(g, [[-19, 0], [-27, 6]], '#cfaa80', 1.4);
+    g.restore();
   }
   function dragon(g, radius, t, color) {
     // A flowing dragon-shaped energy spine, horns and whiskers, all inside range.
@@ -119,7 +147,7 @@
   }
   function effect(g, e, reduced, art, time) {
     const t = clamp(1 - e.life / e.maxLife), fade = 1 - t;
-    if (!['slash', 'impact', 'shockwave', 'dashGhost', 'cast', 'perfect', 'shatter', 'explosion'].includes(e.type)) return false;
+    if (!['slash', 'enemySlash', 'arrowFlash', 'phaseBurst', 'impact', 'shockwave', 'dashGhost', 'cast', 'perfect', 'shatter', 'explosion'].includes(e.type)) return false;
     g.save(); g.translate(e.x, e.y); g.lineCap = 'round'; g.lineJoin = 'round';
     if (e.type === 'dashGhost') {
       g.globalAlpha = fade * (reduced ? .13 : .3);
@@ -159,6 +187,47 @@
         for (const side of [-1, 1]) line(g, [[end * .35, side * 9], [end * .8, side * 5]], color + 'c0', 1);
         if (!reduced) glow(g, end - 10, 0, 24, color, .65);
       }
+    } else if (e.type === 'enemySlash') {
+      const color = enemyColor(e), radius = e.radius, halfArc = e.arc;
+      g.translate(0, -24); g.rotate(e.dir); g.globalAlpha *= fade;
+      if (e.enemyType === 'shield' || e.enemyType === 'elite') {
+        const reach = radius * (.48 + .34 * clamp(t * 4));
+        if (!reduced) glow(g, reach, 0, 33, color, .35);
+        poly(g, [[12, -20], [reach, -26], [reach + 12, 0], [reach, 26], [12, 20]], color + '65');
+        line(g, [[reach - 3, -22], [reach + 11, 0], [reach - 3, 22]], '#fff0c6', 3.5 * fade + 1);
+        arc(g, Math.max(8, reach), -halfArc, halfArc, color, 5 * fade + 1);
+      } else if (e.enemyType === 'sword' || e.bossId === 'xiahou' || halfArc > 1.2) {
+        const head = -halfArc + halfArc * 2 * clamp(.18 + t * 2.3), tail = Math.max(-halfArc, head - (e.bossId === 'xiahou' ? 1.15 : 1.5));
+        if (!reduced) crescent(g, radius * .92, tail, head, color + '45', e.bossId === 'xiahou' ? 24 : 17);
+        crescent(g, radius * .88, tail, head, color + 'ad', 7 * fade + 3);
+        arc(g, radius * .91, tail + .08, head, '#fff0db', 2.2);
+        if (e.bossId === 'xiahou') arc(g, radius * .73, tail - .12, head - .27, '#f1d6ff', 2.5);
+      } else {
+        const reach = radius * (.58 + .4 * clamp(t * 4)), blade = e.bossId === 'zhanghe' ? 13 : 8;
+        if (!reduced) poly(g, [[13, 0], [reach - 25, -blade * 1.8], [reach + 3, 0], [reach - 25, blade * 1.8]], color + '55');
+        poly(g, [[19, 0], [reach - 18, -blade], [reach + 4, 0], [reach - 18, blade]], color + 'b0');
+        line(g, [[24, 0], [reach + 4, 0]], '#fff4dc', e.bossId ? 3 : 2);
+        if (e.lunge) {
+          const trail = Math.min(e.lunge, 160) * clamp(t * 2);
+          line(g, [[9, -13], [reach + trail, -13]], color + '93', 3 * fade + 1);
+          line(g, [[9, 13], [reach + trail, 13]], '#fff0d690', 1.5);
+        }
+      }
+    } else if (e.type === 'arrowFlash') {
+      g.rotate(e.dir); g.globalAlpha *= fade;
+      if (!reduced) glow(g, 12, 0, 24, '#f7d898', .45);
+      poly(g, [[2, -7], [29 + t * 13, 0], [2, 7]], '#ffdca772');
+      line(g, [[0, 0], [29 + t * 18, 0]], '#fff1cb', 2);
+      for (const side of [-1, 1]) line(g, [[8, side * 4], [19 + t * 8, side * (10 + t * 7)]], '#f3c081', 1.5);
+    } else if (e.type === 'phaseBurst') {
+      const radius = e.radius * (.22 + .78 * (1 - fade * fade)), color = e.color;
+      g.globalAlpha *= fade * (reduced ? .55 : .85);
+      if (!reduced) glow(g, 0, -25, radius * .7, color, .28);
+      g.save(); g.scale(1, .52); arc(g, radius, 0, TAU, color, 7 * fade + 1); arc(g, radius * .72, 0, TAU, '#ffe2b0', 2); g.restore();
+      for (let index = 0; index < (reduced ? 4 : 8); index++) {
+        const angle = index * TAU / 8 + t * .6, start = 18 + radius * .35;
+        line(g, [[Math.cos(angle) * start, Math.sin(angle) * start * .55 - 20], [Math.cos(angle) * (start + 17), Math.sin(angle) * (start + 17) * .55 - 24]], index % 2 ? '#ffe0ad' : color, 2);
+      }
     } else if (e.type === 'impact' || e.type === 'shatter') {
       g.translate(0, -21); g.rotate(e.dir || 0); const color = e.color || '#fff0ba';
       g.globalAlpha = fade; if (!reduced) glow(g, 0, 0, 35 + t * 12, color, .65 * fade);
@@ -189,5 +258,5 @@
     }
     g.restore(); return true;
   }
-  globalThis.LongdanCombatArt = { charge, effect, colors, warning, propWarning, prop, threatPath };
+  globalThis.LongdanCombatArt = { charge, enemyCharge, projectile, effect, colors, warning, propWarning, prop, threatPath };
 })();

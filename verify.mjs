@@ -48,7 +48,7 @@ use(g, 'toFork'); clear(g); use(g, 'supplies'); assert.equal(g.boss.type, 'elite
 use(g, 'toBridge'); assert.equal(g.mode, 'dialog'); g.chooseRoute('continue'); assert.equal(g.stage, 'fork'); assert(!g.flags.committed); use(g, 'toBridge'); g.chooseRoute('commit'); assert.equal(g.stage, 'bridge'); assert(g.flags.committed);
 assert.equal(g.enemies.filter(e => e.type === 'archer').length, 0, 'Burning supplies must remove the real bridge archer formation'); assert(!g.blocking(1100, 900)); assert.equal(g.civilians.length, 4);
 clear(g); use(g, 'zhangheGate'); g.chooseRoute('bossStart:zhanghe'); assert.equal(g.activeBoss, 'zhanghe'); assert(!g.squadActive()); const zhanghe = g.boss;
-g.damageEnemy(zhanghe, zhanghe.maxHp * .51); tick(g, .02); assert(zhanghe.phase2); assert(zhanghe.phaseTime > 0); tick(g, 1.4);
+g.damageEnemy(zhanghe, zhanghe.maxHp * .51); tick(g, .02); assert(zhanghe.phase2); assert(zhanghe.phaseTime > 0); assert(g.effects.some(effect => effect.type === 'phaseBurst')); tick(g, 1.4);
 const patterns = new Set(); for (let i = 0; i < 8; i++) { zhanghe.sequence = []; g.startEnemyAction(zhanghe, g.player); patterns.add(zhanghe.action.def.name); zhanghe.action = null; }
 assert([...patterns].some(name => name.includes('回身'))); assert([...patterns].some(name => name.includes('迟势')));
 clear(g); g.chooseRoute('continue'); use(g, 'exit'); assert.equal(g.mode, 'ending'); assert.equal(g.result.people, 3); assert(g.result.mother && g.result.supplies); assert.match(g.result.title, /母子同归/);
@@ -95,6 +95,8 @@ for (const dt of [.02, .04]) {
   const warning = enemyThreat(e, g.player.r); assert.equal(warning.radius + warning.travel, 371); assert(!attackHits(e, g.player, e.action.def, 0));
   for (let t = 0; t < .4; t += dt) g.updateEnemyAction(e, dt, g.player);
   assert(Math.abs(e.x - 660) < 1e-6, 'Lunge distance must not depend on frame size'); assert.equal(g.player.hp, g.player.maxHp - 32); assert.equal(e.action.hits.size, 1);
+  const strike = g.effects.find(effect => effect.type === 'enemySlash');
+  assert.equal(strike.bossId, 'zhanghe'); assert.equal(strike.lunge, 160); assert.equal(strike.move, '冲枪');
   assert(enemyThreat(e).opening); e.sequence = [{}]; assert(!enemyThreat(e).opening, 'A gap inside a combo is not a full counter opening');
 }
 g = empty(); g.player.x = 872; g.player.y = 550; g.player.invincible = 0; e = g.spawnEnemy('boss', 500, 550, 'extra', 'zhanghe');
@@ -122,6 +124,8 @@ assert(!Campaign.validSnapshot({ ...oldSave, learned: ['unknown'] }));
 g = empty(); g.huts = [{ x: 400, y: 500, w: 80, h: 100 }]; g.player.x = 485; g.player.y = 500; g.player.invincible = 0;
 e = g.spawnEnemy('archer', 300, 508); const arrowHint = enemyThreat({ ...e, action: g.newAction('enemy', AttackDefinition.arrow, 0) });
 assert.equal(arrowHint.radius, 840); assert(g.projectileReach(e, 0, arrowHint.radius) < 100);
+e.action = g.newAction('enemy', AttackDefinition.arrow, 0); g.updateEnemyAction(e, AttackDefinition.arrow.windup + .02, g.player);
+assert(g.effects.some(effect => effect.type === 'arrowFlash')); assert.equal(g.projectiles.length, 1);
 g.projectiles = [{ id: 555, x: 300, y: 500, vx: 400, vy: 0, damage: 14, life: 2.1 }]; for (let i = 0; i < 40; i++) g.updateProjectiles(.04);
 assert.equal(g.player.hp, g.player.maxHp); assert.equal(g.projectiles.length, 0);
 const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8'); assert(!html.includes('GAME_SCRIPT')); assert(!html.includes('GAME_STYLES')); assert(!/<script[^>]+src=/.test(html));
