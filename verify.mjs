@@ -52,11 +52,29 @@ g.damageEnemy(zhanghe, zhanghe.maxHp * .51); tick(g, .02); assert(zhanghe.phase2
 const patterns = new Set(); for (let i = 0; i < 8; i++) { zhanghe.sequence = []; g.startEnemyAction(zhanghe, g.player); patterns.add(zhanghe.action.def.name); zhanghe.action = null; }
 assert([...patterns].some(name => name.includes('回身'))); assert([...patterns].some(name => name.includes('迟势')));
 clear(g); g.chooseRoute('continue'); use(g, 'exit'); assert.equal(g.mode, 'ending'); assert.equal(g.result.people, 3); assert(g.result.mother && g.result.supplies); assert.match(g.result.title, /母子同归/);
+const fullResult = JSON.parse(JSON.stringify(g.result)), completedSave = JSON.parse(JSON.stringify(g.snapshot()));
+assert.equal(fullResult.changes, 3); assert(Array.isArray(fullResult.hints)); assert.equal(fullResult.precisionCount, g.precisionCount); assert.equal(fullResult.difficulty, g.difficulty);
+const completedResume = new Campaign(); assert(completedResume.restore(completedSave)); assert.equal(completedResume.mode, 'ending'); assert.equal(completedResume.activeBoss, null);
+assert.deepEqual(JSON.parse(JSON.stringify(completedResume.result)), fullResult); assert.equal(completedResume.events.filter(event => event.kind === 'ending').length, 1);
+assert(!completedResume.enemies.some(enemy => enemy.hp > 0 && enemy.bossId)); completedResume.mode = 'menu'; assert(completedResume.snapshot().complete, 'Returning to the title must retain the completed report');
+const oldCompletedSave = { ...completedSave }; delete oldCompletedSave.learned; delete oldCompletedSave.result;
+const oldCompletedResume = new Campaign(); assert(oldCompletedResume.restore(oldCompletedSave)); assert.equal(oldCompletedResume.mode, 'ending'); assert.deepEqual(JSON.parse(JSON.stringify(oldCompletedResume.result)), fullResult);
 // A main-only run and a return-for-healer run must both remain playable.
 g = fresh(); clear(g); use(g, 'toVillage'); clear(g); use(g, 'toTemple'); clear(g); use(g, 'xiahouGate'); g.chooseRoute('bossStart:xiahou'); clear(g); g.chooseRoute('continue'); use(g, 'toHouse'); clear(g); use(g, 'adou'); g.chooseRoute('findHealer'); assert.equal(g.getMission().target.id, 'backTemple');
 use(g, 'backTemple'); assert.equal(g.getMission().target.id, 'shortcut'); use(g, 'shortcut'); assert.equal(g.getMission().target.id, 'civilians'); use(g, 'civilians'); g.chooseRoute('continue'); assert(g.flags.healer); use(g, 'toTemple'); use(g, 'toHouse'); use(g, 'adou'); g.chooseRoute('leaveMother'); use(g, 'toFork'); clear(g, 'f1'); use(g, 'toBridge'); g.chooseRoute('commit'); assert.equal(g.enemies.filter(e => e.type === 'archer').length, 2); assert(g.blocking(1100, 900)); clear(g); use(g, 'zhangheGate'); g.chooseRoute('bossStart:zhanghe'); clear(g); g.chooseRoute('continue'); use(g, 'exit'); assert(g.result.won && !g.result.mother && !g.result.supplies);
+assert.equal(g.result.changes, 1); assert(g.result.hints.length >= 2, 'Unfinished rescues and supplies should provide replay guidance');
+const mainOnlySave = JSON.parse(JSON.stringify(g.snapshot()));
+Object.assign(mainOnlySave.flags, { civilians: false, healer: false, mother: false }); mainOnlySave.history = [];
+const mainOnlyResume = new Campaign(); assert(mainOnlyResume.restore(mainOnlySave)); assert.equal(mainOnlyResume.result.changes, 0); assert.equal(mainOnlyResume.result.people, 0); assert(mainOnlyResume.result.hints.length >= 3);
+const mainOnlyAgain = new Campaign(); assert(mainOnlyAgain.restore(JSON.parse(JSON.stringify(mainOnlyResume.snapshot())))); assert.deepEqual(JSON.parse(JSON.stringify(mainOnlyAgain.result)), JSON.parse(JSON.stringify(mainOnlyResume.result)));
+g = fresh(); g.events = []; assert.equal(g.finish(), false); assert.equal(g.mode, 'playing'); assert.equal(g.events.length, 0);
+g.flags.adou = true; assert.equal(g.finish(), false); g.flags.adou = false; g.flags.boss = true; assert.equal(g.finish(), false);
+g.flags.adou = true; assert.equal(g.finish(), false, 'Completion requires reaching the bridge'); g.enterStage('bridge'); g.mode = 'paused'; assert.equal(g.finish(), false); g.mode = 'playing'; assert.equal(g.finish(), true);
+const completionEventCount = g.events.length; assert.equal(g.finish(), false); assert.equal(g.events.length, completionEventCount, 'Repeated completion may not repeat sounds, saves or endings');
+g.start('story'); assert.equal(g.result, null); assert.equal(g.snapshot().complete, false); assert.equal(g.difficulty, 'story');
 // Snapshots preserve progress, replay only the interrupted encounter, and reject bad data.
 g = fresh(); clear(g); use(g, 'toVillage'); clear(g); const saved = JSON.parse(JSON.stringify(g.snapshot())); assert(Campaign.validSnapshot(saved)); const restored = new Campaign(); assert(restored.restore(saved)); assert.equal(restored.stage, 'village'); assert.equal(restored.enemies.length, 0); assert.equal(restored.kills, g.kills);
+assert.equal(restored.mode, 'playing'); assert.equal(restored.result, null); assert.equal(restored.snapshot().complete, false);
 assert(!restored.restore({ ...saved, version: 7 })); assert(!restored.restore({ ...saved, checkpoint: { ...saved.checkpoint, x: 1e8 } }));
 g = fresh(); g.enterStage('temple'); clear(g); use(g, 'xiahouGate'); g.chooseRoute('bossStart:xiahou'); const bossSave = JSON.parse(JSON.stringify(g.snapshot())); assert(new Campaign().restore(bossSave)); const resumedBoss = new Campaign(); resumedBoss.restore(bossSave); assert.equal(resumedBoss.activeBoss, 'xiahou'); assert.equal(resumedBoss.enemies.filter(e => e.hp > 0).length, 1);
 g = fresh(); g.enterStage('village'); g.rocks = []; g.huts = [{ x: 800, y: 550, w: 180, h: 150 }]; const escort = { x: 580, y: 550, r: 12, moving: false }; const path = g.findPath(escort.x, escort.y, 1040, 550, 12); assert(path.length); assert(path.every(p => !g.blocking(p.x, p.y, 12)));
@@ -106,6 +124,14 @@ g = empty(); e = g.spawnEnemy('shield', g.player.x + 70, g.player.y); g.startEne
 assert.equal(e.action, null); assert(e.stunned >= .8); assert.equal(enemyThreat(e), null, 'A broken shield must cancel its pending strike');
 // Contextual mountain lessons advance with encounters and never gate progress on a technique.
 g = fresh(); assert.equal(g.getTutorial().step, 1); tick(g, .5, { x: 1 }); assert(g.learned.has('move')); clear(g, 'm1'); assert.equal(g.getTutorial().step, 2); clear(g, 'm2'); assert.equal(g.getTutorial().step, 3); clear(g, 'm3'); assert.equal(g.getTutorial(), null);
+g = fresh(); g.enterStage('village'); assert.equal(g.getMission().target.group, 'v1'); clear(g, 'v1'); assert.equal(g.getMission().target.group, 'v2'); clear(g, 'v2'); assert.equal(g.getMission().target.group, 'v3'); clear(g, 'v3'); assert.equal(g.getMission().target.id, 'toTemple');
+assert(g.groupAlive('vRescue')); assert(!g.blockedObject(g.getMission().target), 'Optional rescue guards must not block the main road');
+g.selectedRoute = 'healer'; assert.equal(g.getMission().target.group, 'vRescue'); clear(g, 'vRescue'); assert.equal(g.getMission().target.id, 'civilians');
+g.enterStage('temple'); assert.equal(g.getMission().target.group, 't1'); clear(g, 't1'); assert.equal(g.getMission().target.id, 'xiahouGate');
+g.flags.temple = g.flags.sword = true; assert.equal(g.getMission().target.id, 'shortcut'); g.selectedRoute = 'bridge'; assert.equal(g.getMission().target.id, 'toHouse');
+g.enterStage('house'); assert.equal(g.getMission().target.group, 'h2'); clear(g, 'h2'); assert.equal(g.getMission().target.id, 'adou');
+g.flags.adou = true; g.selectedRoute = 'healer'; assert.equal(g.getMission().target.id, 'backTemple'); g.flags.house = true; g.selectedRoute = 'bridge'; assert.equal(g.getMission().target.id, 'toFork');
+g.enterStage('fork'); assert.equal(g.getMission().target.group, 'f1'); clear(g, 'f1'); assert.equal(g.getMission().target.id, 'toBridge'); assert(g.groupAlive('fSupply')); assert(!g.blockedObject(g.getMission().target), 'Optional supplies guards must not block the bridge exit');
 // Oil carts arm only on real weapon frames, pause with the world, explode once and reset on retry.
 g = fresh(); g.enemies = []; g.allies = []; g.rocks = []; g.huts = []; const oil = g.props[0];
 g.player.x = oil.x - 90; g.player.y = oil.y; g.player.invincible = 0;
@@ -128,6 +154,13 @@ e.action = g.newAction('enemy', AttackDefinition.arrow, 0); g.updateEnemyAction(
 assert(g.effects.some(effect => effect.type === 'arrowFlash')); assert.equal(g.projectiles.length, 1);
 g.projectiles = [{ id: 555, x: 300, y: 500, vx: 400, vy: 0, damage: 14, life: 2.1 }]; for (let i = 0; i < 40; i++) g.updateProjectiles(.04);
 assert.equal(g.player.hp, g.player.maxHp); assert.equal(g.projectiles.length, 0);
+g = empty(); g.loot.push({ x: g.player.x, y: g.player.y, life: 35 }); g.step(.02);
+assert.equal(g.loot.length, 1, 'Full health must leave a nearby medicine pickup available'); assert.equal(g.effects.filter(effect => effect.type === 'ring').length, 0); assert.equal(g.events.filter(event => event.kind === 'sound' && event.sound === 'heal').length, 0);
+g.player.hp -= 7; g.step(.02); assert.equal(g.player.hp, g.player.maxHp); assert.equal(g.loot.length, 0); assert(g.floaters.some(floater => /\+7/.test(floater.text)), 'Medicine feedback must show the actual recovered health');
+assert.equal(g.effects.filter(effect => effect.type === 'ring').length, 1); assert.equal(g.events.filter(event => event.kind === 'sound' && event.sound === 'heal').length, 1);
+g.step(.02); assert.equal(g.events.filter(event => event.kind === 'sound' && event.sound === 'heal').length, 1, 'A consumed pickup must not repeat its feedback');
+g = empty(); g.player.hp -= 35; g.loot.push({ x: g.player.x, y: g.player.y, life: 35 }); g.step(.02); assert.equal(g.player.hp, g.player.maxHp - 17); assert(g.floaters.some(floater => /\+18/.test(floater.text)));
+g = empty(); g.loot.push({ x: g.player.x, y: g.player.y, life: .01 }); g.step(.02); assert.equal(g.loot.length, 0, 'Unused pickups still expire at full health');
 const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8'); assert(!html.includes('GAME_SCRIPT')); assert(!html.includes('GAME_STYLES')); assert(!/<script[^>]+src=/.test(html));
 assert.equal(html, build(), 'Published entry must match the current source build');
 assert(html.length < 250000, 'Online entry should allow images to be cached independently');
@@ -137,4 +170,4 @@ assert(!/data-device|touchControls|joystick|切换手机|选择你的游玩方�
 const script = readFileSync(new URL('./game.js', import.meta.url), 'utf8'), shell = readFileSync(new URL('./shell.html', import.meta.url), 'utf8');
 for (const [, id] of script.matchAll(/\$\('([^']+)'\)/g)) assert(shell.includes('id="' + id + '"'), 'Missing desktop UI element: ' + id);
 assert.equal(Object.keys(StageDefinition).length, 6); assert(AttackDefinition.thrust3.recovery > AttackDefinition.thrust1.recovery);
-console.log('PASS: input buffering and expiry, stable combo targeting, lunge telegraph and frame-independent damage, contextual onboarding, oil-cart tactics and retry, arrow cover, legacy saves, plus movement, medicine, precision dodge, shield break, 6 regions, both story routes, bosses, escort navigation and offline assets.');
+console.log('PASS: persistent and legacy completed battle reports, guarded single completion, objective targets and optional routes, accurate medicine pickup feedback, input buffering and expiry, stable combo targeting, lunge telegraph and frame-independent damage, contextual onboarding, oil-cart tactics and retry, arrow cover, legacy saves, plus movement, medicine, precision dodge, shield break, 6 regions, both story routes, bosses, escort navigation and offline assets.');

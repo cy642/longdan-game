@@ -41,7 +41,7 @@
       this.events = []; this.effects = []; this.projectiles = []; this.floaters = []; this.loot = []; this.history = [];
       this.flags = Object.fromEntries(flagKeys.map(k => [k, false])); this.cleared = new Set(); this.visited = new Set(); this.seen = new Set();
       this.learned = new Set(); this.actionBuffer = null;
-      this.time = 0; this.kills = 0; this.precisionCount = 0; this.nextId = 10; this.attackId = 1;
+      this.time = 0; this.kills = 0; this.precisionCount = 0; this.result = null; this.nextId = 10; this.attackId = 1;
       this.screenShake = 0; this.hitStop = 0; this.command = 'follow'; this.rescue = null; this.activeBoss = null; this.boss = null;
       this.checkpoint = { stage: 'mountain', x: 190, y: 910, encounter: null }; this.selectedRoute = 'bridge';
       const maxHp = this.difficulty === 'story' ? 240 : 200;
@@ -358,7 +358,10 @@
     }
     checkGroups() {
       for (const group of this.definition.groups) {
-        if (!this.groupDone(group.id) && !this.groupAlive(group.id)) { this.cleared.add(this.stage + ':' + group.id); this.save(); }
+        if (!this.groupDone(group.id) && !this.groupAlive(group.id)) {
+          this.cleared.add(this.stage + ':' + group.id); this.save();
+          if (!(group.unless && this.flags[group.unless])) this.events.push({ kind: 'encounter', group: group.id });
+        }
       }
       if (this.stage === 'mountain' && this.definition.groups.every(g => this.groupDone(g.id)) && !this.flags.mountain) {
         this.flags.mountain = true; this.say('山道已清。到前方营火补药，再进荒村。'); this.save();
@@ -391,7 +394,7 @@
     interactionText(o) {
       if (!o) return '';
       if (o.kind === 'camp') return this.enemies.some(e => e.hp > 0 && e.alerted && dist(e, o) < 350) ? '先击退附近敌军，再休整' : '休整 · 补满体力与三份行军药';
-      if (this.blockedObject(o)) return o.need && !this.flags[o.need] ? { mountain: '先清开山道', temple: '先击败夏侯恩', house: '先安置阿斗与糜夫人', boss: '先击退张郃' }[o.need] : '先击退附近守军 · ' + o.label;
+      if (this.blockedObject(o)) return o.need && !this.flags[o.need] ? { mountain: '先清开山道', temple: '先击败夏侯恩', house: '先安置阿斗与糜夫人', boss: '先击退张郃' }[o.need] : o.id === 'toTemple' ? '主路仍有守军 · 跟随金色指引清开前路' : '先击退附近守军 · ' + o.label;
       if (o.id === 'supplies') return this.flags.supplies ? '粮营已毁 · 北桥弓阵撤走' : this.flags.elite ? '点燃粮草 · 改变北桥部署' : '挑战盾阵校尉';
       if (o.id === 'adou' && this.flags.adou) return this.flags.healer ? '召来医者，救下糜夫人' : '糜夫人仍在井边 · 去荒村寻找医者';
       return o.label;
@@ -522,6 +525,7 @@
     }
     getMission() {
       const o = id => this.objects.find(p => p.id === id), targetEnemy = () => this.enemies.find(e => e.hp > 0) || this.player;
+      const guard = (...groups) => groups.map(id => this.enemies.find(e => e.hp > 0 && e.group === id)).find(Boolean);
       if (this.activeBoss) return { title: this.boss.name + ' · 单挑', text: this.boss.phase2 ? '新的追枪加入了连招。不要抢出枪，等收招，再抓破绽。' : '观察蓄力，闪避后出枪。精准闪避可接回马枪，破势后可打连续重击。', target: this.boss };
       if (this.rescue) return { title: '守住井畔', text: `第 ${this.rescue.wave} / 2 波 · 医者体力 ${Math.ceil(this.rescue.healer.hp)}。用军令牵制敌人，你亲自清掉追兵。`, target: this.rescue.healer };
       switch (this.stage) {
@@ -531,10 +535,16 @@
             text: this.flags.mountain ? '前方营火可补药并保存进度，之后继续进入荒村。' : { m1: '击退山道上的剑兵，熟悉长枪连击。', m2: '继续清开两名追兵，留意突刺方向与出手时机。', m3: '盾兵与弓手守住出口，借地形和破盾技打开前路。' }[group] || '沿山道向前，清开守军。',
             target: this.flags.mountain ? o('toVillage') : target || this.player };
         }
-        case 'village': return { title: this.selectedRoute === 'healer' && !this.flags.healer ? '寻访医者' : '穿过荒村', text: '西巷有被困医者与百姓；北面破庙有曹将守路。救援是可选的，也会打开新的结局。', target: this.selectedRoute === 'healer' && !this.flags.healer ? o('civilians') : o('toTemple') };
-        case 'temple': return { title: this.flags.temple ? '侧门已开' : '破庙夺剑', text: this.flags.temple ? '东路通向井畔旧宅，西侧门直回荒村。' : '清开庙外守军，在营火休整，随后独自挑战夏侯恩。', target: this.flags.temple ? this.selectedRoute === 'healer' && !this.flags.healer ? o('shortcut') : o('toHouse') : o('xiahouGate') };
-        case 'house': return { title: this.flags.house ? '护主向北' : this.flags.adou ? '井畔还有一人' : '寻回阿斗', text: this.flags.house ? '糜夫人' + (this.flags.mother ? '已获救。' : '仍可营救。') + '前往粮道岔口，也可以回头寻找医者。' : this.flags.adou ? '保护医者救下糜夫人，或先护阿斗撤离。渡桥前还可以回头。' : '击退守军后，靠近井畔旧宅，寻回阿斗与糜夫人。', target: this.selectedRoute === 'healer' && !this.flags.healer ? o('backTemple') : this.flags.house ? o('toFork') : o('adou') };
-        case 'fork': return { title: '粮道抉择', text: '北面进入北桥；东面的粮营可挑战盾阵校尉。焚粮会撤掉桥头弓阵。入桥前仍能返回旧宅。', target: o('toBridge') };
+        case 'village': {
+          const seekingHealer = this.selectedRoute === 'healer' && !this.flags.healer, roadGuard = guard('v1', 'v2', 'v3');
+          const remaining = this.enemies.filter(e => e.hp > 0 && ['v1', 'v2', 'v3'].includes(e.group)).length;
+          return { title: seekingHealer ? '寻访医者' : roadGuard ? '清开荒村主路' : '穿过荒村',
+            text: seekingHealer ? '跟随指引击退西巷守军，再靠近医者按 E 救人。救出医者后可回井畔改写糜夫人的命运。' : roadGuard ? `主路还有 ${remaining} 名守军。金色指引会带你找到漏掉的敌人；西巷救援可自行选择。` : this.flags.civilians ? '主路已通，医者与百姓也已获救。北面通向破庙，继续前行。' : '主路已通，北面通向破庙。西巷医者与百姓仍可救援，也可先继续前行。',
+            target: seekingHealer ? guard('vRescue') || o('civilians') : roadGuard || o('toTemple') };
+        }
+        case 'temple': return { title: this.flags.temple ? '侧门已开' : '破庙夺剑', text: this.flags.temple ? '东路通向井畔旧宅，西侧门直回荒村。' : '清开庙外守军，在营火休整，随后独自挑战夏侯恩。', target: this.flags.temple ? this.selectedRoute === 'healer' && !this.flags.healer ? o('shortcut') : o('toHouse') : guard('t1') || o('xiahouGate') };
+        case 'house': return { title: this.flags.house ? '护主向北' : this.flags.adou ? '井畔还有一人' : '寻回阿斗', text: this.flags.house ? '糜夫人' + (this.flags.mother ? '已获救。' : '仍可营救。') + '前往粮道岔口，也可以回头寻找医者。' : this.flags.adou ? '保护医者救下糜夫人，或先护阿斗撤离。渡桥前还可以回头。' : '击退井畔守军后，靠近旧宅按 E，寻回阿斗与糜夫人。', target: this.selectedRoute === 'healer' && !this.flags.healer ? o('backTemple') : this.flags.house ? o('toFork') : guard('h2') || o('adou') };
+        case 'fork': return { title: '粮道抉择', text: this.groupAlive('f1') ? '跟随指引清开北路守军。东面的粮营是可选挑战，焚粮会撤掉桥头弓阵。' : '北路已通。东面的粮营可挑战盾阵校尉，焚粮会撤掉桥头弓阵。入桥前仍能返回旧宅。', target: guard('f1') || o('toBridge') };
         default: return { title: this.flags.boss ? '渡桥重逢' : '一枪断后', text: this.flags.boss ? '沿木桥向北，与刘备会合，看看你改写了哪些命运。' : this.flags.supplies ? '弓阵已撤，东侧道已打开。清开盾阵，让随军先走，再独自接下张郃的枪。' : '随军协助牵制盾兵，赵云先破弓阵。清开桥头后，单挑张郃。', target: this.flags.boss ? o('exit') : this.groupAlive() ? targetEnemy() : o('zhangheGate') };
       }
     }
@@ -546,17 +556,27 @@
       if (cp.encounter === 'rescue') this.startRescue(); else if (['xiahou', 'zhanghe'].includes(cp.encounter)) this.beginBoss(cp.encounter);
       this.say('重新握枪。已完成的救援与夺剑仍在，当前战斗重新开始。'); this.save(); return true;
     }
-    finish() {
-      this.clearActionBuffer(); this.mode = 'ending';
+    buildResult() {
       const title = this.flags.mother ? '长坂逆命 · 母子同归' : this.flags.civilians ? '一骑护众 · 仁心归来' : '孤胆归来 · 命有未竟';
       const text = this.flags.mother ? '刘备先接过阿斗，随后看见担架上的糜夫人。\n「子龙……你竟把她也带回来了。」\n\n记忆里的诀别没有发生。你改写的第一件事，是让一个人活下来。' : '刘备接过阿斗，伸手扶起浑身尘土的你。\n「子龙，今日全赖你了。」\n\n你护住了孩子，也记住了井畔未能兑现的承诺。长坂的命运，还有另一种写法。';
-      this.result = { won: true, title, text, people: this.flags.civilians ? 3 : 0, soldiers: 3, kills: this.kills, time: this.time, mother: this.flags.mother, supplies: this.flags.supplies, history: [...this.history] };
+      const hints = [];
+      if (!this.flags.civilians) hints.push('荒村西巷：击退守军，靠近医者按 E，可救出医者与三名百姓。');
+      if (!this.flags.mother) hints.push(this.flags.healer ? '井畔旧宅：选择请医者救人，护住两波追兵，即可让糜夫人活下来。' : '井畔旧宅：先在荒村救出医者，再请他施救；进入北桥前仍可回头。');
+      if (!this.flags.supplies) hints.push('粮道东营：击败盾阵校尉后，再靠近粮草按 E 点燃，北桥弓阵便会撤走。');
+      return { won: true, title, text, people: this.flags.civilians ? 3 : 0, soldiers: 3, kills: this.kills, time: this.time,
+        mother: this.flags.mother, supplies: this.flags.supplies, history: [...this.history], precisionCount: this.precisionCount,
+        difficulty: this.difficulty, changes: [this.flags.civilians, this.flags.mother, this.flags.supplies].filter(Boolean).length, hints };
+    }
+    finish() {
+      if (this.mode !== 'playing' || this.stage !== 'bridge' || !this.flags.adou || !this.flags.boss || this.result?.won) return false;
+      this.clearActionBuffer(); this.mode = 'ending'; this.result = this.buildResult();
       this.events.push({ kind: 'ending', result: this.result }); this.events.push({ kind: 'sound', sound: 'victory' }); this.save();
+      return true;
     }
     snapshot() {
       return { version: 1, difficulty: this.difficulty, stage: this.stage, checkpoint: { ...this.checkpoint }, flags: { ...this.flags }, cleared: [...this.cleared],
         visited: [...this.visited], seen: [...this.seen], history: [...this.history], time: this.time, kills: this.kills, precisionCount: this.precisionCount,
-        route: this.selectedRoute, learned: [...this.learned], complete: this.mode === 'ending' };
+        route: this.selectedRoute, learned: [...this.learned], complete: !!this.result?.won };
     }
     static validSnapshot(s) {
       if (!s || s.version !== 1 || !StageDefinition[s.stage] || !s.checkpoint || !StageDefinition[s.checkpoint.stage] || !['normal', 'story'].includes(s.difficulty)) return false;
@@ -567,14 +587,20 @@
       if (s.seen.some(k => !['xiahou', 'zhanghe'].includes(k)) || ![null, 'xiahou', 'zhanghe', 'rescue'].includes(s.checkpoint.encounter)) return false;
       if (s.learned !== undefined && (!Array.isArray(s.learned) || s.learned.length > learningKeys.length || s.learned.some(k => !learningKeys.includes(k)))) return false;
       if (s.flags.sword !== s.flags.temple || s.flags.mother && (!s.flags.adou || !s.flags.healer) || s.flags.boss && !s.flags.adou || s.flags.committed && !s.flags.adou) return false;
+      if (s.complete !== undefined && typeof s.complete !== 'boolean' || s.complete && (!s.flags.adou || !s.flags.boss || s.stage !== 'bridge')) return false;
       return [s.time, s.kills, s.precisionCount].every(v => Number.isFinite(v) && v >= 0 && v < 1e7);
     }
     restore(s) {
-      if (!Campaign.validSnapshot(s) || s.complete) return false;
+      if (!Campaign.validSnapshot(s)) return false;
       this.reset(s.difficulty); this.flags = { ...s.flags }; this.cleared = new Set(s.cleared); this.visited = new Set(s.visited); this.seen = new Set(s.seen);
       this.learned = new Set(s.learned || []);
       this.history = [...s.history]; this.time = s.time; this.kills = s.kills; this.precisionCount = s.precisionCount; this.selectedRoute = s.route === 'healer' ? 'healer' : 'bridge';
       this.checkpoint = { ...s.checkpoint }; this.mode = 'playing'; this.enterStage(s.checkpoint.stage, [s.checkpoint.x, s.checkpoint.y], false);
+      if (s.complete) {
+        const exit = StageDefinition.bridge.objects.find(o => o.kind === 'finish');
+        this.enterStage('bridge', [exit.x, exit.y], false); this.events = [{ kind: 'stage', stage: 'bridge' }];
+        this.mode = 'ending'; this.result = this.buildResult(); this.events.push({ kind: 'ending', result: this.result }); return true;
+      }
       if (s.checkpoint.encounter === 'rescue' && !this.flags.mother) this.startRescue();
       else if (s.checkpoint.encounter === 'xiahou' && !this.flags.temple || s.checkpoint.encounter === 'zhanghe' && !this.flags.boss) this.beginBoss(s.checkpoint.encounter);
       this.say('已从最近营火或战斗入口继续。已完成的命运选择都还在。'); return true;
@@ -737,7 +763,17 @@
       this.updateProjectiles(dt); if (this.mode !== 'playing') return;
       this.updateProps(dt); if (this.mode !== 'playing') return;
       this.updateRescue(dt);
-      for (let i = this.loot.length - 1; i >= 0; i--) { const item = this.loot[i]; item.life -= dt; if (dist(p, item) < 35) { p.hp = Math.min(p.maxHp, p.hp + 18); this.loot.splice(i, 1); } else if (item.life <= 0) this.loot.splice(i, 1); }
+      let recovered = 0;
+      for (let i = this.loot.length - 1; i >= 0; i--) {
+        const item = this.loot[i]; item.life -= dt;
+        if (dist(p, item) < 35 && p.hp < p.maxHp) { const amount = Math.min(18, p.maxHp - p.hp); p.hp += amount; recovered += amount; this.loot.splice(i, 1); }
+        else if (item.life <= 0) this.loot.splice(i, 1);
+      }
+      if (recovered > 0) {
+        this.floater(p.x, p.y - 28, '+' + Math.ceil(recovered) + ' 体力', '#bfe6b1');
+        this.effects.push({ type: 'ring', x: p.x, y: p.y, radius: 36, color: '#a7d5a6', life: .4, maxLife: .4 });
+        this.events.push({ kind: 'sound', sound: 'heal' });
+      }
       for (const e of this.effects) { e.life -= dt; if (e.vx != null) { e.x += e.vx * dt; e.y += e.vy * dt; } }
       this.effects = this.effects.filter(e => e.life > 0);
       for (const f of this.floaters) { f.life -= dt; f.y -= dt * 22; } this.floaters = this.floaters.filter(f => f.life > 0);

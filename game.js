@@ -9,19 +9,20 @@
   let viewW = innerWidth, viewH = innerHeight, dpr = 1;
   const zoom = 1;
   let terrain, scenery = [], menuDifficulty = 'normal', lastFrame = performance.now(), hudClock = 0;
-  let toastTimer = 0, commandTimer = 0, stageTimer = 0, audioContext = null, muted = false, saveAvailable = true;
+  let toastTimer = 0, commandTimer = 0, stageTimer = 0, encounterTimer = 0, audioContext = null, muted = false, saveAvailable = true;
+  let pendingStart = null;
   let mouseAttack = false, mouse = { x: 0, y: 0 }, aimUntil = 0;
   let reducedEffects = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false;
   try { const saved = localStorage.getItem('longdan.effects'); if (saved) reducedEffects = saved === 'soft'; } catch {}
   document.body.classList.toggle('soft-effects', reducedEffects);
   const keys = new Set(), camera = { x: 650, y: 750 };
-  const overlays = ['menu', 'dialog', 'pause', 'map', 'defeat', 'ending'];
+  const overlays = ['menu', 'dialog', 'pause', 'map', 'defeat', 'ending', 'restart'];
   const desktopHelp = 'WASD / 方向键 移动\nJ / 鼠标左键 龙枪三式　空格 / K 闪避\nQ / 右键 横扫破阵　R 青釭断势（夺剑后）\nF 行军药（可被打断）　E 互动 / 休整 / 前进\n1 集合　2 守点　3 冲阵　M 军图　Esc 暂停\n精准闪避后，1.2秒内出枪可接回马枪。';
   function readSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return Campaign.validSnapshot(s) ? s : null; } catch { return null; } }
   function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(campaign.snapshot())); saveAvailable = true; } catch { saveAvailable = false; } }
   function refreshSaveMenu() {
-    const saved = readSave(); $('continueButton').classList.toggle('hidden', !saved || saved.complete);
-    $('saveInfo').textContent = !saveAvailable ? '此浏览器无法保存进度，本次仍可游玩。' : saved ? saved.complete ? '长坂已通关。开始新征程，可尝试另一种命运。' : '最近进度：' + StageDefinition[saved.checkpoint.stage].name + ' · ' + (saved.difficulty === 'story' ? '初入战场' : '龙胆') : '营火、战斗入口与完成的救援会自动保存。';
+    const saved = readSave(); $('continueButton').classList.toggle('hidden', !saved || saved.complete); $('reportButton').classList.toggle('hidden', !saved?.complete);
+    $('saveInfo').textContent = !saveAvailable ? '此浏览器无法保存进度，本次仍可游玩。' : saved ? saved.complete ? '长坂已通关。战报已保存，可回看，也可重新改写命运。' : '最近进度：' + StageDefinition[saved.checkpoint.stage].name + ' · ' + (saved.difficulty === 'story' ? '初入战场' : '龙胆') : '营火、战斗入口与完成的救援会自动保存。';
   }
   function clearInput() { keys.clear(); mouseAttack = false; aimUntil = 0; campaign.clearActionBuffer(); }
   function hideOverlays() { overlays.forEach(id => $(id).classList.add('hidden')); }
@@ -34,7 +35,7 @@
     const x = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
     const y = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
     const p = campaign.player;
-    const aim = performance.now() < aimUntil ? Math.atan2((mouse.y - viewH / 2) / zoom + camera.y - p.y, (mouse.x - viewW / 2) / zoom + camera.x - p.x) : undefined;
+    const aim = mouseAttack || performance.now() < aimUntil ? Math.atan2((mouse.y - viewH / 2) / zoom + camera.y - p.y, (mouse.x - viewW / 2) / zoom + camera.x - p.x) : undefined;
     return { x, y, aim, attack: keys.has('j') || mouseAttack };
   }
   function unlockAudio() { try { if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)(); if (audioContext.state === 'suspended') audioContext.resume().catch(() => {}); } catch {} }
@@ -77,10 +78,22 @@
     else if (campaign.mode === 'map') { campaign.mode = 'playing'; $('map').classList.add('hidden'); }
     clearInput();
   }
-  function start() { unlockAudio(); clearInput(); hideOverlays(); $('hud').classList.remove('hidden'); campaign.start(menuDifficulty); processEvents(); writeSave(); updateHud(); }
+  function start(difficulty = menuDifficulty) { pendingStart = null; unlockAudio(); clearInput(); hideOverlays(); $('hud').classList.remove('hidden'); campaign.start(difficulty); processEvents(); writeSave(); updateHud(); }
+  function requestStart(difficulty) {
+    if (!readSave()) { start(difficulty); return; }
+    pendingStart = { difficulty, mode: campaign.mode }; clearInput(); hideOverlays();
+    $('restartText').textContent = '新征程将替换本浏览器的当前进度与战报。\n战斗难度：' + (difficulty === 'story' ? '初入战场' : '龙胆') + '。确定重新从山道出发吗？';
+    $('restart').classList.remove('hidden'); $('cancelRestartButton').focus();
+  }
+  function cancelStart() {
+    if (!pendingStart) return;
+    const source = pendingStart.mode === 'paused' ? 'pause' : pendingStart.mode; pendingStart = null;
+    $('restart').classList.add('hidden'); $(source).classList.remove('hidden');
+    $(source === 'menu' ? 'startButton' : source === 'ending' ? 'playAgainButton' : 'restartButton').focus();
+  }
   function continueGame() {
     const saved = readSave(); if (!saved || !campaign.restore(saved)) { refreshSaveMenu(); showToast('没有可继续的进度，可开始新的征程。'); return; }
-    unlockAudio(); clearInput(); hideOverlays(); $('hud').classList.remove('hidden'); processEvents(); updateHud();
+    unlockAudio(); clearInput(); hideOverlays(); $('hud').classList.toggle('hidden', campaign.mode === 'ending'); processEvents(); updateHud();
   }
   function returnMenu() { clearInput(); hideOverlays(); campaign.mode = 'menu'; $('hud').classList.add('hidden'); $('menu').classList.remove('hidden'); refreshSaveMenu(); }
   function processEvents() {
@@ -90,7 +103,11 @@
       if (e.kind === 'toast') showToast(e.text);
       else if (e.kind === 'save') pendingSave = true;
       else if (e.kind === 'sound') sound(e.sound);
-      else if (e.kind === 'stage') { buildTerrain(); camera.x = campaign.player.x; camera.y = campaign.player.y; $('stageName').textContent = campaign.definition.name; $('stageChapter').textContent = campaign.definition.chapter; $('stageBanner').classList.toggle('hidden', campaign.mode === 'menu'); stageTimer = 2.5; }
+      else if (e.kind === 'stage') { buildTerrain(); camera.x = campaign.player.x; camera.y = campaign.player.y; $('encounterBanner').classList.add('hidden'); encounterTimer = 0; $('stageName').textContent = campaign.definition.name; $('stageChapter').textContent = campaign.definition.chapter; $('stageBanner').classList.toggle('hidden', campaign.mode === 'menu' || campaign.mode === 'ending'); stageTimer = 2.5; }
+      else if (e.kind === 'encounter' && campaign.mode === 'playing') {
+        $('encounterTitle').textContent = '此处敌阵已破'; $('encounterNext').textContent = '下一步 · ' + campaign.getMission().title;
+        $('encounterBanner').classList.remove('hidden'); encounterTimer = 2.4;
+      }
       else if (e.kind === 'command') { document.querySelectorAll('[data-command]').forEach(b => b.classList.toggle('selected', b.dataset.command === e.command)); $('commandBanner').textContent = { follow: '集合 · 随行掩护', hold: '守点 · 稳住阵线', charge: '冲阵 · 牵制敌军' }[e.command]; $('commandBanner').classList.add('show'); commandTimer = 2.2; sound('command'); }
       else if (e.kind === 'dialog') {
         clearInput(); $('dialogTitle').textContent = e.title; $('dialogText').textContent = e.text; $('dialogEyebrow').textContent = e.speaker;
@@ -104,10 +121,14 @@
         $('dialog').classList.remove('hidden');
       } else if (e.kind === 'defeat') { clearInput(); $('defeatTitle').textContent = e.title; $('defeatText').textContent = e.text; $('defeat').classList.remove('hidden'); }
       else if (e.kind === 'ending') {
-        clearInput(); $('endingTitle').textContent = e.result.title; $('endingText').textContent = e.result.text;
+        clearInput(); $('hud').classList.add('hidden'); $('endingTitle').textContent = e.result.title; $('endingText').textContent = e.result.text;
         $('endingOutcomes').innerHTML = `<span class="${e.result.mother ? 'changed' : ''}">糜夫人 ${e.result.mother ? '存活' : '未获救'}</span><span class="${e.result.people ? 'changed' : ''}">百姓 ${e.result.people} 人获救</span><span class="${e.result.supplies ? 'changed' : ''}">粮道 ${e.result.supplies ? '截断' : '未截断'}</span>`;
-        $('endingStats').innerHTML = `<div><b>${e.result.kills}</b><span>亲手击破</span></div><div><b>3</b><span>随军归队</span></div><div><b>${campaign.precisionCount}</b><span>精准闪避</span></div><div><b>${formatTime(e.result.time)}</b><span>出征用时</span></div>`;
-        $('endingHistory').replaceChildren(); for (const line of e.result.history) { const note = document.createElement('div'); note.textContent = '· ' + line; $('endingHistory').append(note); } $('ending').classList.remove('hidden');
+        $('endingStats').innerHTML = `<div><b>${e.result.kills}</b><span>亲手击破</span></div><div><b>3</b><span>随军归队</span></div><div><b>${e.result.precisionCount}</b><span>精准闪避</span></div><div><b>${formatTime(e.result.time)}</b><span>出征用时</span></div>`;
+        $('endingCompletion').textContent = '第一章主线完成 · 支线逆命 ' + e.result.changes + ' / 3 · ' + (e.result.difficulty === 'story' ? '初入战场' : '龙胆');
+        $('endingHints').replaceChildren();
+        for (const line of e.result.hints) { const hint = document.createElement('p'); hint.textContent = line; $('endingHints').append(hint); }
+        $('endingHintTitle').textContent = e.result.hints.length ? '下一次，可以再改写这些命运' : '三项支线命运均已改写';
+        $('endingHistory').replaceChildren(); for (const line of e.result.history) { const note = document.createElement('div'); note.textContent = '· ' + line; $('endingHistory').append(note); } $('ending').classList.remove('hidden'); $('ending').scrollTop = 0;
       }
     }
     if (pendingSave) writeSave();
@@ -166,9 +187,16 @@
     processEvents(); updateHud();
   }
   document.addEventListener('keydown', e => {
-    const key = e.key.toLowerCase(); if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'tab'].includes(key)) e.preventDefault(); if (e.repeat) return;
+    const key = e.key.toLowerCase();
+    if (pendingStart) {
+      if (key === 'escape') { e.preventDefault(); cancelStart(); }
+      else if (key === 'tab') { e.preventDefault(); (document.activeElement === $('cancelRestartButton') ? $('confirmRestartButton') : $('cancelRestartButton')).focus(); }
+      return;
+    }
+    if (campaign.mode === 'playing' && [' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'tab'].includes(key) || campaign.mode === 'map' && key === 'tab') e.preventDefault();
+    if (e.repeat) return;
     if (key === 'escape') { campaign.mode === 'map' ? toggleMap() : togglePause(); return; }
-    if (key === 'm' || key === 'tab') { toggleMap(); return; }
+    if ((key === 'm' || key === 'tab') && ['playing', 'map'].includes(campaign.mode)) { toggleMap(); return; }
     if (campaign.mode !== 'playing') return; keys.add(key);
     if (key === 'j') act('attack');
     else if (key === 'e') act('interact'); else if (key === 'q') act('heavy'); else if (key === 'r') act('ultimate'); else if (key === 'f') act('heal'); else if (key === ' ' || key === 'k') act('dash');
@@ -181,7 +209,9 @@
   canvas.addEventListener('pointerdown', e => { if (campaign.mode !== 'playing' || e.pointerType === 'touch') return; unlockAudio(); const rect = canvas.getBoundingClientRect(); mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top }; aimUntil = performance.now() + 1400; if (e.button === 0) { mouseAttack = true; act('attack'); canvas.setPointerCapture(e.pointerId); } else if (e.button === 2) act('heavy'); });
   window.addEventListener('pointerup', () => { mouseAttack = false; });
   window.addEventListener('pointercancel', () => { mouseAttack = false; }); canvas.addEventListener('contextmenu', e => e.preventDefault());
-  $('startButton').addEventListener('click', start); $('continueButton').addEventListener('click', continueGame); $('restartButton').addEventListener('click', start); $('playAgainButton').addEventListener('click', start);
+  $('startButton').addEventListener('click', () => requestStart(menuDifficulty)); $('continueButton').addEventListener('click', continueGame); $('reportButton').addEventListener('click', continueGame);
+  $('restartButton').addEventListener('click', () => requestStart(campaign.difficulty)); $('playAgainButton').addEventListener('click', () => requestStart(campaign.difficulty));
+  $('confirmRestartButton').addEventListener('click', () => { if (pendingStart) start(pendingStart.difficulty); }); $('cancelRestartButton').addEventListener('click', cancelStart);
   $('pauseButton').addEventListener('click', togglePause); $('resumeButton').addEventListener('click', togglePause);
   $('mapButton').addEventListener('click', toggleMap); $('quickMapButton').addEventListener('click', toggleMap); $('closeMapButton').addEventListener('click', toggleMap);
   $('healButton').addEventListener('click', () => act('heal'));
@@ -291,10 +321,10 @@
     const dx = x - viewW / 2, dy = y - viewH / 2, f = Math.min((viewW / 2 - 48) / Math.max(Math.abs(dx), 1), (viewH / 2 - 110) / Math.max(Math.abs(dy), 1));
     x = viewW / 2 + dx * f; y = viewH / 2 + dy * f; g.save(); g.translate(x, y); g.rotate(Math.atan2(dy, dx)); polygon(g, [[12 + Math.sin(time * 2) * 2, 0], [-6, -7], [-2, 0], [-6, 7]], '#e9d398'); g.restore();
   }
-  function render(now) {
+  function render(now, dt) {
     const g = ctx, time = now / 1000, p = campaign.player, halfW = viewW / zoom / 2, halfH = viewH / zoom / 2;
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.fillStyle = '#657d67'; g.fillRect(0, 0, viewW, viewH);
-    if (campaign.mode !== 'menu') { camera.x += (p.x - camera.x) * .13; camera.y += (p.y - camera.y) * .13; }
+    if (campaign.mode !== 'menu') { const follow = 1 - Math.exp(-8.36 * dt); camera.x += (p.x - camera.x) * follow; camera.y += (p.y - camera.y) * follow; }
     const shake = reducedEffects ? 0 : campaign.screenShake;
     const sx = Math.sin(time * 61) * shake, sy = Math.cos(time * 73) * shake * .65;
     g.save(); g.translate(viewW / 2 + sx, viewH / 2 + sy); g.scale(zoom, zoom); g.translate(-camera.x, -camera.y);
@@ -329,9 +359,10 @@
     const dt = Math.min((now - lastFrame) / 1000, .04); lastFrame = now;
     let simDt = dt;
     if (campaign.mode === 'playing' && campaign.hitStop > 0) { const held = Math.min(dt, campaign.hitStop); campaign.hitStop -= held; if (!reducedEffects) simDt -= held; }
-    if (simDt > 0) campaign.step(simDt, inputState()); processEvents(); render(now);
-    toastTimer -= dt; commandTimer -= dt; stageTimer -= dt;
+    if (simDt > 0) campaign.step(simDt, inputState()); processEvents(); render(now, dt);
+    toastTimer -= dt; commandTimer -= dt; stageTimer -= dt; if (campaign.mode === 'playing') encounterTimer -= dt;
     if (toastTimer <= 0) $('toast').classList.add('hidden'); if (commandTimer <= 0) $('commandBanner').classList.remove('show'); if (stageTimer <= 0) $('stageBanner').classList.add('hidden');
+    if (encounterTimer <= 0) $('encounterBanner').classList.add('hidden');
     hudClock += dt; if (hudClock >= .1) { hudClock = 0; if (campaign.mode !== 'menu') updateHud(); } requestAnimationFrame(frame);
   }
   window.addEventListener('resize', resize);

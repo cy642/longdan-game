@@ -417,6 +417,19 @@
       g.fillStyle = '#233b2dc7'; g.fillRect(-bar / 2, y, bar, 3);
       g.fillStyle = role === 'enemy' ? '#d07a60' : '#a8d5a2'; g.fillRect(-bar / 2, y, bar * a.hp / a.maxHp, 3);
     }
+    if (role === 'enemy') {
+      const status = a.phaseTime > 0 ? { text: '变招 · 留意新式', color: '#edb197' }
+        : a.stunned > 0 && a.staggerShield > 0 ? { text: '破势 · 可反击', color: '#e5d392' }
+        : a.shieldBroken > 0 ? { text: '盾防已破', color: '#b9dfd3' }
+        : a.stunned > .18 ? { text: '失衡 · 可反击', color: '#e5d392' } : null;
+      if (status) {
+        g.save(); g.globalAlpha = 1; g.font = '10px Microsoft YaHei'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        const labelWidth = Math.ceil(g.measureText(status.text).width) + 14, labelY = boss ? -94 : -75;
+        g.fillStyle = '#173128e8'; g.fillRect(-labelWidth / 2, labelY - 9, labelWidth, 18);
+        g.strokeStyle = status.color + '70'; g.lineWidth = 1; g.strokeRect(-labelWidth / 2, labelY - 9, labelWidth, 18);
+        g.fillStyle = status.color; g.fillText(status.text, 0, labelY); g.restore();
+      }
+    }
     g.restore();
   }
   function atmosphere(g, camera, width, height, time) {
