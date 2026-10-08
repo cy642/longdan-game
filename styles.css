@@ -1,6 +1,8 @@
 :root{color-scheme:dark;--paper:#ece2c9;--ink:#142d27;--jade:#9bc7b9;--gold:#d9c58e;--muted:#b9c9b7}
 .skill[data-skill]{position:relative;overflow:hidden;transition:border-color .12s,box-shadow .12s}
 .skill[data-skill]::after{content:"";position:absolute;bottom:0;left:0;height:2px;width:var(--charge,100%);background:linear-gradient(90deg,#6aaba3,#c7eee0);transition:width .1s}
+#healButton{position:relative;overflow:hidden}#healButton::after{content:"";position:absolute;bottom:0;left:0;height:3px;width:var(--charge,0%);background:#b9d995;transition:width .08s linear}
+.save-status{display:block;padding:4px 5px 6px;border-top:1px solid #b9c79f26;text-align:center;font-size:9px;color:#a8c8a3}.save-status.save-warning{color:#e9bb8b}
 .skill[data-skill="sword"]::after{background:linear-gradient(90deg,#bc944d,#ffe3a5)}
 .skill.unavailable b{color:#a6b8a5}.skill.casting{border-color:#dffbf3;box-shadow:0 0 18px #91e8e344,inset 0 0 20px #90dfd626}
 .skill.ready{animation:skill-breathe 1.9s ease-in-out infinite}

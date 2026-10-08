@@ -92,6 +92,17 @@ for (let i = 0; i < 360; i++) { if (i % 36 === 0) g.dash(0, 1); g.step(.02, { at
 g.effects.push({ type: 'cast', life: 1 }); g.hitStop = .05; g.enterStage('village'); assert.equal(g.effects.length, 0); assert.equal(g.hitStop, 0);
 // A short deliberate press near recovery is consumed once; early or stale inputs are discarded.
 const empty = () => { const c = fresh(); c.enemies = []; c.allies = []; c.rocks = []; c.huts = []; c.props = []; return c; };
+for (const frameSequence of [Array(50).fill(.02), [...Array(47).fill(.02), .04], [...Array(23).fill(.04), .02, .04]]) {
+  g = empty(); g.player.hp = 100; assert(g.heal());
+  for (const frameDt of frameSequence) g.step(frameDt);
+  assert.equal(g.player.hp, 185, 'Medicine must heal even when a frame spans its entire active window');
+  assert.equal(g.player.potions, 2); assert.equal(g.events.filter(event => event.kind === 'sound' && event.sound === 'heal').length, 1);
+  tick(g, .4); assert.equal(g.player.hp, 185); assert.equal(g.events.filter(event => event.kind === 'sound' && event.sound === 'heal').length, 1, 'Medicine may heal only once');
+}
+g = empty(); g.player.hp = 100; g.player.invincible = 0; assert(g.heal());
+for (let frameIndex = 0; frameIndex < 47; frameIndex++) g.step(.02);
+g.damageFriend(g.player, 10, 913); g.step(.04); tick(g, .4);
+assert.equal(g.player.hp, 90, 'Medicine interrupted before a crossing frame must not heal'); assert.equal(g.player.potions, 2); assert.equal(g.events.filter(event => event.kind === 'sound' && event.sound === 'heal').length, 0);
 g = empty(); assert(g.requestAction('attack', { aim: 0 })); assert(!g.requestAction('attack', { aim: 0 }), 'Presses far from recovery may not queue an attack');
 tick(g, .34); assert(g.requestAction('attack', { aim: 0 })); assert(g.actionBuffer); tick(g, .1); assert.equal(g.player.action.key, 'thrust2'); assert.equal(g.actionBuffer, null);
 tick(g, .7); assert.equal(g.player.action, null); assert.equal(g.player.combo, 2, 'A released buffered press may not repeat');
@@ -122,6 +133,24 @@ e.action = g.newAction('enemy', { windup: .11, active: .23, recovery: .5, range:
 for (let i = 0; i < 10; i++) g.updateEnemyAction(e, .04, g.player); assert.equal(g.player.hp, g.player.maxHp, 'Standing beyond the full telegraph must be safe');
 g = empty(); e = g.spawnEnemy('shield', g.player.x + 70, g.player.y); g.startEnemyAction(e, g.player); g.damageEnemy(e, 42, 0, 0, 'player', 34, true);
 assert.equal(e.action, null); assert(e.stunned >= .8); assert.equal(enemyThreat(e), null, 'A broken shield must cancel its pending strike');
+for (const unitType of ['shield', 'elite']) {
+  g = empty(); e = g.spawnEnemy(unitType, g.player.x + 70, g.player.y); g.startEnemyAction(e, g.player);
+  const guardedAction = e.action, guardedHp = e.hp, guardedWindup = e.windup;
+  g.damageEnemy(e, 25, 0, 50, 'player', 10);
+  assert.equal(e.action, guardedAction, 'An intact frontal shield must preserve its pending strike'); assert.equal(e.windup, guardedWindup);
+  assert.equal(e.stunned, 0); assert.equal(e.knockX, 0); assert.equal(e.knockY, 0);
+  assert.equal(e.hp, guardedHp - 6); assert.equal(e.stagger, 4.5, 'Shield damage and stagger reductions must retain their existing values');
+  e.stagger = e.staggerMax - 1; g.damageEnemy(e, 25, 0, 50, 'player', 10);
+  assert.equal(e.action, null); assert(e.stunned >= 1.3, 'Full stagger must still interrupt a shielded enemy'); assert(e.staggerShield > 0);
+}
+g = empty(); e = g.spawnEnemy('shield', g.player.x + 70, g.player.y); g.startEnemyAction(e, g.player);
+const rearHp = e.hp; g.damageEnemy(e, 25, Math.PI, 50, 'player', 10);
+assert.equal(e.action, null, 'A rear strike must still interrupt a shield soldier'); assert(e.stunned >= .12); assert(e.knockX < 0); assert.equal(e.hp, rearHp - 25);
+g = empty(); e = g.spawnEnemy('shield', g.player.x + 70, g.player.y); e.shieldBroken = 2; g.startEnemyAction(e, g.player);
+g.damageEnemy(e, 25, 0, 50, 'player', 10); assert.equal(e.action, null); assert(e.stunned >= .12); assert(e.knockX > 0, 'A broken shield must no longer protect a frontal windup');
+g = empty(); g.player.x = 650; g.player.y = 550; g.player.invincible = 0; e = g.spawnEnemy('shield', 715, 550); e.dir = Math.PI;
+for (let frameIndex = 0; frameIndex < 400 && g.mode === 'playing'; frameIndex++) g.step(.02, { attack: true });
+assert(g.player.hp < g.player.maxHp, 'Holding normal attack may not permanently cancel an intact shield soldier'); assert.equal(e.shieldBroken, 0);
 // Contextual mountain lessons advance with encounters and never gate progress on a technique.
 g = fresh(); assert.equal(g.getTutorial().step, 1); tick(g, .5, { x: 1 }); assert(g.learned.has('move')); clear(g, 'm1'); assert.equal(g.getTutorial().step, 2); clear(g, 'm2'); assert.equal(g.getTutorial().step, 3); clear(g, 'm3'); assert.equal(g.getTutorial(), null);
 g = fresh(); g.enterStage('village'); assert.equal(g.getMission().target.group, 'v1'); clear(g, 'v1'); assert.equal(g.getMission().target.group, 'v2'); clear(g, 'v2'); assert.equal(g.getMission().target.group, 'v3'); clear(g, 'v3'); assert.equal(g.getMission().target.id, 'toTemple');
@@ -170,4 +199,4 @@ assert(!/data-device|touchControls|joystick|切换手机|选择你的游玩方�
 const script = readFileSync(new URL('./game.js', import.meta.url), 'utf8'), shell = readFileSync(new URL('./shell.html', import.meta.url), 'utf8');
 for (const [, id] of script.matchAll(/\$\('([^']+)'\)/g)) assert(shell.includes('id="' + id + '"'), 'Missing desktop UI element: ' + id);
 assert.equal(Object.keys(StageDefinition).length, 6); assert(AttackDefinition.thrust3.recovery > AttackDefinition.thrust1.recovery);
-console.log('PASS: persistent and legacy completed battle reports, guarded single completion, objective targets and optional routes, accurate medicine pickup feedback, input buffering and expiry, stable combo targeting, lunge telegraph and frame-independent damage, contextual onboarding, oil-cart tactics and retry, arrow cover, legacy saves, plus movement, medicine, precision dodge, shield break, 6 regions, both story routes, bosses, escort navigation and offline assets.');
+console.log('PASS: frame-spanning medicine and interruption, frontal shield retention and counterplay, persistent and legacy completed battle reports, guarded single completion, objective targets and optional routes, accurate medicine pickup feedback, input buffering and expiry, stable combo targeting, lunge telegraph and frame-independent damage, contextual onboarding, oil-cart tactics and retry, arrow cover, legacy saves, plus movement, precision dodge, shield break, 6 regions, both story routes, bosses, escort navigation and offline assets.');

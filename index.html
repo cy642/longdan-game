@@ -9,6 +9,8 @@
 <style>:root{color-scheme:dark;--paper:#ece2c9;--ink:#142d27;--jade:#9bc7b9;--gold:#d9c58e;--muted:#b9c9b7}
 .skill[data-skill]{position:relative;overflow:hidden;transition:border-color .12s,box-shadow .12s}
 .skill[data-skill]::after{content:"";position:absolute;bottom:0;left:0;height:2px;width:var(--charge,100%);background:linear-gradient(90deg,#6aaba3,#c7eee0);transition:width .1s}
+#healButton{position:relative;overflow:hidden}#healButton::after{content:"";position:absolute;bottom:0;left:0;height:3px;width:var(--charge,0%);background:#b9d995;transition:width .08s linear}
+.save-status{display:block;padding:4px 5px 6px;border-top:1px solid #b9c79f26;text-align:center;font-size:9px;color:#a8c8a3}.save-status.save-warning{color:#e9bb8b}
 .skill[data-skill="sword"]::after{background:linear-gradient(90deg,#bc944d,#ffe3a5)}
 .skill.unavailable b{color:#a6b8a5}.skill.casting{border-color:#dffbf3;box-shadow:0 0 18px #91e8e344,inset 0 0 20px #90dfd626}
 .skill.ready{animation:skill-breathe 1.9s ease-in-out infinite}
@@ -63,7 +65,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
 <div class="top-actions"><button id="quickMapButton" type="button" aria-label="查看军图">军图</button><button id="soundButton" type="button" aria-label="切换声音">声音 开</button><button id="pauseButton" type="button" aria-label="暂停游戏">暂停 <kbd>Esc</kbd></button></div>
 </header>
 <aside class="mission-paper"><div class="paper-heading"><span>长坂战令</span><span id="timeLabel">00:00</span></div><h2 id="missionTitle">枪起长坂</h2><p id="missionText"></p><div id="tutorialHint" class="tutorial-hint hidden"><small id="tutorialStep"></small><strong id="tutorialTitle"></strong><p id="tutorialText"></p></div><div id="objectiveList" class="objective-list"></div><button id="mapButton" type="button">查看军图 <kbd>M</kbd></button></aside>
-<aside class="minimap-wrap"><canvas id="minimap" width="176" height="128" aria-label="当前区域地图"></canvas><span id="minimapCaption">溃军山道 · 北 ↑</span></aside>
+<aside class="minimap-wrap"><canvas id="minimap" width="176" height="128" aria-label="当前区域地图"></canvas><span id="minimapCaption">溃军山道 · 北 ↑</span><small id="saveStatus" class="save-status" role="status">营火与入口自动保存</small></aside>
 <div id="bossHud" class="boss-hud hidden"><div><span id="bossName"></span><span id="bossHpLabel"></span></div><div class="meter boss"><i id="bossHpFill"></i></div><div class="meter stagger"><i id="staggerFill"></i></div><small id="bossMove"></small></div>
 <div id="counterHint" class="counter-hint hidden">精准闪避 · 现在出枪接回马枪</div>
 <div id="commandBanner" class="command-banner"></div><div id="interaction" class="interaction hidden"></div>
@@ -1298,7 +1300,8 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     damageEnemy(e, damage, dir = 0, knock = 0, source = 'player', stagger = 0, breakShield = false) {
       if (e.hp <= 0 || e.phaseTime > 0 || (this.activeBoss && e !== this.boss)) return;
       const armored = (e.type === 'shield' || e.type === 'elite') && e.shieldBroken <= 0;
-      if (armored && Math.abs(angleDiff(dir + Math.PI, e.dir)) < 1.15 && !breakShield) { damage *= .24; stagger *= .45; this.floater(e.x, e.y, '盾挡', '#b9cdd4'); }
+      const frontalBlocked = armored && Math.abs(angleDiff(dir + Math.PI, e.dir)) < 1.15 && !breakShield;
+      if (frontalBlocked) { damage *= .24; stagger *= .45; this.floater(e.x, e.y, '盾挡', '#b9cdd4'); }
       if (breakShield && armored) {
         e.shieldBroken = 2.8; e.stunned = .8; e.action = null; e.sequence = []; e.windup = 0; e.cooldown = Math.max(e.cooldown, .8);
         this.floater(e.x, e.y, '破盾'); this.effects.push({ type: 'shatter', x: e.x, y: e.y, dir, color: '#ffe1a0', life: .4, maxLife: .4 });
@@ -1309,7 +1312,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       e.hp = Math.max(floor, e.hp - actual); e.hurtFlash = .16; e.alerted = true;
       if (source !== 'ally') this.effects.push({ type: 'impact', x: e.x, y: e.y, dir, seed: e.id * 1.7, color: breakShield || source === 'environment' ? '#ffdfa0' : '#b5f4f5', life: .25, maxLife: .25 });
       if (source === 'player') { this.player.rage = Math.min(100, this.player.rage + 4); this.player.lastCombat = this.time; }
-      if (e.type !== 'boss') { e.knockX += Math.cos(dir) * knock; e.knockY += Math.sin(dir) * knock; if (source === 'player' && e.type !== 'elite') { e.stunned = Math.max(e.stunned, .12); e.action = null; e.windup = 0; } }
+      if (e.type !== 'boss' && !frontalBlocked) { e.knockX += Math.cos(dir) * knock; e.knockY += Math.sin(dir) * knock; if (source === 'player' && e.type !== 'elite') { e.stunned = Math.max(e.stunned, .12); e.action = null; e.windup = 0; } }
       if (e.staggerShield <= 0) {
         e.stagger += stagger;
         if (e.stagger >= e.staggerMax) { e.stagger = 0; e.stunned = e.type === 'boss' ? 2.1 : 1.3; e.staggerShield = 4.4; e.action = null; e.sequence = []; e.cooldown = 1.2; this.floater(e.x, e.y, '破势 · 反击'); this.effects.push({ type: 'shatter', x: e.x, y: e.y, dir, color: '#f6d89d', life: .42, maxLife: .42 }); this.events.push({ kind: 'sound', sound: 'break' }); }
@@ -1412,8 +1415,9 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     }
     updatePlayerAction(dt) {
       const p = this.player, a = p.action; if (!a) { p.attackTimer = 0; return; }
-      a.t += dt; p.dir = a.dir; p.attackTimer = Math.max(0, total(a.def) - a.t);
-      if (a.t >= a.def.windup && a.t < a.def.windup + a.def.active) {
+      const previous = a.t; a.t += dt; p.dir = a.dir; p.attackTimer = Math.max(0, total(a.def) - a.t);
+      const activeDt = Math.max(0, Math.min(a.t, a.def.windup + a.def.active) - Math.max(previous, a.def.windup));
+      if (activeDt > 0) {
         if (!a.fired) {
           a.fired = true;
           if (a.key === 'heal') { p.hp = Math.min(p.maxHp, p.hp + 85); this.events.push({ kind: 'sound', sound: 'heal' }); this.effects.push({ type: 'ring', x: p.x, y: p.y, radius: 50, color: '#a7d5a6', life: .55, maxLife: .55 }); }
@@ -1647,7 +1651,11 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
       const o = id => this.objects.find(p => p.id === id), targetEnemy = () => this.enemies.find(e => e.hp > 0) || this.player;
       const guard = (...groups) => groups.map(id => this.enemies.find(e => e.hp > 0 && e.group === id)).find(Boolean);
       if (this.activeBoss) return { title: this.boss.name + ' · 单挑', text: this.boss.phase2 ? '新的追枪加入了连招。不要抢出枪，等收招，再抓破绽。' : '观察蓄力，闪避后出枪。精准闪避可接回马枪，破势后可打连续重击。', target: this.boss };
-      if (this.rescue) return { title: '守住井畔', text: `第 ${this.rescue.wave} / 2 波 · 医者体力 ${Math.ceil(this.rescue.healer.hp)}。用军令牵制敌人，你亲自清掉追兵。`, target: this.rescue.healer };
+      if (this.rescue) {
+        const remaining = this.enemies.filter(e => e.hp > 0 && e.group.startsWith('rescue')).length;
+        const next = remaining ? `还剩 ${remaining} 名追兵，护住医者并清掉他们。` : this.rescue.wave === 1 ? '第一波已退，第二波追兵即将赶到。' : '追兵已退，守在医者身边等待施救完成。';
+        return { title: '守住井畔', text: `第 ${this.rescue.wave} / 2 波 · 医者体力 ${Math.ceil(this.rescue.healer.hp)}。${next}`, target: this.rescue.healer };
+      }
       switch (this.stage) {
         case 'mountain': {
           const group = this.mountainGroup(), target = this.enemies.find(e => e.hp > 0 && e.group === group);
@@ -1914,7 +1922,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
   const zoom = 1;
   let terrain, scenery = [], menuDifficulty = 'normal', lastFrame = performance.now(), hudClock = 0;
   let toastTimer = 0, commandTimer = 0, stageTimer = 0, encounterTimer = 0, audioContext = null, muted = false, saveAvailable = true;
-  let pendingStart = null;
+  let pendingStart = null, sessionSave = null;
   let mouseAttack = false, mouse = { x: 0, y: 0 }, aimUntil = 0;
   let reducedEffects = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false;
   try { const saved = localStorage.getItem('longdan.effects'); if (saved) reducedEffects = saved === 'soft'; } catch {}
@@ -1922,11 +1930,20 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
   const keys = new Set(), camera = { x: 650, y: 750 };
   const overlays = ['menu', 'dialog', 'pause', 'map', 'defeat', 'ending', 'restart'];
   const desktopHelp = 'WASD / 方向键 移动\nJ / 鼠标左键 龙枪三式　空格 / K 闪避\nQ / 右键 横扫破阵　R 青釭断势（夺剑后）\nF 行军药（可被打断）　E 互动 / 休整 / 前进\n1 集合　2 守点　3 冲阵　M 军图　Esc 暂停\n精准闪避后，1.2秒内出枪可接回马枪。';
-  function readSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return Campaign.validSnapshot(s) ? s : null; } catch { return null; } }
-  function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(campaign.snapshot())); saveAvailable = true; } catch { saveAvailable = false; } }
+  function readSave() {
+    if (Campaign.validSnapshot(sessionSave)) return sessionSave;
+    try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return Campaign.validSnapshot(s) ? s : null; } catch { return null; }
+  }
+  function writeSave() {
+    sessionSave = campaign.snapshot();
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(sessionSave)); saveAvailable = true; } catch { saveAvailable = false; }
+    $('saveStatus').textContent = saveAvailable ? '进度已保存' : '进度仅本次有效';
+    $('saveStatus').title = saveAvailable ? '已保存完成的战斗与选择，从最近营火或入口继续。' : '浏览器未能保存，刷新或关闭页面后本次进度会丢失。';
+    $('saveStatus').classList.toggle('save-warning', !saveAvailable);
+  }
   function refreshSaveMenu() {
     const saved = readSave(); $('continueButton').classList.toggle('hidden', !saved || saved.complete); $('reportButton').classList.toggle('hidden', !saved?.complete);
-    $('saveInfo').textContent = !saveAvailable ? '此浏览器无法保存进度，本次仍可游玩。' : saved ? saved.complete ? '长坂已通关。战报已保存，可回看，也可重新改写命运。' : '最近进度：' + StageDefinition[saved.checkpoint.stage].name + ' · ' + (saved.difficulty === 'story' ? '初入战场' : '龙胆') : '营火、战斗入口与完成的救援会自动保存。';
+    $('saveInfo').textContent = !saveAvailable ? '浏览器未能保存。仍可继续本次进度；刷新或关闭页面后会丢失。' : saved ? saved.complete ? '长坂已通关。战报已保存，可回看，也可重新改写命运。' : '最近进度：' + StageDefinition[saved.checkpoint.stage].name + ' · ' + (saved.difficulty === 'story' ? '初入战场' : '龙胆') : '营火、战斗入口与完成的救援会自动保存。';
   }
   function clearInput() { keys.clear(); mouseAttack = false; aimUntil = 0; campaign.clearActionBuffer(); }
   function hideOverlays() { overlays.forEach(id => $(id).classList.add('hidden')); }
@@ -1984,7 +2001,7 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
   }
   function start(difficulty = menuDifficulty) { pendingStart = null; unlockAudio(); clearInput(); hideOverlays(); $('hud').classList.remove('hidden'); campaign.start(difficulty); processEvents(); writeSave(); updateHud(); }
   function requestStart(difficulty) {
-    if (!readSave()) { start(difficulty); return; }
+    if (campaign.mode === 'menu' && !readSave()) { start(difficulty); return; }
     pendingStart = { difficulty, mode: campaign.mode }; clearInput(); hideOverlays();
     $('restartText').textContent = '新征程将替换本浏览器的当前进度与战报。\n战斗难度：' + (difficulty === 'story' ? '初入战场' : '龙胆') + '。确定重新从山道出发吗？';
     $('restart').classList.remove('hidden'); $('cancelRestartButton').focus();
@@ -2043,7 +2060,8 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     $('qiLabel').textContent = Math.floor(p.qi); $('qiFill').style.width = p.qi + '%';
     $('regionLabel').textContent = '长坂逆命 · ' + campaign.definition.name; $('minimapCaption').textContent = campaign.definition.name + ' · 北 ↑';
     $('troopLabel').textContent = '随军 ' + campaign.allies.filter(a => a.hp > 0).length + ' / 3 · ' + (campaign.activeBoss ? '护送中' : campaign.squadActive() ? '掩护中' : '待命');
-    $('pressureLabel').textContent = campaign.rescue ? '医者施救 ' + Math.floor(campaign.rescue.progress / 20 * 100) + '%' : p.action?.key === 'heal' ? '服药中 · 留意敌军' : '观察 · 闪避 · 反击';
+    const healing = p.action?.key === 'heal';
+    $('pressureLabel').textContent = healing ? '服药中 · 留意敌军' : campaign.rescue ? campaign.rescue.progress >= 20 ? '施救已备妥 · 还需击退追兵' : '医者施救 ' + Math.floor(campaign.rescue.progress / 20 * 100) + '%' : '观察 · 闪避 · 反击';
     $('missionTitle').textContent = mission.title; $('missionText').textContent = mission.text; $('timeLabel').textContent = formatTime(campaign.time);
     $('objectiveList').innerHTML = [['temple', '破庙夺剑'], ['adou', '寻回阿斗'], ['mother', '救下糜夫人（可选）'], ['supplies', '焚毁粮草（可选）'], ['boss', '击退张郃']].map(([id, label]) => `<div class="${campaign.flags[id] ? 'done' : 'todo'}">${label}</div>`).join('');
     $('objectiveList').classList.toggle('hidden', !!tutorial);
@@ -2056,7 +2074,9 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
     $('dashState').textContent = p.dashCd > 0 ? '整步再出' : '消耗16气力';
     $('rageState').textContent = !campaign.flags.sword ? '夺剑后习得' : '战意 ' + Math.floor(p.rage) + ' / 100';
     document.querySelector('.ultimate').classList.toggle('ready', campaign.flags.sword && p.rage >= 100);
-    $('potionState').textContent = '剩余' + p.potions + '份';
+    $('potionState').textContent = healing ? p.action.fired ? '体力已恢复' : '服药 ' + Math.max(0, p.action.def.windup - p.action.t).toFixed(1) + ' 秒' : '剩余' + p.potions + '份';
+    $('healButton').classList.toggle('casting', healing); $('healButton').classList.toggle('unavailable', !healing && (p.potions <= 0 || p.hp >= p.maxHp));
+    $('healButton').style.setProperty('--charge', (healing ? clamp(p.action.t / p.action.def.windup, 0, 1) * 100 : 0) + '%');
     for (const el of document.querySelectorAll('[data-skill]')) {
       const key = el.dataset.skill, active = key === 'dash' ? p.dashTime > 0 : key === 'attack' ? p.action?.key.startsWith('thrust') || p.action?.key === 'counter' : p.action?.key === key;
       const progress = key === 'sweep' ? 1 - p.heavyCd / 3.6 : key === 'dash' ? 1 - p.dashCd / .61 : key === 'sword' ? campaign.flags.sword ? p.rage / 100 : 0 : 1;
@@ -2110,9 +2130,16 @@ kbd{font-family:inherit;font-size:10px;color:#e7d4a1;border:1px solid #cbbd8a4d;
   window.addEventListener('blur', () => { clearInput(); if (campaign.mode === 'playing') togglePause(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { clearInput(); if (campaign.mode === 'playing') togglePause(); } });
   canvas.addEventListener('pointermove', e => { if (e.pointerType === 'touch') return; const rect = canvas.getBoundingClientRect(); mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top }; aimUntil = performance.now() + 1400; });
-  canvas.addEventListener('pointerdown', e => { if (campaign.mode !== 'playing' || e.pointerType === 'touch') return; unlockAudio(); const rect = canvas.getBoundingClientRect(); mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top }; aimUntil = performance.now() + 1400; if (e.button === 0) { mouseAttack = true; act('attack'); canvas.setPointerCapture(e.pointerId); } else if (e.button === 2) act('heavy'); });
-  window.addEventListener('pointerup', () => { mouseAttack = false; });
-  window.addEventListener('pointercancel', () => { mouseAttack = false; }); canvas.addEventListener('contextmenu', e => e.preventDefault());
+  // Capture keeps dragging on the battlefield; mouse events report each button in a chord.
+  canvas.addEventListener('pointerdown', e => { if (e.pointerType === 'touch') { e.preventDefault(); return; } if (campaign.mode === 'playing') canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener('mousedown', e => {
+    if (campaign.mode !== 'playing' || e.sourceCapabilities?.firesTouchEvents || ![0, 2].includes(e.button)) return;
+    e.preventDefault(); unlockAudio(); const rect = canvas.getBoundingClientRect(); mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top }; aimUntil = performance.now() + 1400;
+    if (e.button === 0) { mouseAttack = true; act('attack'); } else act('heavy');
+  });
+  window.addEventListener('mouseup', e => { if (e.button === 0) mouseAttack = false; });
+  window.addEventListener('pointercancel', () => { mouseAttack = false; });
+  canvas.addEventListener('lostpointercapture', () => { mouseAttack = false; }); canvas.addEventListener('contextmenu', e => e.preventDefault());
   $('startButton').addEventListener('click', () => requestStart(menuDifficulty)); $('continueButton').addEventListener('click', continueGame); $('reportButton').addEventListener('click', continueGame);
   $('restartButton').addEventListener('click', () => requestStart(campaign.difficulty)); $('playAgainButton').addEventListener('click', () => requestStart(campaign.difficulty));
   $('confirmRestartButton').addEventListener('click', () => { if (pendingStart) start(pendingStart.difficulty); }); $('cancelRestartButton').addEventListener('click', cancelStart);

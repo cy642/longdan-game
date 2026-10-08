@@ -178,7 +178,8 @@
     damageEnemy(e, damage, dir = 0, knock = 0, source = 'player', stagger = 0, breakShield = false) {
       if (e.hp <= 0 || e.phaseTime > 0 || (this.activeBoss && e !== this.boss)) return;
       const armored = (e.type === 'shield' || e.type === 'elite') && e.shieldBroken <= 0;
-      if (armored && Math.abs(angleDiff(dir + Math.PI, e.dir)) < 1.15 && !breakShield) { damage *= .24; stagger *= .45; this.floater(e.x, e.y, '盾挡', '#b9cdd4'); }
+      const frontalBlocked = armored && Math.abs(angleDiff(dir + Math.PI, e.dir)) < 1.15 && !breakShield;
+      if (frontalBlocked) { damage *= .24; stagger *= .45; this.floater(e.x, e.y, '盾挡', '#b9cdd4'); }
       if (breakShield && armored) {
         e.shieldBroken = 2.8; e.stunned = .8; e.action = null; e.sequence = []; e.windup = 0; e.cooldown = Math.max(e.cooldown, .8);
         this.floater(e.x, e.y, '破盾'); this.effects.push({ type: 'shatter', x: e.x, y: e.y, dir, color: '#ffe1a0', life: .4, maxLife: .4 });
@@ -189,7 +190,7 @@
       e.hp = Math.max(floor, e.hp - actual); e.hurtFlash = .16; e.alerted = true;
       if (source !== 'ally') this.effects.push({ type: 'impact', x: e.x, y: e.y, dir, seed: e.id * 1.7, color: breakShield || source === 'environment' ? '#ffdfa0' : '#b5f4f5', life: .25, maxLife: .25 });
       if (source === 'player') { this.player.rage = Math.min(100, this.player.rage + 4); this.player.lastCombat = this.time; }
-      if (e.type !== 'boss') { e.knockX += Math.cos(dir) * knock; e.knockY += Math.sin(dir) * knock; if (source === 'player' && e.type !== 'elite') { e.stunned = Math.max(e.stunned, .12); e.action = null; e.windup = 0; } }
+      if (e.type !== 'boss' && !frontalBlocked) { e.knockX += Math.cos(dir) * knock; e.knockY += Math.sin(dir) * knock; if (source === 'player' && e.type !== 'elite') { e.stunned = Math.max(e.stunned, .12); e.action = null; e.windup = 0; } }
       if (e.staggerShield <= 0) {
         e.stagger += stagger;
         if (e.stagger >= e.staggerMax) { e.stagger = 0; e.stunned = e.type === 'boss' ? 2.1 : 1.3; e.staggerShield = 4.4; e.action = null; e.sequence = []; e.cooldown = 1.2; this.floater(e.x, e.y, '破势 · 反击'); this.effects.push({ type: 'shatter', x: e.x, y: e.y, dir, color: '#f6d89d', life: .42, maxLife: .42 }); this.events.push({ kind: 'sound', sound: 'break' }); }
@@ -292,8 +293,9 @@
     }
     updatePlayerAction(dt) {
       const p = this.player, a = p.action; if (!a) { p.attackTimer = 0; return; }
-      a.t += dt; p.dir = a.dir; p.attackTimer = Math.max(0, total(a.def) - a.t);
-      if (a.t >= a.def.windup && a.t < a.def.windup + a.def.active) {
+      const previous = a.t; a.t += dt; p.dir = a.dir; p.attackTimer = Math.max(0, total(a.def) - a.t);
+      const activeDt = Math.max(0, Math.min(a.t, a.def.windup + a.def.active) - Math.max(previous, a.def.windup));
+      if (activeDt > 0) {
         if (!a.fired) {
           a.fired = true;
           if (a.key === 'heal') { p.hp = Math.min(p.maxHp, p.hp + 85); this.events.push({ kind: 'sound', sound: 'heal' }); this.effects.push({ type: 'ring', x: p.x, y: p.y, radius: 50, color: '#a7d5a6', life: .55, maxLife: .55 }); }
@@ -527,7 +529,11 @@
       const o = id => this.objects.find(p => p.id === id), targetEnemy = () => this.enemies.find(e => e.hp > 0) || this.player;
       const guard = (...groups) => groups.map(id => this.enemies.find(e => e.hp > 0 && e.group === id)).find(Boolean);
       if (this.activeBoss) return { title: this.boss.name + ' · 单挑', text: this.boss.phase2 ? '新的追枪加入了连招。不要抢出枪，等收招，再抓破绽。' : '观察蓄力，闪避后出枪。精准闪避可接回马枪，破势后可打连续重击。', target: this.boss };
-      if (this.rescue) return { title: '守住井畔', text: `第 ${this.rescue.wave} / 2 波 · 医者体力 ${Math.ceil(this.rescue.healer.hp)}。用军令牵制敌人，你亲自清掉追兵。`, target: this.rescue.healer };
+      if (this.rescue) {
+        const remaining = this.enemies.filter(e => e.hp > 0 && e.group.startsWith('rescue')).length;
+        const next = remaining ? `还剩 ${remaining} 名追兵，护住医者并清掉他们。` : this.rescue.wave === 1 ? '第一波已退，第二波追兵即将赶到。' : '追兵已退，守在医者身边等待施救完成。';
+        return { title: '守住井畔', text: `第 ${this.rescue.wave} / 2 波 · 医者体力 ${Math.ceil(this.rescue.healer.hp)}。${next}`, target: this.rescue.healer };
+      }
       switch (this.stage) {
         case 'mountain': {
           const group = this.mountainGroup(), target = this.enemies.find(e => e.hp > 0 && e.group === group);

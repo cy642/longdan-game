@@ -10,7 +10,7 @@
   const zoom = 1;
   let terrain, scenery = [], menuDifficulty = 'normal', lastFrame = performance.now(), hudClock = 0;
   let toastTimer = 0, commandTimer = 0, stageTimer = 0, encounterTimer = 0, audioContext = null, muted = false, saveAvailable = true;
-  let pendingStart = null;
+  let pendingStart = null, sessionSave = null;
   let mouseAttack = false, mouse = { x: 0, y: 0 }, aimUntil = 0;
   let reducedEffects = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false;
   try { const saved = localStorage.getItem('longdan.effects'); if (saved) reducedEffects = saved === 'soft'; } catch {}
@@ -18,11 +18,20 @@
   const keys = new Set(), camera = { x: 650, y: 750 };
   const overlays = ['menu', 'dialog', 'pause', 'map', 'defeat', 'ending', 'restart'];
   const desktopHelp = 'WASD / 方向键 移动\nJ / 鼠标左键 龙枪三式　空格 / K 闪避\nQ / 右键 横扫破阵　R 青釭断势（夺剑后）\nF 行军药（可被打断）　E 互动 / 休整 / 前进\n1 集合　2 守点　3 冲阵　M 军图　Esc 暂停\n精准闪避后，1.2秒内出枪可接回马枪。';
-  function readSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return Campaign.validSnapshot(s) ? s : null; } catch { return null; } }
-  function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(campaign.snapshot())); saveAvailable = true; } catch { saveAvailable = false; } }
+  function readSave() {
+    if (Campaign.validSnapshot(sessionSave)) return sessionSave;
+    try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return Campaign.validSnapshot(s) ? s : null; } catch { return null; }
+  }
+  function writeSave() {
+    sessionSave = campaign.snapshot();
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(sessionSave)); saveAvailable = true; } catch { saveAvailable = false; }
+    $('saveStatus').textContent = saveAvailable ? '进度已保存' : '进度仅本次有效';
+    $('saveStatus').title = saveAvailable ? '已保存完成的战斗与选择，从最近营火或入口继续。' : '浏览器未能保存，刷新或关闭页面后本次进度会丢失。';
+    $('saveStatus').classList.toggle('save-warning', !saveAvailable);
+  }
   function refreshSaveMenu() {
     const saved = readSave(); $('continueButton').classList.toggle('hidden', !saved || saved.complete); $('reportButton').classList.toggle('hidden', !saved?.complete);
-    $('saveInfo').textContent = !saveAvailable ? '此浏览器无法保存进度，本次仍可游玩。' : saved ? saved.complete ? '长坂已通关。战报已保存，可回看，也可重新改写命运。' : '最近进度：' + StageDefinition[saved.checkpoint.stage].name + ' · ' + (saved.difficulty === 'story' ? '初入战场' : '龙胆') : '营火、战斗入口与完成的救援会自动保存。';
+    $('saveInfo').textContent = !saveAvailable ? '浏览器未能保存。仍可继续本次进度；刷新或关闭页面后会丢失。' : saved ? saved.complete ? '长坂已通关。战报已保存，可回看，也可重新改写命运。' : '最近进度：' + StageDefinition[saved.checkpoint.stage].name + ' · ' + (saved.difficulty === 'story' ? '初入战场' : '龙胆') : '营火、战斗入口与完成的救援会自动保存。';
   }
   function clearInput() { keys.clear(); mouseAttack = false; aimUntil = 0; campaign.clearActionBuffer(); }
   function hideOverlays() { overlays.forEach(id => $(id).classList.add('hidden')); }
@@ -80,7 +89,7 @@
   }
   function start(difficulty = menuDifficulty) { pendingStart = null; unlockAudio(); clearInput(); hideOverlays(); $('hud').classList.remove('hidden'); campaign.start(difficulty); processEvents(); writeSave(); updateHud(); }
   function requestStart(difficulty) {
-    if (!readSave()) { start(difficulty); return; }
+    if (campaign.mode === 'menu' && !readSave()) { start(difficulty); return; }
     pendingStart = { difficulty, mode: campaign.mode }; clearInput(); hideOverlays();
     $('restartText').textContent = '新征程将替换本浏览器的当前进度与战报。\n战斗难度：' + (difficulty === 'story' ? '初入战场' : '龙胆') + '。确定重新从山道出发吗？';
     $('restart').classList.remove('hidden'); $('cancelRestartButton').focus();
@@ -139,7 +148,8 @@
     $('qiLabel').textContent = Math.floor(p.qi); $('qiFill').style.width = p.qi + '%';
     $('regionLabel').textContent = '长坂逆命 · ' + campaign.definition.name; $('minimapCaption').textContent = campaign.definition.name + ' · 北 ↑';
     $('troopLabel').textContent = '随军 ' + campaign.allies.filter(a => a.hp > 0).length + ' / 3 · ' + (campaign.activeBoss ? '护送中' : campaign.squadActive() ? '掩护中' : '待命');
-    $('pressureLabel').textContent = campaign.rescue ? '医者施救 ' + Math.floor(campaign.rescue.progress / 20 * 100) + '%' : p.action?.key === 'heal' ? '服药中 · 留意敌军' : '观察 · 闪避 · 反击';
+    const healing = p.action?.key === 'heal';
+    $('pressureLabel').textContent = healing ? '服药中 · 留意敌军' : campaign.rescue ? campaign.rescue.progress >= 20 ? '施救已备妥 · 还需击退追兵' : '医者施救 ' + Math.floor(campaign.rescue.progress / 20 * 100) + '%' : '观察 · 闪避 · 反击';
     $('missionTitle').textContent = mission.title; $('missionText').textContent = mission.text; $('timeLabel').textContent = formatTime(campaign.time);
     $('objectiveList').innerHTML = [['temple', '破庙夺剑'], ['adou', '寻回阿斗'], ['mother', '救下糜夫人（可选）'], ['supplies', '焚毁粮草（可选）'], ['boss', '击退张郃']].map(([id, label]) => `<div class="${campaign.flags[id] ? 'done' : 'todo'}">${label}</div>`).join('');
     $('objectiveList').classList.toggle('hidden', !!tutorial);
@@ -152,7 +162,9 @@
     $('dashState').textContent = p.dashCd > 0 ? '整步再出' : '消耗16气力';
     $('rageState').textContent = !campaign.flags.sword ? '夺剑后习得' : '战意 ' + Math.floor(p.rage) + ' / 100';
     document.querySelector('.ultimate').classList.toggle('ready', campaign.flags.sword && p.rage >= 100);
-    $('potionState').textContent = '剩余' + p.potions + '份';
+    $('potionState').textContent = healing ? p.action.fired ? '体力已恢复' : '服药 ' + Math.max(0, p.action.def.windup - p.action.t).toFixed(1) + ' 秒' : '剩余' + p.potions + '份';
+    $('healButton').classList.toggle('casting', healing); $('healButton').classList.toggle('unavailable', !healing && (p.potions <= 0 || p.hp >= p.maxHp));
+    $('healButton').style.setProperty('--charge', (healing ? clamp(p.action.t / p.action.def.windup, 0, 1) * 100 : 0) + '%');
     for (const el of document.querySelectorAll('[data-skill]')) {
       const key = el.dataset.skill, active = key === 'dash' ? p.dashTime > 0 : key === 'attack' ? p.action?.key.startsWith('thrust') || p.action?.key === 'counter' : p.action?.key === key;
       const progress = key === 'sweep' ? 1 - p.heavyCd / 3.6 : key === 'dash' ? 1 - p.dashCd / .61 : key === 'sword' ? campaign.flags.sword ? p.rage / 100 : 0 : 1;
@@ -206,9 +218,16 @@
   window.addEventListener('blur', () => { clearInput(); if (campaign.mode === 'playing') togglePause(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { clearInput(); if (campaign.mode === 'playing') togglePause(); } });
   canvas.addEventListener('pointermove', e => { if (e.pointerType === 'touch') return; const rect = canvas.getBoundingClientRect(); mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top }; aimUntil = performance.now() + 1400; });
-  canvas.addEventListener('pointerdown', e => { if (campaign.mode !== 'playing' || e.pointerType === 'touch') return; unlockAudio(); const rect = canvas.getBoundingClientRect(); mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top }; aimUntil = performance.now() + 1400; if (e.button === 0) { mouseAttack = true; act('attack'); canvas.setPointerCapture(e.pointerId); } else if (e.button === 2) act('heavy'); });
-  window.addEventListener('pointerup', () => { mouseAttack = false; });
-  window.addEventListener('pointercancel', () => { mouseAttack = false; }); canvas.addEventListener('contextmenu', e => e.preventDefault());
+  // Capture keeps dragging on the battlefield; mouse events report each button in a chord.
+  canvas.addEventListener('pointerdown', e => { if (e.pointerType === 'touch') { e.preventDefault(); return; } if (campaign.mode === 'playing') canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener('mousedown', e => {
+    if (campaign.mode !== 'playing' || e.sourceCapabilities?.firesTouchEvents || ![0, 2].includes(e.button)) return;
+    e.preventDefault(); unlockAudio(); const rect = canvas.getBoundingClientRect(); mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top }; aimUntil = performance.now() + 1400;
+    if (e.button === 0) { mouseAttack = true; act('attack'); } else act('heavy');
+  });
+  window.addEventListener('mouseup', e => { if (e.button === 0) mouseAttack = false; });
+  window.addEventListener('pointercancel', () => { mouseAttack = false; });
+  canvas.addEventListener('lostpointercapture', () => { mouseAttack = false; }); canvas.addEventListener('contextmenu', e => e.preventDefault());
   $('startButton').addEventListener('click', () => requestStart(menuDifficulty)); $('continueButton').addEventListener('click', continueGame); $('reportButton').addEventListener('click', continueGame);
   $('restartButton').addEventListener('click', () => requestStart(campaign.difficulty)); $('playAgainButton').addEventListener('click', () => requestStart(campaign.difficulty));
   $('confirmRestartButton').addEventListener('click', () => { if (pendingStart) start(pendingStart.difficulty); }); $('cancelRestartButton').addEventListener('click', cancelStart);
