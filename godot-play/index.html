@@ -34,6 +34,7 @@
     resizeGame();window.addEventListener('resize',resizeGame);
     // Godot initializes the canvas dimensions during its first frame as well.
     new MutationObserver(()=>requestAnimationFrame(resizeGame)).observe(canvas,{attributes:true,attributeFilter:['width','height']});
+    config.onProgress=(current,total)=>{if(total>0){document.getElementById('bar').value=current/total*100;document.getElementById('status').textContent='准备战场 '+Math.round(current/total*100)+'%';}};
     const engine=new Engine(config);
     const play=document.getElementById('play');
     const notice=document.getElementById('notice');
@@ -43,7 +44,14 @@
       if(missing.length){notice.textContent='当前浏览器暂不支持游戏画面，请用电脑版 Chrome 或 Edge 打开。';play.disabled=false;return;}
       try{
         resizeGame();
-        await engine.startGame({onProgress(current,total){if(total>0){document.getElementById('bar').value=current/total*100;document.getElementById('status').textContent='准备战场 '+Math.round(current/total*100)+'%';}}});
+        const pack=config.executable+'.pck';
+        // Revalidate the pack so a previously cached build receives map updates.
+        await Promise.all([engine.init(config.executable),(async()=>{
+          const response=await fetch(pack,{cache:'no-cache'});
+          if(!response.ok)throw new Error('Game pack '+response.status);
+          await engine.preloadFile(await response.arrayBuffer(),pack);
+        })()]);
+        await engine.start({args:['--main-pack',pack,...config.args]});
         resizeGame();
         document.getElementById('loading').remove();document.getElementById('canvas').focus();
       }catch(error){console.error(error);notice.textContent='游戏未能载入，请刷新重试，或检查浏览器的硬件加速设置。';play.disabled=false;}
