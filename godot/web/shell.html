@@ -32,7 +32,10 @@
     resizeGame();window.addEventListener('resize',resizeGame);
     // Godot initializes the canvas dimensions during its first frame as well.
     new MutationObserver(()=>requestAnimationFrame(resizeGame)).observe(canvas,{attributes:true,attributeFilter:['width','height']});
-    config.onProgress=(current,total)=>{if(total>0){document.getElementById('bar').value=current/total*100;document.getElementById('status').textContent='准备战场 '+Math.round(current/total*100)+'%';}};
+    config.onProgress=(current,total)=>{
+      const bar=document.getElementById('bar'),status=document.getElementById('status');
+      if(total>0&&bar&&status){bar.value=current/total*100;status.textContent='准备战场 '+Math.round(current/total*100)+'%';}
+    };
     const engine=new Engine(config);
     const play=document.getElementById('play');
     const notice=document.getElementById('notice');

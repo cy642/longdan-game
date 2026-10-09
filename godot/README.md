@@ -45,7 +45,7 @@
 - `scenes/main.tscn`：游戏入口。
 - `scenes/hero.tscn`、`scenes/enemy.tscn`：原生 `CharacterBody2D` 与地面碰撞形状。
 - `scripts/hero.gd`、`enemy.gd`、`companion.gd`：动作阶段、闪避、敌人连招、盾防与军令。
-- `scripts/actor_visual.gd`：原图的 `AtlasTexture` 区域、八方向动作、统一头部比例与脚底锚点。
+- `scripts/actor_visual.gd`、`frame_texture.gd`：八方向动作、统一头部比例与脚底锚点；重叠图集以原生绘制几何排除邻帧枪尖和衣角。
 - `scripts/terrain.gd`、`scenery.gd`：原生地形碰撞、Godot AStarGrid2D 绕障碍路径、烘焙地表与共用景物图集。
 - `assets/maps/`：六张 1600 × 1100 地表、33 种景物及脚底坐标；树木、岩石和建筑仍按原位置遮挡人物。剧情会改变的路障和油车单独绘制。
 - `scripts/effects.gd`、`sound.gd`：战斗预警、枪芒、受击火花、残影、局部音效。
@@ -68,7 +68,7 @@ godot --headless --export-release "Web"
 
 导出需对应版本的官方导出模板。输出目录为仓库的 `builds/windows/` 与 `godot-play/`。Windows 可执行文件单独打包，源码不包含本机引擎和导入缓存。
 
-自动检查运行真实 Godot 节点与物理空间，覆盖：八方向动作 / 脚底与比例、真实命中时段、跨帧服药、服药打断、动作缓冲与闪避取消、精准闪避、鼠标释放与暂停清理、盾防反击、随军输出上限、绕建筑路径、两波营救、两位敌将、焚粮部署、木桥通路、三种命运、战报回读、无效存档和保存失败回退。测试使用独立存档，不会替换玩家进度。
+自动检查运行真实 Godot 节点与物理空间，覆盖：八方向动作 / 脚底与比例、邻帧枪尖排除且保留真实枪头、蓄势 / 出枪 / 收招期间脚底与阴影不分离、真实命中时段、跨帧服药、服药打断、动作缓冲与闪避取消、精准闪避、鼠标释放与暂停清理、盾防反击、随军输出上限、绕建筑路径、两波营救、两位敌将、焚粮部署、木桥通路、三种命运、战报回读、无效存档和保存失败回退。测试使用独立存档，不会替换玩家进度。用 `godot res://tests/pose_preview.tscn` 可核对八方向的站立、行走、蓄势和出枪，预览不读取或写入存档。
 
 关卡和参数同步工具为 `tools/sync_data.mjs`；原始图集元数据读取工具为 `tools/prepare_assets.py`（Pillow / NumPy）。提交内已包含可直接运行的图集与元数据，平时开发无需运行这些工具。
 

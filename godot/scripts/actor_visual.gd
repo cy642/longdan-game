@@ -1,5 +1,6 @@
 extends Node2D
-## Atlas regions use a stable head scale and boot anchor in every direction.
+## Frames exclude neighboring sprites and retain a stable head scale and boot pivot.
+const FrameTexture = preload("res://scripts/frame_texture.gd")
 const WALK = [12, 2, 0, 2, 4, 6, 8, 10]
 const WINDUP = [12, 2, 0, 2, 12, 10, 8, 10]
 const STRIKE = [5, 3, 1, 3, 5, 7, 9, 7]
@@ -20,9 +21,7 @@ static func prepare() -> void:
 		var atlas = load(atlas_data[key].file)
 		var textures: Array = []
 		for frame in atlas_data[key].frames:
-			var texture = AtlasTexture.new(); texture.atlas = atlas
-			var r = frame.region; texture.region = Rect2(r[0], r[1], r[2], r[3]); texture.filter_clip = true
-			textures.append(texture)
+			textures.append(FrameTexture.create(atlas, frame))
 		frames[key] = textures
 
 func _ready() -> void:
@@ -56,9 +55,8 @@ func update_pose() -> void:
 			var a = actor.action; var def = a.def
 			var active_pose = a.t >= def.windup and a.t < def.windup + def.active + def.recovery * .55
 			set_frame("attack", STRIKE[direction] if active_pose else WINDUP[direction], STRIKE_FLIP[direction] if active_pose else WINDUP_FLIP[direction], true)
-			var progress = clampf((a.t - def.windup) / def.active, 0, 1)
-			var settle = 1 - clampf((a.t - def.windup - def.active) / def.recovery, 0, 1)
-			position = Vector2.from_angle(a.dir) * sin(progress * PI * .5) * 5 * settle
+			# Actor movement already moves the boots and shadow together. A second
+			# visual-only lunge detached the feet from their ground contact.
 			if a.key in ["sweep", "sword", "thrust2"]:
 				rotation = sin(a.t / (def.windup + def.active + def.recovery) * TAU) * .065
 		else:

@@ -88,5 +88,7 @@ func update_visual() -> void:
 		shadow_alive=hp>0; queue_redraw()
 
 func _draw() -> void:
-	draw_set_transform(Vector2(0,2),0,Vector2(1,.26))
-	draw_circle(Vector2.ZERO,20 if faction=="hero" else 17,Color(.04,.16,.14,.25 if hp>0 else .08))
+	# Cover both boots in the wider spear stance; the old narrow ellipse ended
+	# before the planted foot and made the character appear to hover.
+	draw_set_transform(Vector2(0,1 if faction=="hero" else 2),0,Vector2(1,.22 if faction=="hero" else .26))
+	draw_circle(Vector2.ZERO,28 if faction=="hero" else 17,Color(.04,.16,.14,.22 if hp>0 else .08))

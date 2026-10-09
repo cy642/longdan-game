@@ -27,6 +27,14 @@ func clear_enemies() -> void:
 	for enemy in world.enemies: enemy.hp=0; enemy.collision_layer=0; enemy.action={}
 	world.check_groups()
 
+func texture_covers(texture: Texture2D, point: Vector2) -> bool:
+	if texture is AtlasTexture: return Rect2(Vector2.ZERO, texture.get_size()).has_point(point)
+	var arrays = texture.mesh.surface_get_arrays(0)
+	var vertices = arrays[Mesh.ARRAY_VERTEX]; var indices = arrays[Mesh.ARRAY_INDEX]
+	for i in range(0, indices.size(), 3):
+		if Geometry2D.is_point_in_polygon(point, PackedVector2Array([Vector2(vertices[indices[i]].x, vertices[indices[i]].y), Vector2(vertices[indices[i+1]].x, vertices[indices[i+1]].y), Vector2(vertices[indices[i+2]].x, vertices[indices[i+2]].y)])): return true
+	return false
+
 func run() -> void:
 	world=Game.new(); world.test_mode=true; root.add_child(world)
 	world.set_physics_process(false); world.set_process(false)
@@ -47,6 +55,13 @@ func run() -> void:
 	world.mouse_attack_held=true; world.pause("pause")
 	expect(not world.mouse_attack_held and hero.buffer.is_empty(),"pause clears combat input and buffered actions")
 	world.resume(); hero.action={}
+	# These pixels are from the neighboring upright spear inside the sideways frame.
+	for index in [5, 13, 14, 15]:
+		var meta = hero.visual.atlas_data.attack.frames[index]
+		var hole = meta.exclude[0]
+		expect(not texture_covers(hero.visual.frames.attack[index], Vector2(hole[0]+hole[2]*.5, hole[1]+hole[3]*.5)), "neighboring sprite is absent from attack frame " + str(index))
+	expect(texture_covers(hero.visual.frames.attack[5], Vector2(242,134)), "side thrust retains its own connected spear head")
+	expect(texture_covers(hero.visual.frames.attack[5], Vector2(92,85)), "side thrust retains Zhao Yun's face")
 	for i in range(8):
 		hero.facing=i*PI/4; hero.action={}; hero.update_visual(); var idle=hero.visual.body.texture
 		var idle_meta=hero.visual.atlas_data.walk.frames[hero.visual.WALK[i]]
@@ -56,6 +71,9 @@ func run() -> void:
 		var index=hero.visual.STRIKE[i]; var meta=hero.visual.atlas_data.attack.frames[index]
 		expect(is_equal_approx(hero.visual.current_scale*meta.head_height,26),"attack head scale direction "+str(i))
 		expect(absf(hero.visual.body.position.y+meta.anchor[1]*hero.visual.current_scale)<.01,"attack feet anchor direction "+str(i))
+		for phase in [hero.action.def.windup*.7, hero.action.def.windup+hero.action.def.active*.6, hero.action.def.windup+hero.action.def.active+hero.action.def.recovery*.4]:
+			hero.action.t=phase; hero.update_visual()
+			expect(hero.visual.position.is_zero_approx(), "boots and ground shadow stay together in direction " + str(i) + " phase " + str(phase))
 	hero.action={}; hero.hp=100; hero.potions=3
 	expect(hero.request("heal"),"medicine starts")
 	hero.action.t=.94; hero.advance_action(.04)

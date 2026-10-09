@@ -19,7 +19,7 @@
   <noscript>请开启 JavaScript 后进入游戏。</noscript>
   <script src="index.js"></script>
   <script>
-    const config={"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":11880668,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+    const config={"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":11886504,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
     if(new URLSearchParams(window.location.search).get('profile')==='1')config.args.push('--','--perf-report');
     // Bound the framebuffer on high-DPI displays while keeping CSS input coordinates.
     config.canvasResizePolicy=0;
@@ -34,7 +34,10 @@
     resizeGame();window.addEventListener('resize',resizeGame);
     // Godot initializes the canvas dimensions during its first frame as well.
     new MutationObserver(()=>requestAnimationFrame(resizeGame)).observe(canvas,{attributes:true,attributeFilter:['width','height']});
-    config.onProgress=(current,total)=>{if(total>0){document.getElementById('bar').value=current/total*100;document.getElementById('status').textContent='准备战场 '+Math.round(current/total*100)+'%';}};
+    config.onProgress=(current,total)=>{
+      const bar=document.getElementById('bar'),status=document.getElementById('status');
+      if(total>0&&bar&&status){bar.value=current/total*100;status.textContent='准备战场 '+Math.round(current/total*100)+'%';}
+    };
     const engine=new Engine(config);
     const play=document.getElementById('play');
     const notice=document.getElementById('notice');

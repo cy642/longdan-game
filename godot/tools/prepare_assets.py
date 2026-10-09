@@ -1,4 +1,4 @@
-"""Copy original PNGs and read atlas anchors; no PNG pixels are modified."""
+"""Read atlas anchors and safe clipping geometry; original PNGs stay unchanged."""
 from pathlib import Path
 import json
 import shutil
@@ -72,10 +72,29 @@ for key, (filename, count, rows) in specs.items():
         hair_top = int(np.searchsorted(cumulative, hair.sum() * .02))
         hair_bottom = int(np.searchsorted(cumulative, hair.sum() * .96))
         head_height = max(1, hair_bottom - hair_top) if hair.sum() > 0 else sh * .4
-        frames.append({'region': [sx, sy, sw, sh], 'anchor': [round(anchor_x, 3), y1 - sy + 1], 'head_height': head_height})
+        # A rectangular frame can include a neighboring character's spear or cape.
+        # Describe empty cutouts for the native mesh, without editing either PNG.
+        frame_labels = labels[sy:sy+sh, sx:sx+sw]
+        frame_sizes = np.bincount(frame_labels.ravel())
+        exclusions = []
+        for other in np.flatnonzero(frame_sizes >= 25):
+            if other in (0, label):
+                continue
+            oy, ox = np.nonzero(frame_labels == other)
+            left, top = max(0, int(ox.min()) - 2), max(0, int(oy.min()) - 2)
+            right, bottom = min(sw, int(ox.max()) + 3), min(sh, int(oy.max()) + 3)
+            # Refuse a crop that would remove any of this character's opaque pixels.
+            assert not membership[top:bottom, left:right].any(), (key, len(frames), other)
+            exclusions.append([left, top, right - left, bottom - top])
+        frames.append({'region': [sx, sy, sw, sh], 'anchor': [round(anchor_x, 3), y1 - sy + 1], 'head_height': head_height, 'exclude': exclusions})
     atlases[key] = {'file': 'res://assets/' + filename, 'frames': frames}
 atlases['attack']['frames'][1]['anchor'][1] -= 35
 atlases['attack']['frames'][3]['anchor'][1] -= 22
+# Wide thrust stances use the midpoint of the boots, rather than the hair center.
+# Coordinates refer to the unchanged source atlas and remain valid when mirrored.
+for index, ground_x in {5: 453, 13: 520}.items():
+    frame = atlases['attack']['frames'][index]
+    frame['anchor'][0] = ground_x - frame['region'][0]
 shutil.copy2(source / 'zhaoyun-reference.png', destination / 'zhaoyun-reference.png')
 (project / 'data' / 'atlas.json').write_text(json.dumps(atlases, indent=2) + '\n', encoding='utf-8')
 print('Original character atlases copied. Feet and head anchors indexed:', sum(len(a['frames']) for a in atlases.values()))
