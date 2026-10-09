@@ -12,7 +12,7 @@ func _ready() -> void:
 			var hero = Hero.new(); hero.world = self; hero.hp = 200
 			hero.position = Vector2(90 + direction * 158, 170 + row * 172)
 			hero.scale = Vector2.ONE * 1.35; hero.facing = direction * PI / 4
-			hero.moving = row == 1; hero.walk_distance = 33 if row == 1 else 0
+			hero.moving = row == 1; hero.walk_distance = hero.HERO_STEP_DISTANCE + 1 if row == 1 else 0
 			if row >= 2:
 				hero.action = {"key": "thrust1", "dir": hero.facing, "t": .06 if row == 2 else .2, "def": {"windup": .13, "active": .15, "recovery": .2}}
 			add_child(hero); hero.update_visual()

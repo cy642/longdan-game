@@ -1,6 +1,7 @@
 extends CharacterBody2D
 ## All actors share native ground collision and a foot-anchored visual.
 const Visual = preload("res://scripts/actor_visual.gd")
+const HERO_STEP_DISTANCE = 56.0
 var world
 var visual
 var faction = "enemy"

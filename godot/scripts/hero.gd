@@ -26,6 +26,7 @@ func reset_combat() -> void:
 	hp = max_hp; qi = 100; potions = 3; rage = 0
 	action = {}; buffer = {}; combo_left = 0; dash_left = 0; dash_cd = 0; sweep_cd = 0; counter_left = 0
 	invincible = .7; knockback = Vector2.ZERO; stun = 0; hurt_flash = 0
+	footprint = int(walk_distance / HERO_STEP_DISTANCE)
 
 func attack_direction(aim: float) -> float:
 	if is_finite(aim):
@@ -115,11 +116,12 @@ func advance(dt: float, move: Vector2, held_attack: bool, aim: float) -> void:
 	else:
 		var slow = 1.0
 		if not action.is_empty(): slow = .12 if action.key == "heal" else .38 if action.t < action.def.windup else .62
-		move_ground(move * speed * slow * dt)
-		var step = int(walk_distance / 32)
-		if moving and step != footprint:
-			footprint = step; world.sound.play_cue("step")
-			world.fx.add("dust", position + Vector2(7 if step % 2 else -7, 1), .3, {"radius": 8.0})
+		var walked = move_ground(move * speed * slow * dt)
+		var step = int(walk_distance / HERO_STEP_DISTANCE)
+		if walked > .025 and step != footprint:
+			footprint = step
+			if action.is_empty(): world.sound.play_cue("step")
+			world.fx.add("dust", position + Vector2(7 if step % 2 else -7, 1), .24, {"radius": 6.0})
 	if held_attack and buffer.is_empty(): perform("attack", move, aim)
 	advance_action(dt)
 	consume_buffer(0)

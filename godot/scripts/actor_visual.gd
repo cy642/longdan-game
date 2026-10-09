@@ -60,7 +60,7 @@ func update_pose() -> void:
 			if a.key in ["sweep", "sword", "thrust2"]:
 				rotation = sin(a.t / (def.windup + def.active + def.recovery) * TAU) * .065
 		else:
-			var step = int(actor.walk_distance / 32) % 2 if actor.moving else 0
+			var step = int(actor.walk_distance / actor.HERO_STEP_DISTANCE) % 2 if actor.moving else 0
 			set_frame("walk", WALK[direction] + step, direction == 1, true)
 			# No idle vertical bob: planted boots remain at the same ground position.
 			rotation = sin(actor.walk_distance / 18) * .022 if actor.moving else 0

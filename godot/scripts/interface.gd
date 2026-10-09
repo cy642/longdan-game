@@ -203,6 +203,7 @@ func show_pause(kind: String) -> void:
 	else:
 		paragraph("WASD / 方向键移动，J / 左键接龙枪三式。\n空格 / K 闪避，精准闪避后可接回马枪。\nQ / 右键横扫破盾，R 青釭断势，F 服药。\nE 救援、休整、前进；1 / 2 / 3 发布军令。",v)
 		var effects=CheckButton.new(); effects.text="柔和特效 · 减少震屏和顿帧"; effects.button_pressed=world.fx.soft; effects.toggled.connect(func(value): world.fx.soft=value); v.add_child(effects)
+		var footsteps=CheckButton.new(); footsteps.text="脚步声 · 轻声落脚"; footsteps.button_pressed=world.sound.footsteps_enabled; footsteps.toggled.connect(func(value): world.sound.footsteps_enabled=value); v.add_child(footsteps)
 		var mute=CheckButton.new(); mute.text="静音"; mute.button_pressed=world.sound.muted; mute.toggled.connect(func(value): world.sound.muted=value); v.add_child(mute)
 	first_choice=button("继续前行",v,func(): world.resume())
 	if kind!="map":
