@@ -1,5 +1,30 @@
 extends Node2D
+## Every static prop shares one atlas, retaining its original ground sort origin.
+static var baking=false
+static var atlas: Texture2D
+static var manifest: Dictionary={}
 var data: Dictionary = {}
+var cached_sprite: Sprite2D
+
+static func frame_key(value: Dictionary) -> String:
+	if value.kind=="tree":
+		return "tree_"+str(posmod(int(value.seed),4) if value.variant<.32 else 4+posmod(int(value.seed),12))
+	if value.kind=="rock": return "rock_"+str(posmod(int(value.size),4))
+	return str(value.kind)+"_"+str(int(value.w))+"_"+str(int(value.h))
+
+func _ready() -> void:
+	if baking or data.kind=="oil": return
+	if manifest.is_empty() and ResourceLoader.exists("res://assets/maps/scenery.png"):
+		atlas=load("res://assets/maps/scenery.png")
+		manifest=JSON.parse_string(FileAccess.get_file_as_string("res://assets/maps/scenery.json"))
+	var key=frame_key(data)
+	if not manifest.has(key): return
+	var frame=manifest[key]; var texture=AtlasTexture.new(); texture.atlas=atlas
+	texture.region=Rect2(frame.region[0],frame.region[1],frame.region[2],frame.region[3]); texture.filter_clip=true
+	cached_sprite=Sprite2D.new(); cached_sprite.centered=false; cached_sprite.texture=texture
+	var factor=float(data.size)/frame.size if data.kind in ["tree","rock"] else 1.0
+	cached_sprite.scale=Vector2.ONE*factor; cached_sprite.position=-Vector2(frame.anchor[0],frame.anchor[1])*factor
+	add_child(cached_sprite)
 
 func polygon(points: Array, color: String) -> void:
 	var p = PackedVector2Array()
@@ -10,7 +35,7 @@ func oval(center: Vector2, radius: float, squash: float, color: Color) -> void:
 	draw_set_transform(center,0,Vector2(1,squash)); draw_circle(Vector2.ZERO,radius,color); draw_set_transform(Vector2.ZERO)
 
 func _draw() -> void:
-	if data.is_empty(): return
+	if data.is_empty() or cached_sprite!=null: return
 	match data.kind:
 		"tree": draw_tree()
 		"rock": draw_rock()
@@ -21,23 +46,35 @@ func draw_tree() -> void:
 	var s = data.size
 	var random = RandomNumberGenerator.new(); random.seed = int(data.seed)
 	oval(Vector2(18,7),s*.95,.28,Color(.08,.25,.21,.16))
-	polygon([[-7,5],[-4,-s*1.5],[3,-s*1.6],[7,5],[13,8],[0,9]],"4c6050")
+	polygon([[-7,5],[-4,-s*1.5],[3,-s*1.6],[7,5],[13,8],[0,9]],"435746")
+	polygon([[-4,4],[-2,-s*1.4],[1,-s*1.5],[2,4]],"7c8160")
+	for side in [-1,1]: draw_line(Vector2(side*3,4),Vector2(side*15,8),Color("566749"),3,true)
 	draw_line(Vector2(0,-s*.4),Vector2(-s*.4,-s*1.3),Color("3b5448"),4,true)
 	if data.variant < .32:
-		var colors = ["31544a","406653","527d60","6c946c","88a579"]
+		var colors = ["2d5143","3b6149","527552","6a8c60","8da371"]
 		for i in range(5):
 			var y = -s*.2-i*s*.34; var w = s*(1.16-i*.19)
 			polygon([[-w,y+4],[-w*.5,y-s*.28],[1,y-s*.77],[w*.5,y-s*.22],[w,y+4],[w*.3,y+11],[-w*.25,y+12]],colors[i])
+			for j in range(8):
+				var p=Vector2(random.randf_range(-w*.6,w*.6),y-random.randf_range(0,s*.2))
+				draw_line(p,p+Vector2(3,-3),Color(.72,.79,.51,.22),1.2,true)
 			draw_line(Vector2(-w*.72,y),Vector2(1,y-s*.64),Color(.73,.83,.63,.2),1.2,true)
 	else:
-		var colors = [Color("365c4d"),Color("426c55"),Color("568164"),Color("70986f"),Color("8dab7f")]
+		var colors = [Color("2c5141"),Color("3d6749"),Color("557e53"),Color("719560"),Color("98ab75")]
+		oval(Vector2(3,-s*1.3),s*1.08,.69,Color("304e3e"))
 		for i in range(12):
 			var angle = i*2.4
 			var p = Vector2(cos(angle)*s*.4,-s*1.4+sin(angle)*s*.34-(s*.1 if i>8 else 0))
-			oval(p,s*(.64-i*.012),.7,colors[mini(4,int(i/3))])
-			for _j in range(8):
+			var radius=s*(.64-i*.012)
+			var outline=PackedVector2Array()
+			for point in range(18):
+				var a=point*TAU/18; var r=radius*random.randf_range(.88,1.08)
+				outline.append(p+Vector2(cos(a)*r,sin(a)*r*.7))
+			draw_colored_polygon(outline,colors[mini(4,int(i/3))])
+			oval(p+Vector2(-radius*.16,-radius*.14),radius*.7,.61,Color(.71,.8,.47,.065))
+			for _j in range(12):
 				var dot = p+Vector2(random.randf_range(-s*.45,s*.45),random.randf_range(-s*.24,s*.24))
-				oval(dot,random.randf_range(2,4),.42,Color(.83,.89,.65,.14))
+				draw_line(dot,dot+Vector2(random.randf_range(2,5),-1.5),Color(.81,.86,.57,.21),1.4,true)
 
 func draw_rock() -> void:
 	var r = data.size; oval(Vector2(5,5),r*1.2,.4,Color(.13,.31,.26,.2))
@@ -55,11 +92,17 @@ func draw_building() -> void:
 		draw_line(Vector2(0,-h/2-30),Vector2(0,h/2+9),Color("525744"),3,true)
 		return
 	draw_rect(Rect2(-w/2,-h/2,w,h),Color("c4bf9a"))
+	for i in range(8):
+		var y=-h/2+11+i*h/9
+		draw_line(Vector2(-w/2+5,y),Vector2(-w/2+15+(i*19)%int(w*.7),y-1),Color(.5,.49,.33,.12),1,true)
 	draw_rect(Rect2(w*.19,-h/2,w*.31,h),Color(.48,.55,.43,.35))
 	draw_rect(Rect2(-14,h/2-37,28,37),Color("354c43"))
 	draw_rect(Rect2(-w/2+14,h/2-38,21,18),Color("647060"))
 	for i in range(4): draw_line(Vector2(-w/2+17+i*4,h/2-37),Vector2(-w/2+17+i*4,h/2-22),Color("c9c5a0"),1,true)
 	draw_line(Vector2(-w/2,h/2),Vector2(w/2,h/2),Color("77836a"),4,true)
+	for i in range(6):
+		var p=Vector2(-w/2+7+i*w/6,h/2-3)
+		oval(p,5+i%3,.35,Color(.33,.43,.29,.35))
 	if data.kind == "ruin":
 		polygon([[-w/2-10,-3],[-10,-h/2-35],[15,-h/2-20],[-w/2+18,6]],"61766b")
 		for i in range(5): draw_line(Vector2(13+i*12,-h/2+i%2*11),Vector2(15+i*12,-h/2-22+i%2*18),Color("635f4b"),4,true)

@@ -10,6 +10,8 @@ static var frames: Dictionary = {}
 var actor
 var body: Sprite2D
 var current_scale = 1.0
+var last_frame: Array=[]
+var baby_visible=false
 
 static func prepare() -> void:
 	if not frames.is_empty(): return
@@ -29,6 +31,9 @@ func _ready() -> void:
 	add_child(body); update_pose()
 
 func set_frame(key: String, index: int, flip: bool, hero: bool, height: float = 62) -> void:
+	var frame=[key,index,flip,hero,height]
+	if frame==last_frame: return
+	last_frame=frame
 	var meta = atlas_data[key].frames[index]
 	body.texture = frames[key][index]
 	current_scale = 26.0 / float(meta.head_height) if hero else height / float(meta.region[3])
@@ -92,7 +97,9 @@ func update_pose() -> void:
 		elif actor.stun > .2:
 			rotation = sin(Time.get_ticks_msec() * .016) * .07
 	if actor.hurt_flash > 0: modulate = Color(1.4, 1.2, 1.0, .85)
-	queue_redraw()
+	var carrying=actor.faction=="hero" and actor.world.state.flags.adou
+	if carrying!=baby_visible:
+		baby_visible=carrying; queue_redraw()
 
 func _draw() -> void:
 	if actor == null: return

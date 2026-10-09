@@ -41,6 +41,12 @@ var keyboard_attack_held = false
 var rng = RandomNumberGenerator.new()
 var pending_stage: Dictionary = {}
 var test_mode = false
+var performance_report=false
+var performance_warmup=1.0
+var performance_elapsed=0.0
+var performance_frames: Array=[]
+var performance_draws: Array=[]
+var performance_previous_tick=0
 
 func _ready() -> void:
 	rng.seed = 82713
@@ -63,6 +69,7 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="): call_deferred("capture_scene",arg.trim_prefix("--capture="))
 		elif arg=="--smoke": call_deferred("smoke_exit")
+		elif arg=="--perf-report": performance_report=true
 
 func setup_input() -> void:
 	var keys = {"move_left":[KEY_A,KEY_LEFT],"move_right":[KEY_D,KEY_RIGHT],"move_up":[KEY_W,KEY_UP],"move_down":[KEY_S,KEY_DOWN],"attack":[KEY_J],"dash":[KEY_SPACE,KEY_K],"sweep":[KEY_Q],"sword":[KEY_R],"heal":[KEY_F],"interact":[KEY_E],"pause":[KEY_ESCAPE],"map":[KEY_M],"follow":[KEY_1],"hold":[KEY_2],"charge":[KEY_3],"fullscreen":[KEY_F11]}
@@ -150,6 +157,25 @@ func _process(dt: float) -> void:
 	shake = maxf(0,shake-dt*18)
 	camera.offset = Vector2(rng.randf_range(-shake,shake),rng.randf_range(-shake,shake)) if not fx.soft and mode=="playing" else Vector2.ZERO
 	if ui: ui.refresh(dt)
+	if performance_report:
+		if mode=="playing": measure_performance()
+		else: performance_previous_tick=0
+
+func measure_performance() -> void:
+	# Opt-in QA output only; no overlay or frame monitor runs during normal play.
+	var now=Time.get_ticks_usec()
+	if performance_previous_tick==0:
+		performance_previous_tick=now; return
+	# Godot clamps process delta after stalls; wall-clock intervals reveal them.
+	var dt=(now-performance_previous_tick)/1000000.0; performance_previous_tick=now
+	performance_warmup-=dt
+	if performance_warmup>0: return
+	performance_elapsed+=dt; performance_frames.append(dt*1000)
+	performance_draws.append(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+	if performance_elapsed<5: return
+	performance_frames.sort(); performance_draws.sort()
+	print("LONGDAN_PERF ",JSON.stringify({"stage":stage,"samples":performance_frames.size(),"median_ms":performance_frames[int(performance_frames.size()*.5)],"p95_ms":performance_frames[int(performance_frames.size()*.95)],"draw_calls":performance_draws[int(performance_draws.size()*.5)],"fps":Performance.get_monitor(Performance.TIME_FPS)}))
+	performance_report=false
 
 func on_focus_lost() -> void:
 	hero.buffer = {}; clear_input()

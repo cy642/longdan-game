@@ -24,6 +24,7 @@ var home = Vector2.ZERO
 var path: PackedVector2Array = []
 var path_clock = 0.0
 var uid = 0
+var shadow_alive=true
 
 func _ready() -> void:
 	uid = get_instance_id()
@@ -83,7 +84,8 @@ func body_alive() -> bool:
 
 func update_visual() -> void:
 	if visual: visual.update_pose()
-	queue_redraw()
+	if shadow_alive!=(hp>0):
+		shadow_alive=hp>0; queue_redraw()
 
 func _draw() -> void:
 	draw_set_transform(Vector2(0,2),0,Vector2(1,.26))

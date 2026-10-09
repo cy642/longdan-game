@@ -46,7 +46,8 @@
 - `scenes/hero.tscn`、`scenes/enemy.tscn`：原生 `CharacterBody2D` 与地面碰撞形状。
 - `scripts/hero.gd`、`enemy.gd`、`companion.gd`：动作阶段、闪避、敌人连招、盾防与军令。
 - `scripts/actor_visual.gd`：原图的 `AtlasTexture` 区域、八方向动作、统一头部比例与脚底锚点。
-- `scripts/terrain.gd`、`scenery.gd`：原生静态地形碰撞、Godot AStarGrid2D 绕障碍路径、六区域地表与建筑。
+- `scripts/terrain.gd`、`scenery.gd`：原生地形碰撞、Godot AStarGrid2D 绕障碍路径、烘焙地表与共用景物图集。
+- `assets/maps/`：六张 1600 × 1100 地表、33 种景物及脚底坐标；树木、岩石和建筑仍按原位置遮挡人物。剧情会改变的路障和油车单独绘制。
 - `scripts/effects.gd`、`sound.gd`：战斗预警、枪芒、受击火花、残影、局部音效。
 - `scripts/world.gd`、`campaign.gd`：第一章剧情、任务条件、进度与战报。
 - `scripts/interface.gd`、`map_view.gd`：原生中文界面、暂停、军图和战斗状态。
@@ -72,3 +73,15 @@ godot --headless --export-release "Web"
 关卡和参数同步工具为 `tools/sync_data.mjs`；原始图集元数据读取工具为 `tools/prepare_assets.py`（Pillow / NumPy）。提交内已包含可直接运行的图集与元数据，平时开发无需运行这些工具。
 
 中文字体为 Noto Sans SC 的游戏字符子集，已按 OFL 更名为 Longdan Game Sans；许可见 `assets/fonts/LICENSE.txt`。新增中文对白后需运行 `tools/subset_font.py` 重建字符子集（fonttools，首次从官方来源下载原字体并缓存）。Godot 与第三方组件许可见 `assets/licenses/`。
+
+## 地图与性能
+
+静态草叶、路边碎石、树荫、屋基和河面已离线烘焙；树木、岩石、房屋共用一张 1920 × 1920 图集。运行时无需重画数千个细碎图形。图集裁掉透明边距并保留脚底锚点，碰撞与寻路仍使用原始地形。更改矢量地图绘制后，可用带图形渲染的 Godot 重建：
+
+```powershell
+godot --path . --script res://tools/bake_maps.gd
+godot --headless --editor --import
+godot --script res://tests/performance.gd -- --label=my-computer
+```
+
+性能检查使用 1280 × 720、关闭垂直同步的真实图形渲染，分别采样山道、荒村和北桥战斗。不会写入玩家存档；每台电脑应以自己的测试结果为准。Web 版将渲染倍率限制为最多 1.5，最长边最多 1920 像素，降低高分屏负担；窗口和全屏大小改变后保持鼠标位置对应。开发者可用 `?profile=1` 试玩，开战六秒后在浏览器控制台读取一次实际帧耗时报告，普通游玩不启用监测。

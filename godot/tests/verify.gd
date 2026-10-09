@@ -2,6 +2,7 @@ extends SceneTree
 ## Run production nodes with real Godot physics, using an isolated test save.
 const Game=preload("res://scripts/world.gd")
 const Campaign=preload("res://scripts/campaign.gd")
+const Scenery=preload("res://scripts/scenery.gd")
 var world
 var failures: Array=[]
 var checks=0
@@ -175,6 +176,15 @@ func run() -> void:
 	for id in world.definitions:
 		await region(id,Vector2.INF)
 		expect(not world.terrain.blocked(hero.position,hero.radius),"default spawn is navigable in "+id)
+		expect(world.terrain.ground_texture!=null and world.terrain.ground_texture.get_size()==Vector2(1600,1100),"baked ground is present and aligned in "+id)
+		var all_cached=true
+		for item in world.actors.get_children():
+			if item.get_script()==Scenery and item.data.kind!="oil" and item.cached_sprite==null: all_cached=false
+		expect(all_cached,"trees, rocks and buildings use the shared atlas in "+id)
+	var anchors_valid=true
+	for frame in Scenery.manifest.values():
+		if not Rect2(Vector2.ZERO,Vector2(frame.region[2],frame.region[3])).has_point(Vector2(frame.anchor[0],frame.anchor[1])): anchors_valid=false
+	expect(Scenery.manifest.size()==33 and anchors_valid,"all trimmed atlas frames retain their ground anchor")
 
 	print("GODOT_VERIFY ",checks," checks; ",failures.size()," failures")
 	world.queue_free(); await process_frame; await process_frame

@@ -6,6 +6,8 @@ var data: Dictionary={}
 var font: Font
 var people: Array=[]
 var clock=0.0
+var redraw_clock=0.0
+var last_state=""
 
 func _ready() -> void:
 	font=load("res://assets/fonts/NotoSansSC-Regular.otf")
@@ -27,7 +29,14 @@ func _process(dt: float) -> void:
 		for sprite in people: sprite.visible=not world.state.flags.civilians
 	elif data.id=="adou":
 		for sprite in people: sprite.visible=not world.state.flags.mother
-	queue_redraw()
+	redraw_clock-=dt
+	if redraw_clock>0: return
+	redraw_clock=1.0/30.0
+	var state=str(world.state.flags)
+	var animated=data.kind=="camp" or data.kind=="supplies" and world.state.flags.supplies
+	var visible_area=Rect2(world.camera.position-world.get_viewport_rect().size*.6,world.get_viewport_rect().size*1.2).grow(120)
+	if state!=last_state or animated and world.mode=="playing" and visible_area.has_point(position):
+		last_state=state; queue_redraw()
 
 func oval(p: Vector2,r: float,squash: float,color: Color) -> void:
 	draw_set_transform(p,0,Vector2(1,squash)); draw_circle(Vector2.ZERO,r,color); draw_set_transform(Vector2.ZERO)

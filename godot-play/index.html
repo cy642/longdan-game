@@ -19,7 +19,21 @@
   <noscript>请开启 JavaScript 后进入游戏。</noscript>
   <script src="index.js"></script>
   <script>
-    const config={"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":8715864,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+    const config={"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":11880668,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+    if(new URLSearchParams(window.location.search).get('profile')==='1')config.args.push('--','--perf-report');
+    // Bound the framebuffer on high-DPI displays while keeping CSS input coordinates.
+    config.canvasResizePolicy=0;
+    const canvas=document.getElementById('canvas');
+    function resizeGame(){
+      const width=Math.max(1,window.innerWidth),height=Math.max(1,window.innerHeight);
+      const scale=Math.min(window.devicePixelRatio||1,1.5,1920/Math.max(width,height));
+      const pixelWidth=Math.round(width*scale),pixelHeight=Math.round(height*scale);
+      if(canvas.width!==pixelWidth)canvas.width=pixelWidth;
+      if(canvas.height!==pixelHeight)canvas.height=pixelHeight;
+    }
+    resizeGame();window.addEventListener('resize',resizeGame);
+    // Godot initializes the canvas dimensions during its first frame as well.
+    new MutationObserver(()=>requestAnimationFrame(resizeGame)).observe(canvas,{attributes:true,attributeFilter:['width','height']});
     const engine=new Engine(config);
     const play=document.getElementById('play');
     const notice=document.getElementById('notice');
@@ -28,7 +42,9 @@
       const missing=Engine.getMissingFeatures({threads:false});
       if(missing.length){notice.textContent='当前浏览器暂不支持游戏画面，请用电脑版 Chrome 或 Edge 打开。';play.disabled=false;return;}
       try{
+        resizeGame();
         await engine.startGame({onProgress(current,total){if(total>0){document.getElementById('bar').value=current/total*100;document.getElementById('status').textContent='准备战场 '+Math.round(current/total*100)+'%';}}});
+        resizeGame();
         document.getElementById('loading').remove();document.getElementById('canvas').focus();
       }catch(error){console.error(error);notice.textContent='游戏未能载入，请刷新重试，或检查浏览器的硬件加速设置。';play.disabled=false;}
     });
