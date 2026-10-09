@@ -1,0 +1,37 @@
+; 龙胆：逆命三国 — native Godot 2D desktop project
+config_version=5
+
+[application]
+config/name="龙胆：逆命三国"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://assets/icon.svg"
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/size/resizable=true
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false
+environment/defaults/default_clear_color=Color(0.06, 0.10, 0.11, 1)
+textures/canvas_textures/default_texture_filter=2
+
+[physics]
+common/physics_ticks_per_second=60
+2d/default_gravity=0.0
+
+[debug]
+gdscript/warnings/inference_on_variant=0
+
+[layer_names]
+2d_physics/layer_1="地形"
+2d_physics/layer_2="赵云"
+2d_physics/layer_3="敌军"
+2d_physics/layer_4="随军与医者"

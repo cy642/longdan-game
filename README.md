@@ -2,6 +2,8 @@
 
 宣传副标题：**重生之我在三国当赵子龙**。第一章「长坂逆命」的2D俯视角动作冒险试玩版，当前专注电脑版，沿用用户选定的Q版赵云形象。
 
+新增 **Godot 电脑版**：原生移动和碰撞、八方向动作、闪避取消、完整第一章与独立存档。工程位于 [godot/](godot/README.md)，在线试玩：[Godot 版](https://cy642.github.io/longdan-game/godot-play/)。原 Canvas 网页版入口继续保留。
+
 ## 打开游玩
 
 - 在线试玩：[GitHub Pages](https://cy642.github.io/longdan-game/)。

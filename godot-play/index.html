@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>龙胆：逆命三国 · 电脑版试玩</title>
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#0e2329;color:#e9e2c5;font:16px 'Microsoft YaHei',sans-serif;overflow:hidden}
+    #canvas{display:block;width:100%;height:100%;outline:0}#loading{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(ellipse at 70% 40%,#254b49,#10292e 70%);z-index:2}
+    .card{width:min(580px,90vw);padding:42px;border:1px solid #718c72;border-radius:8px;background:#122c30eb;text-align:center}.eyebrow{color:#a3c5b4;letter-spacing:3px;font-size:13px}h1{font-size:36px;font-weight:500;margin:18px 0;color:#f0dbab}p{line-height:1.9;color:#b9cbb6}.button{font:inherit;color:#f7ebc8;background:#33564b;border:1px solid #d6bd7c;border-radius:5px;padding:13px 32px;cursor:pointer}.button:hover{background:#476b58}.button:disabled{opacity:.65;cursor:wait}progress{width:100%;height:8px;accent-color:#cdbb84}#progress{display:none;margin-top:24px}#notice{color:#efb9a0;white-space:pre-wrap;font-size:14px}a{color:#a8c8bd;font-size:13px}small{display:block;margin-top:22px;color:#91afa2;font-size:12px}
+  </style>
+  <link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
+<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+
+</head>
+<body>
+  <canvas id="canvas" tabindex="0" aria-label="龙胆逆命三国游戏画面"></canvas>
+  <div id="loading"><div class="card"><div class="eyebrow">长坂逆命 · 第一章</div><h1>龙胆：逆命三国</h1><p>重生之我在三国当赵子龙<br>长枪在手，这一回，改写他们的命运。</p><button class="button" id="play">进入电脑版试玩</button><div id="progress"><progress id="bar" max="100" value="0"></progress><p id="status">正在准备长坂战场……</p></div><p id="notice"></p><small>键盘与鼠标操作 · 首次载入需下载游戏素材</small><p><a href="../">打开原网页版</a></p></div></div>
+  <noscript>请开启 JavaScript 后进入游戏。</noscript>
+  <script src="index.js"></script>
+  <script>
+    const config={"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":8715864,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+    const engine=new Engine(config);
+    const play=document.getElementById('play');
+    const notice=document.getElementById('notice');
+    play.addEventListener('click',async()=>{
+      play.disabled=true;document.getElementById('progress').style.display='block';
+      const missing=Engine.getMissingFeatures({threads:false});
+      if(missing.length){notice.textContent='当前浏览器暂不支持游戏画面，请用电脑版 Chrome 或 Edge 打开。';play.disabled=false;return;}
+      try{
+        await engine.startGame({onProgress(current,total){if(total>0){document.getElementById('bar').value=current/total*100;document.getElementById('status').textContent='准备战场 '+Math.round(current/total*100)+'%';}}});
+        document.getElementById('loading').remove();document.getElementById('canvas').focus();
+      }catch(error){console.error(error);notice.textContent='游戏未能载入，请刷新重试，或检查浏览器的硬件加速设置。';play.disabled=false;}
+    });
+    document.getElementById('canvas').addEventListener('contextmenu',event=>event.preventDefault());
+  </script>
+</body>
+</html>

@@ -6,3 +6,6 @@ Q版赵云试玩.png
 *.log
 .qa/
 longdan-offline.html
+godot/.godot/
+builds/
+godot-play/*.zip
