@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate a standalone Godot 4.6+ (PCK v3) release without running Godot.
+"""Validate a standalone Godot 4.6/4.7 (PCK v3/v4) release without running Godot.
 
 From the repository root:
     python3 godot/tools/verify_export_pack.py [godot-play/index.pck]
@@ -27,8 +27,10 @@ def read_pack(path):
     if len(data) < 104 or data[:4] != b"GDPC":
         raise ValueError("Expected a standalone Godot PCK file (GDPC header).")
     version, major, minor, patch, flags = struct.unpack_from("<5I", data, 4)
-    if version != 3:
-        raise ValueError(f"Unsupported PCK version {version}; this checker supports v3.")
+    # Non-sparse, unencrypted v3/v4 use the same payload and directory layout.
+    # See Godot 4.7.2 core/io/file_access_pack.cpp: PackedSourcePCK::try_open_pack.
+    if version not in (3, 4):
+        raise ValueError(f"Unsupported PCK version {version}; this checker supports v3/v4.")
     if flags & ~2:
         raise ValueError(f"Encrypted or unknown pack flags are unsupported: {flags:#x}.")
     file_base, directory = struct.unpack_from("<2Q", data, 24)

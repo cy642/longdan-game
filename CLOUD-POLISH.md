@@ -1,8 +1,8 @@
-# 第一章动作与场景打磨 · 云端工作版
+# 第一章动作与场景打磨 · Web 发布记录
 
-**发布范围：此轮提交更新可编辑源码、Blender 模型与第二章设计；仓库 `godot-play/` 保持上一版原样。新版 Web 包已在云端构建并通过包内资源与原生加载检查，但完整运行时上传尚未完成，线上试玩暂未包含本轮改动。不要把源码提交当成新版网页发布。**
+**当前交付：本次提交包含与 `7e397ec` 源码对应、使用 Godot 4.7.2 及匹配官方模板完整重建的 `godot-play/`，包括配套 HTML、JS、WASM 与 PCK。已完成本机导出包和浏览器基本交互检查；这些结果不代表线上部署已完成。**
 
-本轮接续 `a01efae`，在独立 Linux 工作副本中完成。这里的“第一关”对应现有第一章「长坂逆命」：溃军山道、荒村小巷、破庙夺剑、井畔旧宅、粮道岔口、北桥决战，共六区。第二章「汉水孤营」仍是设计稿，不包含在本轮游戏实现中。
+源码打磨阶段接续 `a01efae`，在独立 Linux 工作副本中完成，并于 `7e397ec` 先交付源码、Blender 模型与设计；当时 `godot-play/` 仍为旧版。本次补齐与该源码对应的 Web 运行包，不改玩法或渲染源码。这里的“第一关”对应现有第一章「长坂逆命」：溃军山道、荒村小巷、破庙夺剑、井畔旧宅、粮道岔口、北桥决战，共六区。第二章「汉水孤营」仍是设计稿，不包含在游戏实现中。
 
 ## 这次改变
 
@@ -31,7 +31,7 @@
 
 ## 打开与复现
 
-本轮云端使用 Godot **4.6.3 stable**、Blender **4.3.2**、Linux / Mesa llvmpipe Compatibility 渲染。前一轮 Windows 验证使用 Godot 4.7.2；本轮没有把之前的 Windows 结果当作新构建的验证结果。项目的原有 `4.7` 特性标签和正式存档路径保持原样。
+源码打磨阶段使用 Godot **4.6.3 stable**、Blender **4.3.2**、Linux / Mesa llvmpipe Compatibility 渲染。本次 Web 发布在用户电脑「白小蛋」使用 Godot **4.7.2 stable** 与匹配官方导出模板重新构建并验证，结果见下文。项目的原有 `4.7` 特性标签和正式存档路径保持原样。
 
 ```bash
 ./Run-Checks.sh /path/to/godot
@@ -48,20 +48,29 @@ godot --path godot --script res://tests/enemy_pose_capture.gd -- --label=review 
 
 ## 构建
 
-使用与引擎一致的官方导出模板。云端 4.6.3 模板下载自 `godotengine/godot-builds` 官方 release，完整归档 SHA256 校验通过：`3fbe2c0e2dec9d537ab9ec97bcf8da91dcf23357fc51f67092dd068d839290a8`。
+本次发布使用 Godot 4.7.2 与同版本官方导出模板。重新导出时须保持引擎和模板版本一致，完整替换 HTML、JS、WASM 与 PCK，避免混用开发阶段 4.6.3 或其他版本的文件。
 
 ```bash
 godot --headless --path godot --editor --import --quit
 godot --headless --path godot --export-release Web
 ```
 
-`godot-play/` 是现有已跟踪的网页导出。本轮源码提交保留旧版目录，完整新版构建暂留在云端交付包中。Pages 不会自行运行 Godot；必须在最终源码确定后重建。`assets/props/*.json` 已加入 Web 和 Windows 的导出过滤器。`art_source/`、测试脚本和重建脚本不会进入运行包。
+`godot-play/` 是现有已跟踪的网页导出，本次提交更新为完整新版构建。Pages 不会自行运行 Godot；必须在最终源码确定后重建。`assets/props/*.json` 已加入 Web 和 Windows 的导出过滤器。`art_source/`、测试脚本和重建脚本不会进入运行包。
 
-实际测试与发布结果见本文件后续验证记录。旧记录保留在 `VALIDATION.md`，不代表本轮结果。
+本次本机测试与此前云端测试分别记录如下；线上部署需单独核验。更早的地图验证记录保留在 `VALIDATION.md`，不代表当前构建结果。
 
 导出后另外运行 `python3 godot/tools/verify_export_pack.py`，直接核对 PCK 资源目录、MD5、JSON 与源码一致性和创作源文件排除情况。
 
-## 本轮验证记录 · 2026-10-13
+## 本次 Web 发布前本机验证
+
+- Godot 4.7.2 的六套检查全部通过：战斗/章节 136、音频 9、地图 491、军图 140、环境/锚点/交互 194、敌人网格/动作与命中契约 31,396，合计 **32,366 项断言**。多数为网格采样断言，不是 32,366 个独立玩法场景。
+- Web PCK 的 95 个资源完整性检查通过；9 份 JSON 与 `7e397ec` Git 中的原始字节完全一致；4 种 Blender 地标纹理齐全，未包含 `art_source/`、`tests/` 或 `tools/`。
+- 原生导出包加载检查通过：`regions=6 modeled_landmarks=6 articulated_enemies=35`。
+- 在用户电脑的 Edge **155.0.4283.45** 与 Chrome **154.0.8037.98** 上，通过本地 HTTP 服务实测完整 Web 包；两者均使用 Intel Arc B370 / ANGLE D3D11 的 WebGL2，成功载入标题、开场对白和山道，D 移动、J 攻击命中（可见 25 伤害）、M 打开军图、Esc 关闭军图及打开暂停、Enter 恢复均正常。两者的页面 JavaScript 错误（`pageerror`）与失败请求均为 0，HTML / JS / WASM / PCK 均返回 HTTP 200。
+- 每个浏览器均出现 **257 条 WebGL 警告**：128 条 `bindBuffer` 目标绑定警告、128 条 `bufferSubData: no buffer`、1 条警告数量达到上限提示。画面和上述操作正常，但原因尚未定位，不能视为无警告结果。
+- 本机证据保存在 `.qa/browser/BROWSER-VALIDATION.md` 及对应日志、截图中，不入源码仓库。这是桌面浏览器的短时基本交互检查，未覆盖完整章节、长时稳定性、跨设备全流程、移动触控或音频听感，也不代表线上地址已验证。
+
+## 源码打磨阶段验证记录 · 2026-10-13（云端）
 
 - 六套 Godot 检查均通过：战斗/章节 136、音频 9、地图 491、军图 140、环境/锚点/交互 194、敌人网格/动作与命中契约 31,396。合计 32,366 项断言；其中多数是网格采样断言，不能等同于 32,366 个独立玩法场景。
 - 实际 PCK 检查：95 个资源 MD5、9 份 JSON 与源码逐字节一致、4 种地标纹理齐全；测试与 Blender 创作源不在包内。
@@ -72,7 +81,7 @@ godot --headless --path godot --export-release Web
 - 浏览器限制：云端 Chrome 能载入最终新版启动页，但同一引擎的正常启动检测明确报告缺少 WebGL2（WebGL2 - Check web browser configuration and hardware support），在下载 WASM/PCK 前拒绝启动。因此本轮没有声称浏览器玩法通过，也没有声称线上更新成功。
 - 没有手动完整通关第一章全部分支，未做长时稳定性或本轮 Windows 可执行文件运行检查；相关章节与碰撞分支由原生自动回归覆盖。音频自动检查通过，云端图形测试使用 Dummy 音频，未作听感验收。
 
-本轮源码、可编辑模型及重建说明独立交付；网页版发布需用匹配模板重新导出完整文件组，避免混用不同版本的 JS/WASM/PCK。
+以上云端记录对应 `7e397ec` 的源码先行交付阶段；当前 Web 交付已按上文在本机使用匹配模板完整重建，并补做双浏览器基本交互检查。
 
 ## 第二章设计交接
 

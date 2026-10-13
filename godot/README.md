@@ -1,7 +1,7 @@
 # 龙胆：逆命三国 · Godot 电脑版
 
 本轮第一章动作与 Blender 场景打磨见 [云端打磨说明](../CLOUD-POLISH.md)。
-发布说明：本轮提交更新源码、模型与设计，线上 Godot 试玩仍为上一版；新 Web 运行包尚未发布。
+发布说明：本次提交包含与源码 `7e397ec` 对应、使用 Godot 4.7.2 及匹配模板完整重建的 `godot-play/`。六套自动检查、导出包资源核对与本机 Edge / Chrome WebGL2 基本交互结果见 [云端打磨说明](../CLOUD-POLISH.md)；线上部署结果需另行核实。
 地图打磨版：可编辑布局见 `data/map_details.json`，六区巡游入口为 `../Map-Tour.cmd`，地图设计与测试说明见 [MAP-POLISH.md](../MAP-POLISH.md)。仓库正式构建沿用原有 Godot 存档目录；此前单独交付的本地预览包使用 `LongdanMapPolishPreview`，两者存档互不迁移。
 
 宣传副标题：**重生之我在三国当赵子龙**。Godot 4.7.2 / GDScript 的原生 2D 动作冒险，第一章「长坂逆命」包含六个区域、两位敌将和三条可选命运。原来的 Canvas 网页版继续保留在仓库根目录。
@@ -73,12 +73,14 @@ godot --headless --path godot --script res://tests/verify.gd
 godot --headless --path godot --script res://tests/audio_verify.gd
 godot --headless --path godot --script res://tests/map_verify.gd
 godot --headless --path godot --script res://tests/map_view_verify.gd
+godot --headless --path godot --script res://tests/atmosphere_verify.gd
+godot --headless --path godot --script res://tests/enemy_animation_verify.gd
 New-Item -ItemType Directory -Force builds/windows, godot-play | Out-Null
 godot --headless --path godot --export-release "Windows Desktop"
 godot --headless --path godot --export-release "Web"
 ```
 
-Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与四组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。检查输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程的环境变量。两个 `.cmd` 启动器也支持把引擎路径作为第一个参数，或使用 `GODOT_EXE` / PATH。
+Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与六组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。检查输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程的环境变量。两个 `.cmd` 启动器也支持把引擎路径作为第一个参数，或使用 `GODOT_EXE` / PATH。
 
 输出目录为仓库的 `builds/windows/` 与 `godot-play/`。`builds/`、`.godot/`、`.qa/`、日志和本机引擎不入库。`godot-play/` 是已跟踪的 Web 导出，修改 Godot 游戏后须重新导出并与源码一起提交。现有 GitHub Pages 从 `main` 分支的仓库根目录自动发布，Pages 流程不会替你运行测试或导出 Godot；根目录的 Canvas 入口继续保留，Godot 入口为 `/godot-play/`。
 
