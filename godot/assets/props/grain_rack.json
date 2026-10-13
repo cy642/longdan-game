@@ -1,0 +1,37 @@
+{
+  "image_size": [
+    288,
+    272
+  ],
+  "anchor_px": [
+    144,
+    234
+  ],
+  "colliders": [
+    {
+      "rect": [
+        -46,
+        -20,
+        92,
+        32
+      ]
+    }
+  ],
+  "image": "res://assets/props/grain_rack.png",
+  "logical_size": [
+    144.0,
+    136.0
+  ],
+  "scale": 0.5,
+  "logical_anchor": [
+    72.0,
+    117.0
+  ],
+  "draw_offset": [
+    -72.0,
+    -117.0
+  ],
+  "model_scene": "grain_rack",
+  "anchor_note": "The source-pixel anchor projects Blender ground origin (0,0,0). Draw at landmark.position with draw_offset, logical_size; keep node Y-sort at landmark.position.",
+  "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow."
+}

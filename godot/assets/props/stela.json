@@ -1,0 +1,37 @@
+{
+  "image_size": [
+    152,
+    200
+  ],
+  "anchor_px": [
+    76,
+    172
+  ],
+  "colliders": [
+    {
+      "rect": [
+        -19,
+        -13,
+        38,
+        24
+      ]
+    }
+  ],
+  "image": "res://assets/props/stela.png",
+  "logical_size": [
+    76.0,
+    100.0
+  ],
+  "scale": 0.5,
+  "logical_anchor": [
+    38.0,
+    86.0
+  ],
+  "draw_offset": [
+    -38.0,
+    -86.0
+  ],
+  "model_scene": "stela",
+  "anchor_note": "The source-pixel anchor projects Blender ground origin (0,0,0). Draw at landmark.position with draw_offset, logical_size; keep node Y-sort at landmark.position.",
+  "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow."
+}

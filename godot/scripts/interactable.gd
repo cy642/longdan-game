@@ -8,6 +8,8 @@ var people: Array=[]
 var clock=0.0
 var redraw_clock=0.0
 var last_state=""
+var focused = false
+var focus_blocked = false
 
 func _ready() -> void:
 	font=load("res://assets/fonts/NotoSansSC-Regular.otf")
@@ -32,8 +34,11 @@ func _process(dt: float) -> void:
 	redraw_clock-=dt
 	if redraw_clock>0: return
 	redraw_clock=1.0/30.0
-	var state=str(world.state.flags)
-	var animated=data.kind=="camp" or data.kind=="supplies" and world.state.flags.supplies
+	var nearest: Dictionary = world.nearest_object()
+	focused = not nearest.is_empty() and nearest.id == data.id
+	focus_blocked = world.object_blocked(data)
+	var state=str(world.state.flags)+str(focused)+str(focus_blocked)
+	var animated=focused or data.kind=="camp" or data.kind=="supplies" and world.state.flags.supplies
 	var visible_area=Rect2(world.camera.position-world.get_viewport_rect().size*.6,world.get_viewport_rect().size*1.2).grow(120)
 	if state!=last_state or animated and world.mode=="playing" and visible_area.has_point(position):
 		last_state=state; queue_redraw()
@@ -50,8 +55,31 @@ func flame(p: Vector2,size: float) -> void:
 		var t=fposmod(clock*.7+i*.31,1.0)
 		draw_circle(p+Vector2(sin(t*6+i)*7,-size*(1+t*2)),1.3,Color(1,.87,.56,1-t))
 
+func _draw_focus() -> void:
+	if not focused: return
+	var color = Color("d8b77b") if focus_blocked else Color("e4d7a1")
+	var radius = 34.0 + sin(clock*3.0)*1.3
+	draw_set_transform(Vector2(0,8),0,Vector2(1,.46))
+	draw_arc(Vector2.ZERO,radius,0,TAU,48,Color(color,.70),2.0,true)
+	draw_set_transform(Vector2.ZERO)
+	# A small E badge links the physical target to the existing contextual HUD.
+	var badge = Rect2(34,-16,20,22)
+	draw_style_box(_focus_badge_style(color),badge)
+	if font: draw_string(font,Vector2(40,0),"E",HORIZONTAL_ALIGNMENT_LEFT,-1,13,color)
+	if focus_blocked:
+		draw_line(Vector2(36,10),Vector2(51,10),Color(color,.8),2,true)
+
+func _focus_badge_style(color: Color) -> StyleBoxFlat:
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(.08,.18,.16,.88)
+	style.border_color = Color(color,.72)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	return style
+
 func _draw() -> void:
 	if data.is_empty(): return
+	_draw_focus()
 	match data.kind:
 		"camp":
 			oval(Vector2(1,6),26,.45,Color(.18,.25,.2,.25))

@@ -46,6 +46,7 @@ func start_action(target) -> void:
 	action = world.new_action("enemy", definition, facing)
 
 func advance(dt: float) -> void:
+	if visual: visual.advance_time(dt)
 	tick_common(dt)
 	if hp <= 0:
 		update_visual(); return
@@ -135,6 +136,7 @@ func take_hit(damage: float, direction: float, knock: float, source: String, poi
 		if stagger >= stagger_max:
 			stagger = 0; stun = 2.1 if kind == "boss" else 1.3; stagger_shield = 4.4; action = {}; sequence = []; cooldown = 1.2
 			world.fx.add("break",position,.5,{"radius":65.0}); world.fx.floater(position,"破势 · 反击",Color("f6d89d")); world.sound.play_cue("break")
+	if visual: visual.react_to_hit(direction, blocked, hp <= 0)
 	world.fx.floater(position,str(int(round(actual))),Color("a7c6b0") if source == "ally" else Color("fff0bb"))
 	if hp <= 0:
 		action = {}; sequence = []; collision_layer = 0

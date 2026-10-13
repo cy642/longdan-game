@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="820" viewBox="0 0 1800 820">
+<title>汉水孤营样段设计坐标图</title>
+<desc>设计图，非运行地图。三张1600乘1100世界像素地图，展示主路、侧路、碰撞掩体、检查点和入场位置。</desc>
+<defs><marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10" fill="none" stroke="#e6bf72" stroke-width="2"/></marker></defs><style>text{font-family:"Noto Sans CJK SC","Noto Sans SC","Microsoft YaHei",sans-serif;fill:#e8e4d6}.h{font-size:25px;font-weight:700}.small{font-size:16px}.maptext{font-size:38px;paint-order:stroke;stroke:#1e2c2c;stroke-width:9;stroke-linejoin:round}.solid{fill:#717971;stroke:#b4b8a7;stroke-width:4}.route{fill:none;stroke:#e6bf72;stroke-width:16;stroke-linecap:round;stroke-linejoin:round}.branch{fill:none;stroke:#adcca7;stroke-width:12;stroke-dasharray:24 20;stroke-linejoin:round}.grid{stroke:#51635b;stroke-width:1;opacity:.25}.border{fill:#2f4038;stroke:#819387;stroke-width:4}</style>
+<rect width="1800" height="820" fill="#152326"/>
+<text x="50" y="58" font-size="32" font-weight="700">汉水孤营 · 首个 10–12 分钟战术样段</text>
+<text x="50" y="94" font-size="18" fill="#e6bf72">DESIGN ONLY · 尚未实现 / 非游戏截图 · 全章 25–35 分钟另行展开</text>
+<text x="50" y="152" class="h" >R  乱石归途</text>
+<text x="50" y="182" class="small" >15 名固定敌人 · A/B 两处路障 · 不做无限追兵</text>
+<g transform="translate(50 218) scale(.325)">
+<rect class="border" width="1600" height="1100"/>
+<path class="grid" d="M200,0 V1100"/>
+<path class="grid" d="M400,0 V1100"/>
+<path class="grid" d="M600,0 V1100"/>
+<path class="grid" d="M800,0 V1100"/>
+<path class="grid" d="M1000,0 V1100"/>
+<path class="grid" d="M1200,0 V1100"/>
+<path class="grid" d="M1400,0 V1100"/>
+<path class="grid" d="M0,200 H1600"/>
+<path class="grid" d="M0,400 H1600"/>
+<path class="grid" d="M0,600 H1600"/>
+<path class="grid" d="M0,800 H1600"/>
+<path class="grid" d="M0,1000 H1600"/>
+<polyline class="branch" points="600,840 330,800 330,560 680,500"/>
+<polyline class="branch" points="1060,510 1480,490 1480,240 1320,180"/>
+<polyline class="route" points="200,900 450,900 720,840 720,580 1040,520 1160,490 1160,240 1380,180"/>
+<rect class="solid" x="400" y="640" width="240" height="120"/>
+<rect class="solid" x="800" y="640" width="240" height="120"/>
+<rect class="solid" x="880" y="300" width="200" height="120"/>
+<rect class="solid" x="1240" y="300" width="200" height="120"/>
+<rect class="solid" x="830" y="600" width="100" height="40"/>
+<circle cx="200" cy="900" r="22" fill="#b6d6e0" stroke="#1e2c2c" stroke-width="4"/>
+<text x="232" y="878" class="maptext" text-anchor="start">R0</text>
+<circle cx="720" cy="820" r="22" fill="#f3c66c" stroke="#1e2c2c" stroke-width="4"/>
+<text x="752" y="798" class="maptext" text-anchor="start">A</text>
+<circle cx="760" cy="580" r="22" fill="#b6d6e0" stroke="#1e2c2c" stroke-width="4"/>
+<text x="792" y="558" class="maptext" text-anchor="start">R1</text>
+<circle cx="1160" cy="490" r="22" fill="#f3c66c" stroke="#1e2c2c" stroke-width="4"/>
+<text x="1192" y="468" class="maptext" text-anchor="start">B</text>
+<circle cx="1380" cy="180" r="22" fill="#f3c66c" stroke="#1e2c2c" stroke-width="4"/>
+<text x="1350" y="158" class="maptext" text-anchor="end">出口</text>
+<path d="M430,928 l22,42 h-44 Z" fill="#ed9890" stroke="#1e2c2c" stroke-width="4"/>
+<text x="462" y="928" class="maptext" text-anchor="start">后援</text>
+<path d="M1480,468 l22,42 h-44 Z" fill="#ed9890" stroke="#1e2c2c" stroke-width="4"/>
+<text x="1450" y="468" class="maptext" text-anchor="end">东援</text>
+<text x="390" y="615" class="maptext" >石壁</text>
+<text x="650" y="710" class="maptext" >160</text>
+<text x="1085" y="375" class="maptext" >160</text>
+<text x="110" y="145" class="maptext" >两侧支路 ≥120</text>
+</g>
+<text x="50" y="610" class="small" >(0,0) 左上；x→ / y↓；每格 200 世界像素</text>
+<text x="630" y="152" class="h" >G  孤营大门</text>
+<text x="630" y="182" class="small" >4 名试探＋至多 2 名补救 · 4 名退军承接到 B</text>
+<g transform="translate(630 218) scale(.325)">
+<rect class="border" width="1600" height="1100"/>
+<path class="grid" d="M200,0 V1100"/>
+<path class="grid" d="M400,0 V1100"/>
+<path class="grid" d="M600,0 V1100"/>
+<path class="grid" d="M800,0 V1100"/>
+<path class="grid" d="M1000,0 V1100"/>
+<path class="grid" d="M1200,0 V1100"/>
+<path class="grid" d="M1400,0 V1100"/>
+<path class="grid" d="M0,200 H1600"/>
+<path class="grid" d="M0,400 H1600"/>
+<path class="grid" d="M0,600 H1600"/>
+<path class="grid" d="M0,800 H1600"/>
+<path class="grid" d="M0,1000 H1600"/>
+<rect x="480" y="240" width="300" height="240" rx="18" fill="#66886c" fill-opacity=".45" stroke="#b8d7b5" stroke-width="5" stroke-dasharray="14 12"/>
+<polyline class="branch" points="580,800 560,550 640,360"/>
+<polyline class="branch" points="640,360 640,520 820,500"/>
+<polyline class="route" points="260,900 580,800 860,680 900,560 1160,560 1480,560"/>
+<rect class="solid" x="960" y="100" width="80" height="340"/>
+<rect class="solid" x="960" y="680" width="80" height="320"/>
+<rect class="solid" x="790" y="200" width="80" height="240"/>
+<path d="M1000,440 V680" stroke="#e6bf72" stroke-width="8" stroke-dasharray="16 14"/>
+<path d="M1450,360 V740" stroke="#dd9690" stroke-width="5" stroke-dasharray="20 14"/>
+<path d="M1320,560 H1430" stroke="#dd9690" stroke-width="9"/>
+<circle cx="260" cy="900" r="22" fill="#b6d6e0" stroke="#1e2c2c" stroke-width="4"/>
+<text x="292" y="878" class="maptext" text-anchor="start">G0</text>
+<circle cx="580" cy="800" r="22" fill="#b6d6e0" stroke="#1e2c2c" stroke-width="4"/>
+<text x="612" y="778" class="maptext" text-anchor="start">整备</text>
+<circle cx="640" cy="360" r="22" fill="#f3c66c" stroke="#1e2c2c" stroke-width="4"/>
+<text x="672" y="338" class="maptext" text-anchor="start">藏兵旗</text>
+<circle cx="820" cy="500" r="22" fill="#f3c66c" stroke="#1e2c2c" stroke-width="4"/>
+<text x="852" y="478" class="maptext" text-anchor="start">鼓台</text>
+<path d="M1480,438 l22,42 h-44 Z" fill="#ed9890" stroke="#1e2c2c" stroke-width="4"/>
+<text x="1450" y="438" class="maptext" text-anchor="end">P1</text>
+<path d="M1480,638 l22,42 h-44 Z" fill="#ed9890" stroke="#1e2c2c" stroke-width="4"/>
+<text x="1450" y="638" class="maptext" text-anchor="end">P2</text>
+<text x="890" y="625" class="maptext" >门洞 240</text>
+<text x="1100" y="315" class="maptext" >营外</text>
+<text x="1090" y="855" class="maptext" >开门后不再锁门</text>
+<text x="1040" y="140" class="maptext" >退军线 x=1450</text>
+</g>
+<text x="630" y="610" class="small" >(0,0) 左上；x→ / y↓；每格 200 世界像素</text>
+<text x="1210" y="152" class="h" >B  河湾反击</text>
+<text x="1210" y="182" class="small" >承接退军剩余个体＋最后 3 人 · 军旗结束样段</text>
+<g transform="translate(1210 218) scale(.325)">
+<rect class="border" width="1600" height="1100"/>
+<path class="grid" d="M200,0 V1100"/>
+<path class="grid" d="M400,0 V1100"/>
+<path class="grid" d="M600,0 V1100"/>
+<path class="grid" d="M800,0 V1100"/>
+<path class="grid" d="M1000,0 V1100"/>
+<path class="grid" d="M1200,0 V1100"/>
+<path class="grid" d="M1400,0 V1100"/>
+<path class="grid" d="M0,200 H1600"/>
+<path class="grid" d="M0,400 H1600"/>
+<path class="grid" d="M0,600 H1600"/>
+<path class="grid" d="M0,800 H1600"/>
+<path class="grid" d="M0,1000 H1600"/>
+<rect x="1480" y="100" width="100" height="900" fill="#426b7f" stroke="#8fbdc7" stroke-width="5"/>
+<rect x="100" y="940" width="1380" height="130" fill="#426b7f" stroke="#8fbdc7" stroke-width="5"/>
+<polyline class="branch" points="500,760 1040,760 1040,500 1240,420"/>
+<polyline class="route" points="220,880 500,760 600,680 600,420 980,420 1240,420 1370,200"/>
+<rect class="solid" x="680" y="480" width="240" height="160"/>
+<rect class="solid" x="360" y="560" width="140" height="80"/>
+<rect class="solid" x="1120" y="240" width="80" height="160"/>
+<circle cx="220" cy="880" r="22" fill="#b6d6e0" stroke="#1e2c2c" stroke-width="4"/>
+<text x="252" y="858" class="maptext" text-anchor="start">B0</text>
+<circle cx="1370" cy="200" r="22" fill="#f3c66c" stroke="#1e2c2c" stroke-width="4"/>
+<text x="1340" y="178" class="maptext" text-anchor="end">终点</text>
+<path d="M1400,398 l22,42 h-44 Z" fill="#ed9890" stroke="#1e2c2c" stroke-width="4"/>
+<text x="1370" y="398" class="maptext" text-anchor="end">P3</text>
+<path d="M760,738 l22,42 h-44 Z" fill="#ed9890" stroke="#1e2c2c" stroke-width="4"/>
+<text x="792" y="738" class="maptext" text-anchor="start">GW</text>
+<text x="710" y="565" class="maptext" >船架</text>
+<text x="475" y="300" class="maptext" >两路均 ≥200</text>
+<text x="850" y="900" class="maptext" >河岸为硬碰撞</text>
+<text x="410" y="195" class="maptext" >蓝色不是可游泳区</text>
+</g>
+<text x="1210" y="610" class="small" >(0,0) 左上；x→ / y↓；每格 200 世界像素</text>
+<path d="M50,656 H1750" stroke="#657570"/>
+<text x="50" y="700" class="small" >金线：主路 / 车道</text>
+<text x="340" y="700" class="small" >绿虚线：侧路</text>
+<text x="615" y="700" class="small" >灰块：真实碰撞 / 挡箭</text>
+<text x="960" y="700" class="small" >蓝点：安全锚点</text>
+<text x="1220" y="700" class="small" >金点：交互 / 目标</text>
+<text x="1515" y="700" class="small" >红三角：敌军入口</text>
+<text x="50" y="743" class="small" >比例与坐标以 CHAPTER-2-PLAYABLE-PLAN.md 为准；道路净宽由碰撞测量，线条粗细不表示实际宽度。</text>
+<text x="50" y="776" class="small" >样段范围：护车回营 → 藏兵守门 → 擂鼓或正面破围 → 河湾军旗。黄忠接应、新敌人、督军及支线不在首版实现。</text>
+</svg>

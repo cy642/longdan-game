@@ -1,5 +1,7 @@
 # 龙胆：逆命三国 · Godot 电脑版
 
+本轮第一章动作与 Blender 场景打磨见 [云端打磨说明](../CLOUD-POLISH.md)。
+发布说明：本轮提交更新源码、模型与设计，线上 Godot 试玩仍为上一版；新 Web 运行包尚未发布。
 地图打磨版：可编辑布局见 `data/map_details.json`，六区巡游入口为 `../Map-Tour.cmd`，地图设计与测试说明见 [MAP-POLISH.md](../MAP-POLISH.md)。仓库正式构建沿用原有 Godot 存档目录；此前单独交付的本地预览包使用 `LongdanMapPolishPreview`，两者存档互不迁移。
 
 宣传副标题：**重生之我在三国当赵子龙**。Godot 4.7.2 / GDScript 的原生 2D 动作冒险，第一章「长坂逆命」包含六个区域、两位敌将和三条可选命运。原来的 Canvas 网页版继续保留在仓库根目录。

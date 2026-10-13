@@ -1,0 +1,37 @@
+{
+  "image_size": [
+    280,
+    280
+  ],
+  "anchor_px": [
+    140,
+    238
+  ],
+  "colliders": [
+    {
+      "rect": [
+        -52,
+        -22,
+        104,
+        36
+      ]
+    }
+  ],
+  "image": "res://assets/props/altar.png",
+  "logical_size": [
+    140.0,
+    140.0
+  ],
+  "scale": 0.5,
+  "logical_anchor": [
+    70.0,
+    119.0
+  ],
+  "draw_offset": [
+    -70.0,
+    -119.0
+  ],
+  "model_scene": "altar",
+  "anchor_note": "The source-pixel anchor projects Blender ground origin (0,0,0). Draw at landmark.position with draw_offset, logical_size; keep node Y-sort at landmark.position.",
+  "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow."
+}

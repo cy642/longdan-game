@@ -3,10 +3,15 @@ extends Node2D
 ## The JSON contains only local additions; chapter1.json remains the campaign source.
 const DATA_PATH = "res://data/map_details.json"
 static var layout_cache: Dictionary = {}
+static var prop_frames: Dictionary = {}
+var rendered_prop: Sprite2D
 var definition: Dictionary = {}
 var stage: String = ""
 var layer: String = "ground"
 var landmark: Dictionary = {}
+var world
+var breeze_clock = 0.0
+var redraw_left = 0.0
 
 static func apply_layout(source: Dictionary, stage_id: String) -> Dictionary:
 	if layout_cache.is_empty():
@@ -55,8 +60,51 @@ static func attach_landmarks(parent: Node2D, data: Dictionary, stage_id: String)
 		node.name = "Landmark_"+str(item.id)
 		node.stage = stage_id; node.definition = data; node.layer = "landmark"; node.landmark = item
 		node.position = Vector2(item.position[0], item.position[1])
+		node.world = parent.get_parent()
 		parent.add_child(node); created.append(node)
 	return created
+
+func _ready() -> void:
+	if layer == "landmark": _attach_rendered_prop()
+	set_process(layer == "landmark" and landmark.get("kind", "") == "banner")
+
+func _attach_rendered_prop() -> void:
+	var manifest_path = "res://assets/props/landmarks.json"
+	if prop_frames.is_empty() and FileAccess.file_exists(manifest_path):
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string(manifest_path))
+		if parsed is Dictionary: prop_frames = parsed.get("props", {})
+	var kind: String = landmark.get("kind", "")
+	if not prop_frames.has(kind): return
+	var frame: Dictionary = prop_frames[kind]
+	if not ResourceLoader.exists(frame.image): return
+	rendered_prop = Sprite2D.new()
+	rendered_prop.name = "BlenderLandmark"
+	rendered_prop.centered = false
+	rendered_prop.texture = load(frame.image)
+	rendered_prop.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	rendered_prop.scale = Vector2.ONE * float(frame.scale)
+	rendered_prop.position = Vector2(frame.draw_offset[0],frame.draw_offset[1])
+	add_child(rendered_prop)
+
+func _process(delta: float) -> void:
+	if not is_instance_valid(world) or world.mode != "playing": return
+	breeze_clock += delta
+	redraw_left -= delta
+	if redraw_left <= 0:
+		redraw_left = 1.0 / 24.0
+		var extent: Vector2 = world.get_viewport_rect().size / world.camera.zoom
+		var visible_area = Rect2(world.camera.get_screen_center_position()-extent*.5,extent).grow(140)
+		if visible_area.has_point(position): queue_redraw()
+
+func _flag_point(p: Vector2) -> Vector2:
+	# The mast edge stays pinned. Only the cloth's free edge follows the breeze.
+	var freedom = clampf((p.x-3.0)/40.0,0.0,1.0)
+	return p+Vector2(sin(breeze_clock*1.7+position.x*.01+p.y*.07)*1.3, sin(breeze_clock*2.0+position.x*.01+p.x*.08)*3.6)*freedom
+
+func _flag_poly(points: Array, color: Color) -> void:
+	var cloth = PackedVector2Array()
+	for p in points: cloth.append(_flag_point(Vector2(p[0],p[1])))
+	draw_colored_polygon(cloth,color)
 
 static func _points(values: Array) -> PackedVector2Array:
 	var result = PackedVector2Array()
@@ -65,7 +113,7 @@ static func _points(values: Array) -> PackedVector2Array:
 
 func _draw() -> void:
 	if layer == "landmark":
-		if not landmark.is_empty(): _draw_landmark()
+		if not landmark.is_empty() and rendered_prop == null: _draw_landmark()
 		return
 	if definition.is_empty(): return
 	var details: Dictionary = definition.get("map_details", {})
@@ -367,10 +415,10 @@ func _banner() -> void:
 	draw_line(Vector2(0,-6),Vector2(0,-111),Color("415e4f"),5,true)
 	draw_line(Vector2(-1,-10),Vector2(-1,-107),Color("a3a581"),1.5,true)
 	draw_line(Vector2(-5,-107),Vector2(47,-104),Color("546954"),4,true)
-	_poly([[3,-103],[43,-100],[40,-55],[28,-63],[17,-50],[4,-57]],tone)
-	_poly([[3,-103],[12,-101],[13,-57],[4,-57]],tone.lightened(.22))
-	draw_line(Vector2(12,-92),Vector2(33,-90),Color("d6cc98"),2,true)
-	_poly([[19,-84],[25,-88],[31,-78],[25,-69],[20,-75]],Color("d3c694"))
+	_flag_poly([[3,-103],[43,-100],[40,-55],[28,-63],[17,-50],[4,-57]],tone)
+	_flag_poly([[3,-103],[12,-101],[13,-57],[4,-57]],tone.lightened(.22))
+	draw_line(_flag_point(Vector2(12,-92)),_flag_point(Vector2(33,-90)),Color("d6cc98"),2,true)
+	_flag_poly([[19,-84],[25,-88],[31,-78],[25,-69],[20,-75]],Color("d3c694"))
 	draw_line(Vector2(5,-105),Vector2(-19,-7),Color(.50,.53,.37,.65),1,true)
 	draw_circle(Vector2(0,-113),3,Color("c4b383"))
 

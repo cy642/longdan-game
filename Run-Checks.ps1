@@ -11,7 +11,7 @@ if ([string]::IsNullOrWhiteSpace($Engine)) {
     if ($engineCommand) { $Engine = $engineCommand.Source }
 }
 if ([string]::IsNullOrWhiteSpace($Engine) -or -not (Test-Path -LiteralPath $Engine -PathType Leaf)) {
-    throw 'Godot 4.7.2 was not found. Pass -Engine "path\to\Godot.exe", set GODOT_EXE, or add godot/godot4 to PATH.'
+    throw 'Godot 4.6.3 or later was not found. Pass -Engine "path\to\Godot.exe", set GODOT_EXE, or add godot/godot4 to PATH.'
 }
 
 $projectRoot = $PSScriptRoot
@@ -47,7 +47,7 @@ try {
     New-Item -ItemType Directory -Path $env:APPDATA,$env:LOCALAPPDATA,$env:TEMP -Force | Out-Null
     $godotProject = Join-Path $projectRoot 'godot'
     Invoke-GodotCheck -Arguments @('--headless','--path',$godotProject,'--editor','--import','--quit') -LogName 'import.log'
-    foreach ($suite in @('verify','audio_verify','map_verify','map_view_verify')) {
+    foreach ($suite in @('verify','audio_verify','map_verify','map_view_verify','atmosphere_verify','enemy_animation_verify')) {
         Invoke-GodotCheck -Arguments @('--headless','--path',$godotProject,'--script',"res://tests/$suite.gd") -LogName "$suite.log"
     }
 } finally {

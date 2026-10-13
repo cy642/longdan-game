@@ -1,0 +1,157 @@
+{
+  "version": 1,
+  "renderer": "Blender 4.3.2 / Cycles CPU",
+  "samples": 256,
+  "source": "res://art_source/map_landmarks.blend",
+  "camera": "Orthographic, front-facing, 30 degree elevation, no yaw",
+  "source_pixels_per_world_pixel": 2,
+  "props": {
+    "altar": {
+      "image_size": [
+        280,
+        280
+      ],
+      "anchor_px": [
+        140,
+        238
+      ],
+      "colliders": [
+        {
+          "rect": [
+            -52,
+            -22,
+            104,
+            36
+          ]
+        }
+      ],
+      "image": "res://assets/props/altar.png",
+      "logical_size": [
+        140.0,
+        140.0
+      ],
+      "scale": 0.5,
+      "logical_anchor": [
+        70.0,
+        119.0
+      ],
+      "draw_offset": [
+        -70.0,
+        -119.0
+      ],
+      "model_scene": "altar",
+      "anchor_note": "The source-pixel anchor projects Blender ground origin (0,0,0). Draw at landmark.position with draw_offset, logical_size; keep node Y-sort at landmark.position.",
+      "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow."
+    },
+    "stela": {
+      "image_size": [
+        152,
+        200
+      ],
+      "anchor_px": [
+        76,
+        172
+      ],
+      "colliders": [
+        {
+          "rect": [
+            -19,
+            -13,
+            38,
+            24
+          ]
+        }
+      ],
+      "image": "res://assets/props/stela.png",
+      "logical_size": [
+        76.0,
+        100.0
+      ],
+      "scale": 0.5,
+      "logical_anchor": [
+        38.0,
+        86.0
+      ],
+      "draw_offset": [
+        -38.0,
+        -86.0
+      ],
+      "model_scene": "stela",
+      "anchor_note": "The source-pixel anchor projects Blender ground origin (0,0,0). Draw at landmark.position with draw_offset, logical_size; keep node Y-sort at landmark.position.",
+      "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow."
+    },
+    "grain_rack": {
+      "image_size": [
+        288,
+        272
+      ],
+      "anchor_px": [
+        144,
+        234
+      ],
+      "colliders": [
+        {
+          "rect": [
+            -46,
+            -20,
+            92,
+            32
+          ]
+        }
+      ],
+      "image": "res://assets/props/grain_rack.png",
+      "logical_size": [
+        144.0,
+        136.0
+      ],
+      "scale": 0.5,
+      "logical_anchor": [
+        72.0,
+        117.0
+      ],
+      "draw_offset": [
+        -72.0,
+        -117.0
+      ],
+      "model_scene": "grain_rack",
+      "anchor_note": "The source-pixel anchor projects Blender ground origin (0,0,0). Draw at landmark.position with draw_offset, logical_size; keep node Y-sort at landmark.position.",
+      "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow."
+    },
+    "lantern": {
+      "image_size": [
+        160,
+        244
+      ],
+      "anchor_px": [
+        52,
+        218
+      ],
+      "colliders": [
+        {
+          "circle": [
+            0,
+            0,
+            7
+          ]
+        }
+      ],
+      "image": "res://assets/props/lantern.png",
+      "logical_size": [
+        80.0,
+        122.0
+      ],
+      "scale": 0.5,
+      "logical_anchor": [
+        26.0,
+        109.0
+      ],
+      "draw_offset": [
+        -26.0,
+        -109.0
+      ],
+      "model_scene": "lantern",
+      "anchor_note": "The source-pixel anchor projects Blender ground origin (0,0,0). Draw at landmark.position with draw_offset, logical_size; keep node Y-sort at landmark.position.",
+      "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow."
+    }
+  }
+}

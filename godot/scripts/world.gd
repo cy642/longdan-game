@@ -389,7 +389,16 @@ func nearest_object() -> Dictionary:
 		if distance<best: best=distance; target=object
 	return target
 
+func camp_threatened(object: Dictionary) -> bool:
+	if object.get("kind", "") != "camp": return false
+	var point = Vector2(object.x,object.y)
+	for enemy in enemies:
+		if enemy.body_alive() and enemy.alerted and enemy.position.distance_to(point) < 350:
+			return true
+	return false
+
 func object_blocked(object: Dictionary) -> bool:
+	if camp_threatened(object): return true
 	if object.has("need") and not state.flags[object.need]: return true
 	if object.has("group") and group_alive(object.group): return true
 	if object.id=="toTemple":
@@ -401,6 +410,7 @@ func object_blocked(object: Dictionary) -> bool:
 func interaction_text(object: Dictionary) -> String:
 	if object.is_empty(): return ""
 	if object_blocked(object):
+		if object.kind == "camp": return "先击退附近敌军，再休整。"
 		if object.has("need") and not state.flags[object.need]: return {"mountain":"先清开山道","temple":"先击败夏侯恩","house":"先安置阿斗与糜夫人","boss":"先击退张郃"}[object.need]
 		return "先击退守军 · 跟随金色指引"
 	if object.kind=="camp": return "休整 · 补满体力与行军药"
@@ -412,9 +422,8 @@ func interact() -> bool:
 	var object=nearest_object()
 	if object.is_empty(): return false
 	if object.kind=="camp":
-		for enemy in enemies:
-			if enemy.body_alive() and enemy.alerted and enemy.position.distance_to(Vector2(object.x,object.y))<350:
-				toast("先击退附近敌军，再休整。"); return false
+		if camp_threatened(object):
+			toast("先击退附近敌军，再休整。"); return false
 		hero.hp=hero.max_hp; hero.qi=100; hero.potions=3; hero.action={}; hero.buffer={}
 		for ally in allies: ally.hp=ally.max_hp
 		state.checkpoint={"stage":stage,"x":object.x,"y":object.y+35,"encounter":""}; save_progress(); sound.play_cue("heal")

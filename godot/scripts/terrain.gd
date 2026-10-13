@@ -2,6 +2,7 @@ extends Node2D
 ## Ground is baked once for export; collision and navigation stay native.
 const Scenery = preload("res://scripts/scenery.gd")
 const MapDetails = preload("res://scripts/map_details.gd")
+const MapAtmosphere = preload("res://scripts/map_atmosphere.gd")
 static var baking = false
 var world
 var definition: Dictionary
@@ -76,6 +77,11 @@ func build(data: Dictionary) -> void:
 		details.stage=world.stage; details.definition=definition; details.layer="ground"
 		add_child(details)
 	MapDetails.attach_landmarks(world.actors,definition,world.stage)
+	if not baking:
+		var atmosphere = MapAtmosphere.new()
+		atmosphere.name = "MapAtmosphere"
+		add_child(atmosphere)
+		atmosphere.configure(world,world.stage,trees,int(data.seed))
 	build_grid()
 	queue_redraw()
 
