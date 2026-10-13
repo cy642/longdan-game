@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "description": "Editable, deterministic map overlays. Coordinates are world pixels. Landmark colliders are local to their anchor; all ground surfaces remain walkable.",
+  "stages": {
+    "mountain": {
+      "roads": [[[1190,210],[1260,190],[1350,180]]],
+      "secondary_roads": [[[550,840],[625,812],[650,745]],[[1080,410],[1075,315],[1180,230]]],
+      "clearings": [[1180,240,178,135],[650,750,86,80],[700,590,95,80]],
+      "surfaces": [
+        {"kind":"gravel","polygon":[[1040,214],[1090,157],[1235,140],[1308,200],[1300,279],[1190,325],[1080,305]]},
+        {"kind":"stone","polygon":[[581,726],[626,693],[688,705],[714,759],[680,812],[607,799]]}
+      ],
+      "steps": [{"position":[701,587],"angle":-0.43,"width":83,"count":7},{"position":[1115,270],"angle":-0.74,"width":61,"count":5}],
+      "landmarks": [
+        {"id":"ridge_cairn","label":"望乡石","kind":"cairn","position":[650,738],"colliders":[{"circle":[0,0,18]}]},
+        {"id":"ridge_banner","label":"山脊营地","kind":"banner","position":[1270,263],"tone":"679083","colliders":[{"circle":[0,0,7]}]},
+        {"id":"mountain_waypost","label":"荒村","kind":"waypost","position":[1230,357],"direction":1,"colliders":[{"circle":[0,0,6]}]}
+      ]
+    },
+    "village": {
+      "roads": [],
+      "secondary_roads": [[[430,550],[435,454],[330,405]],[[310,330],[330,405]],[[830,680],[974,590],[1080,380]]],
+      "clearings": [[335,416,151,123],[965,585,145,86]],
+      "surfaces": [
+        {"kind":"earth","polygon":[[206,349],[285,311],[409,332],[474,410],[457,494],[331,519],[214,466]]},
+        {"kind":"cobbles","polygon":[[841,622],[913,546],[1001,493],[1060,520],[1024,604],[933,681]]}
+      ],
+      "steps": [],
+      "landmarks": [
+        {"id":"rescue_awning","label":"救援庭院","kind":"aid_awning","position":[238,434],"colliders":[{"rect":[-37,-17,75,26]}]},
+        {"id":"village_gateway","label":"荒村主街","kind":"gateway","position":[964,542],"span":152,"tone":"777e65","colliders":[{"circle":[-76,0,8]},{"circle":[76,0,8]}]},
+        {"id":"rescue_waypost","label":"西巷","kind":"waypost","position":[547,640],"direction":-1,"colliders":[{"circle":[0,0,6]}]}
+      ]
+    },
+    "temple": {
+      "roads": [[[1040,560],[1080,450]]],
+      "secondary_roads": [[[720,670],[510,713],[468,527],[315,440]]],
+      "clearings": [[965,485,377,266],[315,440,123,77],[477,539,82,95]],
+      "surfaces": [
+        {"kind":"flagstone","polygon":[[715,300],[1015,249],[1190,326],[1257,510],[1190,683],[982,736],[742,681],[649,487]]},
+        {"kind":"stone","polygon":[[219,408],[286,377],[386,382],[431,441],[386,486],[276,493],[221,453]]}
+      ],
+      "steps": [{"position":[694,681],"angle":-0.46,"width":121,"count":5},{"position":[1056,388],"angle":-1.57,"width":130,"count":4}],
+      "landmarks": [
+        {"id":"temple_altar","label":"破庙祭坛","kind":"altar","position":[1055,334],"colliders":[{"rect":[-52,-22,104,36]}]},
+        {"id":"temple_sidegate","label":"荒村侧门","kind":"gateway","position":[315,434],"span":126,"tone":"648379","broken":true,"colliders":[{"circle":[-63,0,8]},{"circle":[63,0,8]}]},
+        {"id":"temple_stela","label":"旧碑","kind":"stela","position":[695,380],"colliders":[{"rect":[-19,-13,38,24]}]}
+      ]
+    },
+    "house": {
+      "roads": [],
+      "secondary_roads": [[[1060,410],[1090,470],[1180,540],[1295,354]]],
+      "clearings": [[1090,486,158,111]],
+      "surfaces": [
+        {"kind":"cobbles","polygon":[[984,454],[1044,399],[1179,400],[1234,481],[1197,549],[1115,586],[987,549]]},
+        {"kind":"earth","polygon":[[325,255],[408,234],[476,270],[499,329],[439,382],[354,366],[313,311]]}
+      ],
+      "steps": [{"position":[1000,447],"angle":-0.43,"width":74,"count":4}],
+      "landmarks": [
+        {"id":"well_hoist","label":"旧宅井庭","kind":"well_hoist","position":[1070,472],"colliders":[{"circle":[-30,0,5]},{"circle":[47,0,5]}]},
+        {"id":"house_lantern","label":"旧宅","kind":"lantern","position":[1207,526],"colliders":[{"circle":[0,0,7]}]},
+        {"id":"house_ancestral_stone","label":"旧宅前庭","kind":"stela","position":[381,282],"colliders":[{"rect":[-19,-13,38,24]}]}
+      ]
+    },
+    "fork": {
+      "roads": [],
+      "secondary_roads": [[[1310,750],[1246,597],[1130,458],[1080,260]]],
+      "clearings": [[1275,774,187,133],[760,661,117,116]],
+      "surfaces": [
+        {"kind":"earth","polygon":[[1121,687],[1280,650],[1380,756],[1462,796],[1450,870],[1339,926],[1172,851]]},
+        {"kind":"gravel","polygon":[[659,644],[743,563],[813,593],[862,668],[818,744],[725,751]]}
+      ],
+      "steps": [],
+      "landmarks": [
+        {"id":"grain_rack","label":"粮道营地","kind":"grain_rack","position":[1450,930],"colliders":[{"rect":[-46,-20,92,32]}]},
+        {"id":"fork_waypost","label":"北桥 / 粮营","kind":"double_waypost","position":[819,732],"colliders":[{"circle":[0,0,7]}]},
+        {"id":"camp_standard","label":"粮营","kind":"banner","position":[1130,834],"tone":"a17b52","colliders":[{"circle":[0,0,7]}]}
+      ]
+    },
+    "bridge": {
+      "roads": [],
+      "secondary_roads": [[[500,790],[740,895],[1010,910],[1280,740],[1320,520],[1270,320]],[[920,485],[953,358],[1085,335],[1220,290]]],
+      "clearings": [[1270,336,142,76],[310,934,125,78]],
+      "surfaces": [
+        {"kind":"flagstone","polygon":[[1122,293],[1390,294],[1410,354],[1339,405],[1208,399],[1130,357]]},
+        {"kind":"gravel","polygon":[[218,889],[315,859],[407,917],[411,972],[343,1011],[251,997],[204,958]]}
+      ],
+      "steps": [{"position":[1228,291],"angle":-1.29,"width":119,"count":4}],
+      "landmarks": [
+        {"id":"bridge_pavilion","label":"北桥桥头","kind":"gateway","position":[1268,351],"span":212,"tone":"668a7b","colliders":[{"circle":[-106,0,9]},{"circle":[106,0,9]}]},
+        {"id":"bridge_mooring","label":"滨水石桩","kind":"mooring","position":[1025,318],"colliders":[{"circle":[0,0,17]}]},
+        {"id":"bridge_camp_lantern","label":"桥前营地","kind":"lantern","position":[390,973],"colliders":[{"circle":[0,0,7]}]}
+      ]
+    }
+  }
+}

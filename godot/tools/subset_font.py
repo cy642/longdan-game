@@ -12,7 +12,7 @@ if not original.exists():
     original.parent.mkdir(exist_ok=True)
     urllib.request.urlretrieve('https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/SubsetOTF/SC/NotoSansSC-Regular.otf', original)
 text = ''.join(chr(i) for i in range(32, 127)) + '✓○◆…→× ·：，。！？ / 0123456789'
-for directory, pattern in [('scripts','*.gd'), ('data','*.json')]:
+for directory, pattern in [('scripts','*.gd'), ('data','*.json'), ('tests','map_tour.gd')]:
     for path in (project / directory).glob(pattern):
         text += path.read_text(encoding='utf-8')
 options = subset.Options()

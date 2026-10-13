@@ -199,7 +199,7 @@ func show_pause(kind: String) -> void:
 	var v=overlay_base(); label("军图 · "+world.definition.name if kind=="map" else "长枪暂歇",v,28,"ecd6aa")
 	if kind=="map":
 		var map=MapView.new(); map.world=world; map.large=true; map.custom_minimum_size=Vector2(630,365); v.add_child(map)
-		label("金圈是当前目标 · 红点是敌军 · 青点是赵云",v,13,"b0c5b2")
+		label("金圈是当前目标 · 红点是敌军 · 青箭是赵云",v,13,"b0c5b2")
 	else:
 		paragraph("WASD / 方向键移动，J / 左键接龙枪三式。\n空格 / K 闪避，精准闪避后可接回马枪。\nQ / 右键横扫破盾，R 青釭断势，F 服药。\nE 救援、休整、前进；1 / 2 / 3 发布军令。",v)
 		var effects=CheckButton.new(); effects.text="柔和特效 · 减少震屏和顿帧"; effects.button_pressed=world.fx.soft; effects.toggled.connect(func(value): world.fx.soft=value); v.add_child(effects)

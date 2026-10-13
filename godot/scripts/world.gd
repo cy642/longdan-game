@@ -9,6 +9,7 @@ const Effects = preload("res://scripts/effects.gd")
 const Sound = preload("res://scripts/sound.gd")
 const Interface = preload("res://scripts/interface.gd")
 const Interactable = preload("res://scripts/interactable.gd")
+const MapDetails = preload("res://scripts/map_details.gd")
 var state = Campaign.new()
 var definitions: Dictionary = {}
 var attacks: Dictionary = {}
@@ -52,6 +53,8 @@ func _ready() -> void:
 	rng.seed = 82713
 	var data = JSON.parse_string(FileAccess.get_file_as_string("res://data/chapter1.json"))
 	definitions = data.StageDefinition; attacks = data.AttackDefinition
+	for id in definitions:
+		definitions[id] = MapDetails.apply_layout(definitions[id], id)
 	setup_input()
 	actors = Node2D.new(); actors.name = "Actors"; actors.y_sort_enabled = true; add_child(actors)
 	hero = Hero.instantiate(); hero.name = "ZhaoYun"; hero.world = self; hero.max_hp = 200; hero.hp = 200

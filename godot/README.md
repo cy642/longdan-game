@@ -1,12 +1,15 @@
 # 龙胆：逆命三国 · Godot 电脑版
 
+地图打磨版：可编辑布局见 `data/map_details.json`，六区巡游入口为 `../Map-Tour.cmd`，地图设计与测试说明见 [MAP-POLISH.md](../MAP-POLISH.md)。仓库正式构建沿用原有 Godot 存档目录；此前单独交付的本地预览包使用 `LongdanMapPolishPreview`，两者存档互不迁移。
+
 宣传副标题：**重生之我在三国当赵子龙**。Godot 4.7.2 / GDScript 的原生 2D 动作冒险，第一章「长坂逆命」包含六个区域、两位敌将和三条可选命运。原来的 Canvas 网页版继续保留在仓库根目录。
 
 ## 直接试玩
 
 - Godot 在线试玩：<https://cy642.github.io/longdan-game/godot-play/>，使用电脑 Chrome、Edge 或 Firefox；首次需要下载引擎与素材。
-- 本机可直接双击 `../builds/windows/Longdan.exe`，无需安装 Godot、Python 或联网。
+- 本地导出后可双击 `../builds/windows/Longdan.exe`，运行此程序无需安装 Godot、Python 或联网；Windows 构建包不纳入源码仓库。
 - 打开工程：在 Godot 4.7.2 中导入本目录的 `project.godot`，按 F5 运行。
+- 快速巡览：打开 `tests/map_tour.tscn` 后按 F6，或在 Windows 使用根目录 `Map-Tour.cmd`；F1–F6 切换六区，WASD / 方向键移动，M 打开军图。巡览不读取或写入玩家存档。
 - Windows 版和浏览器版分别保存进度；旧 Canvas 版存档不会自动迁移。
 
 ## 操作与战斗
@@ -60,18 +63,26 @@
 
 ## 构建和验证
 
+安装 Godot 4.7.2 与同版本官方导出模板（编辑器「编辑器 → 管理导出模板」）。以下命令从仓库根目录执行，假定 `godot` 已在 PATH 中；也可把 `godot` 换成本机引擎的完整路径，在 PowerShell 中用 `& "引擎路径"` 调用。
+
 ```powershell
-# 在 Godot 工程目录运行，替换 Godot 路径为本机安装位置。
-godot --headless --editor --import
-godot --headless --script res://tests/verify.gd
-godot --headless --script res://tests/audio_verify.gd
-godot --headless --export-release "Windows Desktop"
-godot --headless --export-release "Web"
+godot --headless --path godot --editor --import --quit
+godot --headless --path godot --script res://tests/verify.gd
+godot --headless --path godot --script res://tests/audio_verify.gd
+godot --headless --path godot --script res://tests/map_verify.gd
+godot --headless --path godot --script res://tests/map_view_verify.gd
+New-Item -ItemType Directory -Force builds/windows, godot-play | Out-Null
+godot --headless --path godot --export-release "Windows Desktop"
+godot --headless --path godot --export-release "Web"
 ```
 
-导出需对应版本的官方导出模板。输出目录为仓库的 `builds/windows/` 与 `godot-play/`。Windows 可执行文件单独打包，源码不包含本机引擎和导入缓存。
+Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与四组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。检查输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程的环境变量。两个 `.cmd` 启动器也支持把引擎路径作为第一个参数，或使用 `GODOT_EXE` / PATH。
 
-自动检查运行真实 Godot 节点与物理空间，覆盖：八方向动作 / 脚底与比例、邻帧枪尖排除且保留真实枪头、蓄势 / 出枪 / 收招期间脚底与阴影不分离、真实命中时段、跨帧服药、服药打断、动作缓冲与闪避取消、精准闪避、鼠标释放与暂停清理、盾防反击、随军输出上限、绕建筑路径、两波营救、两位敌将、焚粮部署、木桥通路、三种命运、战报回读、无效存档和保存失败回退。测试使用独立存档，不会替换玩家进度。用 `godot res://tests/pose_preview.tscn` 可核对八方向的站立、行走、蓄势和出枪，预览不读取或写入存档。
+输出目录为仓库的 `builds/windows/` 与 `godot-play/`。`builds/`、`.godot/`、`.qa/`、日志和本机引擎不入库。`godot-play/` 是已跟踪的 Web 导出，修改 Godot 游戏后须重新导出并与源码一起提交。现有 GitHub Pages 从 `main` 分支的仓库根目录自动发布，Pages 流程不会替你运行测试或导出 Godot；根目录的 Canvas 入口继续保留，Godot 入口为 `/godot-play/`。
+
+检查 Web 导出时，在仓库根目录执行 `python -m http.server 8767 --bind 127.0.0.1`，然后用浏览器打开 `http://127.0.0.1:8767/godot-play/`；不要直接双击 Web 导出的 HTML 文件。
+
+自动检查运行真实 Godot 节点与物理空间，覆盖：八方向动作 / 脚底与比例、邻帧枪尖排除且保留真实枪头、蓄势 / 出枪 / 收招期间脚底与阴影不分离、真实命中时段、跨帧服药、服药打断、动作缓冲与闪避取消、精准闪避、鼠标释放与暂停清理、盾防反击、随军输出上限、绕建筑路径、两波营救、两位敌将、焚粮部署、木桥通路、三种命运、战报回读、无效存档和保存失败回退。测试使用独立存档，不会替换玩家进度。在仓库根目录用 `godot --path godot res://tests/pose_preview.tscn` 可核对八方向的站立、行走、蓄势和出枪，预览不读取或写入存档。
 
 关卡和参数同步工具为 `tools/sync_data.mjs`；原始图集元数据读取工具为 `tools/prepare_assets.py`（Pillow / NumPy）。提交内已包含可直接运行的图集与元数据，平时开发无需运行这些工具。
 
@@ -82,9 +93,10 @@ godot --headless --export-release "Web"
 静态草叶、路边碎石、树荫、屋基和河面已离线烘焙；树木、岩石、房屋共用一张 1920 × 1920 图集。运行时无需重画数千个细碎图形。图集裁掉透明边距并保留脚底锚点，碰撞与寻路仍使用原始地形。更改矢量地图绘制后，可用带图形渲染的 Godot 重建：
 
 ```powershell
-godot --path . --script res://tools/bake_maps.gd
-godot --headless --editor --import
-godot --script res://tests/performance.gd -- --label=my-computer
+# 在仓库根目录运行。
+godot --path godot --script res://tools/bake_maps.gd
+godot --headless --path godot --editor --import --quit
+godot --path godot --script res://tests/performance.gd -- --label=my-computer
 ```
 
 性能检查使用 1280 × 720、关闭垂直同步的真实图形渲染，分别采样山道、荒村和北桥战斗。不会写入玩家存档；每台电脑应以自己的测试结果为准。Web 版将渲染倍率限制为最多 1.5，最长边最多 1920 像素，降低高分屏负担；窗口和全屏大小改变后保持鼠标位置对应。开发者可用 `?profile=1` 试玩，开战六秒后在浏览器控制台读取一次实际帧耗时报告，普通游玩不启用监测。

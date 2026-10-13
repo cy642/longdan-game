@@ -1,6 +1,7 @@
 extends Node2D
 ## Ground is baked once for export; collision and navigation stay native.
 const Scenery = preload("res://scripts/scenery.gd")
+const MapDetails = preload("res://scripts/map_details.gd")
 static var baking = false
 var world
 var definition: Dictionary
@@ -14,6 +15,7 @@ var ground_color = Color("9baa88")
 var road_color = Color("c5b27f")
 var ground_texture: Texture2D
 var banks: Array = []
+var detail_circles: Array = []
 
 func build(data: Dictionary) -> void:
 	definition = data
@@ -28,12 +30,12 @@ func build(data: Dictionary) -> void:
 		add_rect(Rect2(h[0]-h[2]/2.0,h[1]-h[3]/2.0+15,h[2],h[3]-15))
 	for _i in range(170):
 		var p = Vector2(random.randf_range(45,1555),random.randf_range(65,1040))
-		if road_distance(p) < 110 or near_interest(p,145) or in_arena(p,90) or (world.stage == "bridge" and p.y < 310): continue
+		if road_distance(p) < 110 or near_interest(p,145) or in_arena(p,90) or MapDetails.near_clearing(p,definition,30) or (world.stage == "bridge" and p.y < 310): continue
 		var d = {"kind":"tree", "size":random.randf_range(25,44),"variant":random.randf(),"seed":random.randi()}
 		trees.append({"pos":p,"size":d.size}); place_scenery(p,d)
 	for _i in range(26):
 		var p = Vector2(random.randf_range(85,1515),random.randf_range(90,1010))
-		if road_distance(p) < 83 or near_interest(p,120) or in_arena(p,50) or (world.stage == "bridge" and p.y < 310): continue
+		if road_distance(p) < 83 or near_interest(p,120) or in_arena(p,50) or MapDetails.near_clearing(p,definition,24) or (world.stage == "bridge" and p.y < 310): continue
 		var r = random.randf_range(12,24); rocks.append({"pos":p,"r":r})
 		place_scenery(p,{"kind":"rock","size":r}); add_circle(p,r*.7)
 	if ground_texture==null:
@@ -59,6 +61,21 @@ func build(data: Dictionary) -> void:
 		prop.graphic = graphic
 		if not prop.spent:
 			prop.body = add_circle(p,prop.r)
+	# All solid landmarks share the same physical geometry and navigation model.
+	for solid in definition.get("map_details",{}).get("solids",[]):
+		if solid.has("rect"):
+			var r=solid.rect
+			add_rect(Rect2(r[0],r[1],r[2],r[3]))
+		elif solid.has("circle"):
+			var c=solid.circle
+			var p=Vector2(c[0],c[1])
+			detail_circles.append({"pos":p,"radius":float(c[2])})
+			add_circle(p,c[2])
+	if ground_texture==null:
+		var details=MapDetails.new()
+		details.stage=world.stage; details.definition=definition; details.layer="ground"
+		add_child(details)
+	MapDetails.attach_landmarks(world.actors,definition,world.stage)
 	build_grid()
 	queue_redraw()
 
@@ -104,6 +121,8 @@ func blocked(p: Vector2, radius: float = 14) -> bool:
 		if g.rect.grow(radius).has_point(p): return true
 	for rock in rocks:
 		if p.distance_to(rock.pos) < rock.r*.7+radius: return true
+	for circle in detail_circles:
+		if p.distance_to(circle.pos) < circle.radius+radius: return true
 	for prop in world.props:
 		if not prop.spent and p.distance_to(Vector2(prop.x,prop.y)) < prop.r+radius: return true
 	return false
@@ -198,7 +217,7 @@ func _draw() -> void:
 	for h in definition.huts:
 		# Weathered foundations and moss connect structures to the ground.
 		for i in range(4): draw_rect(Rect2(h[0]-h[2]/2.0-7-i*3,h[1]-h[3]/2.0-5-i*2,h[2]+14+i*6,h[3]+10+i*4),Color(.17,.29,.21,.022))
-	if definition.mood == "temple":
+	if definition.mood == "temple" and not definition.has("map_details"):
 		var arena = definition.arena
 		for y in range(300,730,36):
 			for x in range(610,1320,54):
