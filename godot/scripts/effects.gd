@@ -54,13 +54,14 @@ func _draw() -> void:
 			draw_enemy_status(enemy)
 			if enemy.action.is_empty() or enemy.stun>0 or enemy.phase_time>0: continue
 			var a = enemy.action; var d = a.def
-			if a.t >= d.windup: continue
+			var second_bolt=enemy.kind=="crossbow" and int(a.get("shots_fired",0))<2 and a.t<d.windup+.29
+			if a.t >= d.windup and not second_bolt: continue
 			var progress = clampf(a.t/d.windup,0,1)
-			var locked = a.t>=d.windup*.45
+			var locked = a.t>=d.windup*d.get("lock_fraction",.45)
 			var c = Color(.74,.25,.22,.12+progress*.12)
 			var edge = Color(1,.59,.4,.45+progress*.35)
 			var p = enemy.position; var r = d.range+16
-			if enemy.kind=="archer":
+			if enemy.is_ranged():
 				p+=Vector2(0,-8)
 				var end = p+Vector2.from_angle(a.dir)*820
 				var query = PhysicsRayQueryParameters2D.create(p,end,1)
@@ -93,6 +94,11 @@ func _draw() -> void:
 		var p = e.pos; var t = 1-e.life/e.total; var alpha = 1-t; var info = e.info
 		var r = float(info.get("radius",50)); var direction = float(info.get("dir",0)); var arc = float(info.get("arc",.7))
 		match e.type:
+			"fire_warning":
+				draw_circle(p,r,Color(.9,.32,.18,.13)); draw_arc(p,r,0,TAU,40,Color(1,.58,.3,.8),2,true)
+				draw_arc(p,r*(.2+.8*t),0,TAU,40,Color(1,.7,.3,.8),2,true)
+			"rally":
+				draw_arc(p,r*(.2+.8*t),0,TAU,48,Color(1,.84,.42,alpha*.7),4,true)
 			"slash","ally","enemy_slash":
 				var enemy = e.type=="enemy_slash"
 				var key = info.get("key","")

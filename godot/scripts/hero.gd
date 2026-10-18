@@ -74,6 +74,7 @@ func perform(kind_name: String, move: Vector2, aim: float) -> bool:
 			world.toast("气力不足，游走回气。")
 			return false
 		facing = attack_direction(aim); qi -= 30; sweep_cd = 3.4
+		if world.state.chapter==2 and world.state.rewards.huilan and world.state.tactics.get("huilan_equipped",false): key="huilan"
 	elif key == "sword":
 		if not world.state.flags.sword:
 			world.toast("先击败夏侯恩，夺得青釭剑。")
@@ -143,13 +144,13 @@ func advance_action(dt: float) -> void:
 				world.sound.play_cue("heal")
 			else:
 				world.fx.add("slash", position, d.active + .22, {"dir": a.dir, "radius": d.range, "arc": d.arc, "key": a.key})
-				world.sound.play_cue("ultimate" if a.key == "sword" else "heavy" if a.key in ["sweep", "thrust3", "counter"] else "swing")
+				world.sound.play_cue("ultimate" if a.key == "sword" else "heavy" if a.key in ["sweep", "huilan", "thrust3", "counter"] else "swing")
 		if a.key != "heal":
 			for enemy in world.melee_targets(self, d, a.dir, 4):
 				if a.hits.has(enemy.uid): continue
 				a.hits.append(enemy.uid)
 				var before = enemy.hp
-				enemy.take_hit(d.damage, a.dir, 205 if a.key == "sweep" else 65, "player", d.stagger, a.key in ["sweep", "sword"])
+				enemy.take_hit(d.damage, a.dir, 245 if a.key=="huilan" else 205 if a.key == "sweep" else 65, "player", d.stagger, a.key in ["sweep", "huilan", "sword"])
 				if enemy.hp < before:
 					world.camera_impact(5 if a.key == "sword" else 3 if a.key in ["thrust3", "sweep", "counter"] else 1.5)
 					if not a.get("stopped", false):

@@ -1,16 +1,16 @@
 # 龙胆：逆命三国 · Godot 电脑版
 
-本轮第一章动作与 Blender 场景打磨见 [云端打磨说明](../CLOUD-POLISH.md)。
-发布说明：本次提交包含与源码 `7e397ec` 对应、使用 Godot 4.7.2 及匹配模板完整重建的 `godot-play/`。六套自动检查、导出包资源核对与本机 Edge / Chrome WebGL2 基本交互结果见 [云端打磨说明](../CLOUD-POLISH.md)；线上部署结果需另行核实。
+本轮（2026-10-18）在远端更新基础上完成第一章回归与收尾，接入第二章六区、计策、护粮车、两条支线和新敌将。实际验证范围、导出和发布记录见 [开发记录](../CLOUD-POLISH.md)；早期云端与浏览器数据保留在历史章节，不代表本轮成绩。
 地图打磨版：可编辑布局见 `data/map_details.json`，六区巡游入口为 `../Map-Tour.cmd`，地图设计与测试说明见 [MAP-POLISH.md](../MAP-POLISH.md)。仓库正式构建沿用原有 Godot 存档目录；此前单独交付的本地预览包使用 `LongdanMapPolishPreview`，两者存档互不迁移。
 
-宣传副标题：**重生之我在三国当赵子龙**。Godot 4.7.2 / GDScript 的原生 2D 动作冒险，第一章「长坂逆命」包含六个区域、两位敌将和三条可选命运。原来的 Canvas 网页版继续保留在仓库根目录。
+宣传副标题：**重生之我在三国当赵子龙**。Godot 4.7.2 / GDScript 的原生 2D 动作冒险，含第一章「长坂逆命」与第二章「汉水孤营」，各有六个区域。原来的 Canvas 网页版继续保留在仓库根目录；新增玩法开发以本目录为准。
 
 ## 直接试玩
 
 - Godot 在线试玩：<https://cy642.github.io/longdan-game/godot-play/>，使用电脑 Chrome、Edge 或 Firefox；首次需要下载引擎与素材。
 - 本地导出后可双击 `../builds/windows/Longdan.exe`，运行此程序无需安装 Godot、Python 或联网；Windows 构建包不纳入源码仓库。
 - 打开工程：在 Godot 4.7.2 中导入本目录的 `project.godot`，按 F5 运行。
+- 标题可选择任一章、普通/剧情难度，开始或继续所选章节；另一章进度会保留。查看战报也按当前选择的章节读取。
 - 快速巡览：打开 `tests/map_tour.tscn` 后按 F6，或在 Windows 使用根目录 `Map-Tour.cmd`；F1–F6 切换六区，WASD / 方向键移动，M 打开军图。巡览不读取或写入玩家存档。
 - Windows 版和浏览器版分别保存进度；旧 Canvas 版存档不会自动迁移。
 
@@ -32,7 +32,7 @@
 
 敌人起手红区与真实命中范围一致，前段跟踪、后段锁定。弓箭和冲枪以线段 / 连续位移判定，避免跨帧穿过障碍。完整盾防的正面普通攻击保留盾兵反击，横扫、绕后或破势可创造开口。夏侯恩双剑与张郃三连突需等整套连招收完；张郃半血变招。
 
-随军只在井畔营救和桥头突围参与战斗，单人 3.5 伤害 / 1.8 秒，最多将敌人体力压到 22%，赵云需要亲自完成击杀。正式单挑中随军负责护送。
+第一章随军只在井畔营救和桥头突围参与战斗，第二章跟随护车并可在青旗守点藏兵。单人 3.5 伤害 / 1.8 秒，最多将敌人体力压到 22%，赵云需要亲自完成击杀。正式单挑中随军负责护送。
 
 脚步声使用独立的轻声通道，音量比原音效通道低 12 dB，并削弱尖锐噪声；落脚与步行姿势每 56 个世界像素同步一次。攻击移动时优先播放武器声音，扬尘也更轻。暂停中可单独关闭「脚步声」，仍能听到战斗反馈；「静音」立即停止当前声音。开关在本次游戏会话中生效。
 
@@ -47,21 +47,40 @@
 
 营火、区域入口、敌将和营救入口记录落脚点。失败后重置当前战斗，保留已完成的遭遇、救援与夺剑。通关战报可以回标题重看。保存采用临时文件写入后替换，损坏存档不阻止新游戏；保存失败时保留当前会话进度并显示提示。
 
+## 第二章：汉水孤营
+
+六区按「汉水林道 → 北山粮道 → 乱石归途 → 孤营大门 → 河湾反击 → 铁营决战」推进。林道对付斥候与弩兵，粮道接应黄忠，归途护送耐久 160 的粮车；先清路障、在车旁集合，粮车才会前进。车毁可从最近通过的路障重试；停滞时可用 E 按提示复位到安全路点。
+
+孤营青旗旁按 2，把三名随军送至藏兵守点，然后 E 开营门；赵云击退两次试探，敌军才会撤退。退军到位后的金色战机为 4 秒，鼓台 E 触发一次齐射；迟到也可普通齐射或直接追击。突破营门只追加一次有限补救队，不会无限刷兵；暂停、军图与对白不会消耗擂鼓时机。进入河湾的退军保留原有生命和伤亡，不会复制一队满血敌人。
+
+北山可焚毁火箭辎重，乱石归途西侧可救回张著与伤兵；支线改变后续压力、补给和战报。进入督军决战前会提示仍可回头整备。铁面督军有窄线钩拉、迟势回斧、扇区砸地及半血冲斩；新弩兵两发后才装填，第二箭使用原先锁定的方向。
+
+完成空营计并通关解锁「龙胆·回澜」，重玩第二章后可在暂停页切换 Q 招式；奖励写入跨章节存档，第一章数值不随之变化。第二章默认拥有青釭，仍须积满战意使用 R。
+
+### 双章存档
+
+`user://longdan-godot-v2.json` 保存两章独立检查点、已清遭遇、支线、计策、退军名册与战报，以及已解锁奖励。重开所选章节保留另一章记录。有效旧 `user://longdan-godot-v1.json` 只作为第一章旧进度读入，新保存写入 v2；旧文件保留，不删除、不覆盖。Windows 与 Web 存档互不自动同步，旧 Canvas 存档也不自动转换。
+
 ## Godot 的结构
 
 - `scenes/main.tscn`：游戏入口。
 - `scenes/hero.tscn`、`scenes/enemy.tscn`：原生 `CharacterBody2D` 与地面碰撞形状。
 - `scripts/hero.gd`、`enemy.gd`、`companion.gd`：动作阶段、闪避、敌人连招、盾防与军令。
-- `scripts/actor_visual.gd`、`frame_texture.gd`：八方向动作、统一头部比例与脚底锚点；重叠图集以原生绘制几何排除邻帧枪尖和衣角。
+- `scripts/actor_visual.gd`、`frame_texture.gd`：赵云八方向动作、统一头部比例与脚底锚点；原画网格保持敌人脸和武器刚性，重叠图集通过绘制几何排除邻帧碎片。第二章另有弩、双刀、铁盾和督军装备配件。
 - `scripts/terrain.gd`、`scenery.gd`：原生地形碰撞、Godot AStarGrid2D 绕障碍路径、烘焙地表与共用景物图集。
-- `assets/maps/`：六张 1600 × 1100 地表、33 种景物及脚底坐标；树木、岩石和建筑仍按原位置遮挡人物。剧情会改变的路障和油车单独绘制。
+- `scripts/hanshui_layout.gd`：第二章六区共用的美术、地形与碰撞布局；动态营门开合与路径更新由 `terrain.gd` 提供。
+- `assets/maps/`：两章各六张 1600 × 1100 地表，以及共用景物图集、第二章景物图集和脚底坐标。树木、岩石和建筑仍按原位置遮挡人物，动态路障单独绘制。
 - `scripts/effects.gd`、`sound.gd`：战斗预警、枪芒、受击火花、残影、局部音效。
-- `scripts/world.gd`、`campaign.gd`：第一章剧情、任务条件、进度与战报。
+- `scripts/world.gd`、`campaign.gd`：章节入口、剧情、目标、v2 独立进度、旧 v1 兼容、战报和奖励。
+- `scripts/tactic_director.gd`：第二章有限波次/存活上限、藏兵与门前试探、退军名册、擂鼓结果及稳定恢复阶段。
+- `scripts/grain_cart.gd`：粮车原生碰撞、耐久与受击；路线和停靠由战术调度控制。
+- `scripts/interactable.gd`：营火、出入口、黄忠/伤兵、火箭辎重、藏兵旗、门扇和鼓台实物；粮车提示跟随车移动。
 - `scripts/interface.gd`、`map_view.gd`：原生中文界面、暂停、军图和战斗状态。
 - `data/chapter1.json`：从现有 `stages.js` 复用的关卡及招式参数。
+- `data/chapter2.json`：汉水六区的路网、实体、支线、波次、计策坐标与初始调参。
 - `export_presets.cfg`：Windows 单文件与单线程 Web 导出设置。
 
-角色原 PNG 未修改。赵云各方向仍使用现有两帧步行和蓄势 / 出枪素材，敌军主要使用单帧配合动作位移；迁移不会自动生成更多连续动作。后续画面打磨应优先补敌军逐帧动作、赵云更丰富的步行帧、建筑素材与音乐。
+角色原 PNG 未修改。赵云沿用每方向两帧步行和蓄势/出枪，敌军使用现有原画与连续网格姿态；第二章装备是刚性代码配件，不是新手绘逐帧图集。弩手底图没有旧弓，独立弩身、弦和弩箭随上身瞄准；两次可见后坐对应两次发射，装填不会再次出箭。头脸与武器不做拉伸。后续仍需补敌人独立动作素材、赵云步行帧、黄忠战斗/剧情演出和完整音乐。
 
 ## 构建和验证
 
@@ -75,18 +94,34 @@ godot --headless --path godot --script res://tests/map_verify.gd
 godot --headless --path godot --script res://tests/map_view_verify.gd
 godot --headless --path godot --script res://tests/atmosphere_verify.gd
 godot --headless --path godot --script res://tests/enemy_animation_verify.gd
+godot --headless --path godot --script res://tests/hanshui_layout_verify.gd
+godot --headless --path godot --script res://tests/hanshui_enemy_verify.gd
+godot --headless --path godot --script res://tests/hanshui_visual_verify.gd
+godot --headless --path godot --script res://tests/hanshui_flow_verify.gd
 New-Item -ItemType Directory -Force builds/windows, godot-play | Out-Null
 godot --headless --path godot --export-release "Windows Desktop"
 godot --headless --path godot --export-release "Web"
 ```
 
-Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与六组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。检查输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程的环境变量。两个 `.cmd` 启动器也支持把引擎路径作为第一个参数，或使用 `GODOT_EXE` / PATH。
+Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与十一组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。检查输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程的环境变量。两个 `.cmd` 启动器也支持把引擎路径作为第一个参数，或使用 `GODOT_EXE` / PATH。
 
 输出目录为仓库的 `builds/windows/` 与 `godot-play/`。`builds/`、`.godot/`、`.qa/`、日志和本机引擎不入库。`godot-play/` 是已跟踪的 Web 导出，修改 Godot 游戏后须重新导出并与源码一起提交。现有 GitHub Pages 从 `main` 分支的仓库根目录自动发布，Pages 流程不会替你运行测试或导出 Godot；根目录的 Canvas 入口继续保留，Godot 入口为 `/godot-play/`。
 
 检查 Web 导出时，在仓库根目录执行 `python -m http.server 8767 --bind 127.0.0.1`，然后用浏览器打开 `http://127.0.0.1:8767/godot-play/`；不要直接双击 Web 导出的 HTML 文件。
 
 自动检查运行真实 Godot 节点与物理空间，覆盖：八方向动作 / 脚底与比例、邻帧枪尖排除且保留真实枪头、蓄势 / 出枪 / 收招期间脚底与阴影不分离、真实命中时段、跨帧服药、服药打断、动作缓冲与闪避取消、精准闪避、鼠标释放与暂停清理、盾防反击、随军输出上限、绕建筑路径、两波营救、两位敌将、焚粮部署、木桥通路、三种命运、战报回读、无效存档和保存失败回退。测试使用独立存档，不会替换玩家进度。在仓库根目录用 `godot --path godot res://tests/pose_preview.tscn` 可核对八方向的站立、行走、蓄势和出枪，预览不读取或写入存档。
+
+第二章四套检查分别覆盖真实地图可达/碰撞与营门开合，新敌兵和督军的跨帧命中/双发锁向，新造型的四方向姿态/脸部刚性/装备握点，以及主线/支线/粮车/计策/存档恢复。流程回归会加速击败遭遇以验证状态推进，不代表人工通关、难度合适或达到目标游玩时长。
+
+原生图形验收单独运行，不能加 `--headless`：
+
+```powershell
+godot --path godot --script res://tests/hanshui_visual_verify.gd -- --capture
+godot --path godot res://tests/hanshui_playtest.tscn -- --qa-stage=hs_camp
+godot --path godot --script res://tests/hanshui_performance.gd
+```
+
+截图入口保存 `.qa/hanshui-visuals.png`，实际渲染新敌人动作与交互实体；开发试玩使用隔离测试进度打开指定汉水区域，供键鼠实玩；性能入口以本机真实图形渲染采样 8 敌/3 随军、营门、退军河湾和督军二阶段，输出 `.qa/hanshui-performance.json`。人工检查要记录设备、分辨率、难度和耗时；不能用无界面检查冒充画面、声音或性能验收。
 
 关卡和参数同步工具为 `tools/sync_data.mjs`；原始图集元数据读取工具为 `tools/prepare_assets.py`（Pillow / NumPy）。提交内已包含可直接运行的图集与元数据，平时开发无需运行这些工具。
 
@@ -99,12 +134,15 @@ Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与六组回归：`./
 ```powershell
 # 在仓库根目录运行。
 godot --path godot --script res://tools/bake_maps.gd
+godot --path godot --script res://tests/hanshui_layout_verify.gd -- --bake
 godot --headless --path godot --editor --import --quit
 godot --path godot --script res://tests/performance.gd -- --label=my-computer
 ```
 
 性能检查使用 1280 × 720、关闭垂直同步的真实图形渲染，分别采样山道、荒村和北桥战斗。不会写入玩家存档；每台电脑应以自己的测试结果为准。Web 版将渲染倍率限制为最多 1.5，最长边最多 1920 像素，降低高分屏负担；窗口和全屏大小改变后保持鼠标位置对应。开发者可用 `?profile=1` 试玩，开战六秒后在浏览器控制台读取一次实际帧耗时报告，普通游玩不启用监测。
 
-## 第二章设计
+## 后续开发与已知待打磨
 
-用户已选定「汉水孤营」，核心是接应黄忠、发布军令、大开营门与擂鼓反击。完整地图、敌人与督军招式、支线、存档兼容和开发顺序见 [第二章设计稿](../docs/CHAPTER-2-HANSHUI.md)。当前正式试玩仍为第一章，第二章尚未加入游戏。
+完整设计与本轮实现对照见 [第二章设计稿](../docs/CHAPTER-2-HANSHUI.md)，坐标与状态机交接见 [实施方案](../docs/CHAPTER-2-PLAYABLE-PLAN.md)。下一轮先在普通难度完整实玩，校准等车、绕路、藏兵到鼓台的节奏与督军反击窗口；25–35 分钟仍是设计目标，不是实测结果。
+
+黄忠目前是原画立绘接应点，尚无独立战斗 AI 和三幕正式过场；角色配件与剧情镜头仍需美术统一，完整环境音/音乐未完成。第二章资源须在源码确定后重新烘焙、补齐中文字体、导入并导出。浏览器实际帧耗时、长时间稳定性和音频听感需要独立实测；第一章过去的 WebGL 警告和软件渲染数据不得当作本轮已解决或已达标。

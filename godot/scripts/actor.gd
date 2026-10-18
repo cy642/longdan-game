@@ -56,18 +56,19 @@ func move_ground(displacement: Vector2) -> float:
 func navigate(target: Vector2, pace: float, dt: float) -> void:
 	var offset = target - position
 	if offset.length() < 20: return
-	facing = offset.angle()
-	var moved = move_ground(offset.normalized() * pace * dt)
 	path_clock -= dt
-	if moved > pace * dt * .6 and path.is_empty(): return
-	if path_clock <= 0:
+	if path_clock <= 0 or path.is_empty():
 		path = world.terrain.find_path(position, target, radius)
 		path_clock = .55
 	while not path.is_empty() and position.distance_to(path[0]) < 22:
 		path.remove_at(0)
 	if not path.is_empty():
-		var direction = (path[0] - position).normalized()
-		facing = direction.angle(); move_ground(direction * pace * dt)
+		var step=path[0]-position
+		facing=step.angle()
+		var moved=move_ground(step.normalized()*minf(step.length(),pace*dt))
+		if moved<pace*dt*.1: path_clock=0
+	elif world.terrain.line_clear(position,target,radius):
+		facing=offset.angle(); move_ground(offset.normalized()*minf(offset.length(),pace*dt))
 
 func tick_common(dt: float) -> void:
 	moving = false

@@ -26,6 +26,7 @@ func _ready() -> void:
 	var settings = {"step":[72,.055,.07],"swing":[420,.11,.16],"heavy":[180,.18,.22],"ultimate":[240,.35,.24],"hit":[190,.09,.21],"hurt":[100,.16,.2],"enemy":[270,.13,.13],"enemy_heavy":[130,.23,.15],"ready":[680,.035,.035],"dash":[570,.12,.12],"perfect":[880,.25,.2],"break":[330,.24,.22],"kill":[260,.13,.15],"heal":[660,.4,.13],"ignite":[155,.18,.15],"explosion":[70,.42,.25],"phase":[150,.55,.19],"victory":[520,.7,.16]}
 	for key in settings:
 		var s = settings[key]; cache[key] = make_cue(s[0],s[1],s[2],key)
+	cache["drum"]=make_cue(68,.7,.32,"drum")
 
 func make_cue(frequency: float, duration: float, volume: float, type: String) -> AudioStreamWAV:
 	var samples = int(duration*22050); var data = PackedByteArray(); data.resize(samples*2)
@@ -41,6 +42,10 @@ func make_cue(frequency: float, duration: float, volume: float, type: String) ->
 			soft_noise += (low_noise - soft_noise) * .12
 			tone = sin(TAU*frequency*t*(1-.32*progress)) * .48 + soft_noise * .52
 			envelope = minf(1,t/.01) * pow(1-progress,2.5)
+		elif type == "drum":
+			low_noise += (random.randf_range(-1,1)-low_noise)*.2
+			tone=sin(TAU*frequency*t*(1-.4*progress))*.8+low_noise*.2
+			envelope=minf(1,t/.004)*pow(1-progress,3)
 		elif type in ["swing","dash","hit","break","explosion","enemy","heavy","enemy_heavy"]:
 			tone = tone*.35+random.randf_range(-1,1)*.65
 		elif type in ["heal","perfect","victory"]:

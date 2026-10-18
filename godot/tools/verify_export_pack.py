@@ -88,8 +88,8 @@ def validate(entries, project):
             elif source.read_bytes() != payload:
                 errors.append(f"Exported JSON differs from current source: {name}")
 
-    required_json = ["data/chapter1.json", "data/map_details.json", "data/atlas.json",
-                     "assets/maps/scenery.json", "assets/props/landmarks.json"]
+    required_json = ["data/chapter1.json", "data/chapter2.json", "data/map_details.json", "data/atlas.json",
+                     "assets/maps/scenery.json", "assets/maps/hanshui_props.json", "assets/props/landmarks.json"]
     required_json += [f"assets/props/{prop}.json" for prop in PROP_NAMES]
     for name in required_json:
         if name not in entries:
@@ -130,7 +130,11 @@ def validate(entries, project):
             if target not in entries or not entries[target][0]:
                 errors.append(f"Missing imported prop texture payload: {target}")
 
-    for script in ("map_atmosphere", "map_details"):
+    for region in ("hs_forest", "hs_grain", "hs_return", "hs_camp", "hs_river", "hs_final"):
+        image = f"assets/maps/{region}.png"
+        if image not in entries and image + ".import" not in entries:
+            errors.append(f"Missing chapter-two baked ground: {image}")
+    for script in ("map_atmosphere", "map_details", "campaign", "tactic_director", "grain_cart", "hanshui_layout"):
         name = f"scripts/{script}.gd"
         if name not in entries and not all(
                 resource in entries for resource in (name + ".remap", name + "c")):

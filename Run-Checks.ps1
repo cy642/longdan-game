@@ -47,7 +47,7 @@ try {
     New-Item -ItemType Directory -Path $env:APPDATA,$env:LOCALAPPDATA,$env:TEMP -Force | Out-Null
     $godotProject = Join-Path $projectRoot 'godot'
     Invoke-GodotCheck -Arguments @('--headless','--path',$godotProject,'--editor','--import','--quit') -LogName 'import.log'
-    foreach ($suite in @('verify','audio_verify','map_verify','map_view_verify','atmosphere_verify','enemy_animation_verify')) {
+    foreach ($suite in @('verify','audio_verify','map_verify','map_view_verify','atmosphere_verify','enemy_animation_verify','hanshui_layout_verify','hanshui_world_layout_verify','hanshui_enemy_verify','hanshui_visual_verify','hanshui_flow_verify')) {
         Invoke-GodotCheck -Arguments @('--headless','--path',$godotProject,'--script',"res://tests/$suite.gd") -LogName "$suite.log"
     }
 } finally {

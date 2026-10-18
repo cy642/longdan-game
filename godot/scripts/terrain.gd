@@ -3,6 +3,7 @@ extends Node2D
 const Scenery = preload("res://scripts/scenery.gd")
 const MapDetails = preload("res://scripts/map_details.gd")
 const MapAtmosphere = preload("res://scripts/map_atmosphere.gd")
+const HanshuiLayout = preload("res://scripts/hanshui_layout.gd")
 static var baking = false
 var world
 var definition: Dictionary
@@ -17,26 +18,33 @@ var road_color = Color("c5b27f")
 var ground_texture: Texture2D
 var banks: Array = []
 var detail_circles: Array = []
+var gate_body: StaticBody2D
+var gate_geometry: Dictionary = {}
 
 func build(data: Dictionary) -> void:
+	if data.has("layout"): data = HanshuiLayout.apply_layout(data,world.stage)
 	definition = data
 	var baked_path = "res://assets/maps/"+world.stage+".png"
 	if not baking and ResourceLoader.exists(baked_path): ground_texture=load(baked_path)
 	var random = RandomNumberGenerator.new(); random.seed = int(data.seed)
 	ground_color = {"forest":Color("7e9877"),"village":Color("a0a383"),"temple":Color("809082"),"house":Color("91a180"),"camp":Color("a09b78"),"river":Color("7b9b8b")}[data.mood]
 	road_color = Color("c1ac7c") if data.mood != "temple" else Color("a6afa0")
+	var layout: Dictionary = data.get("layout", {})
+	var palette: Dictionary = layout.get("palette", {})
+	if palette.has("ground"): ground_color=Color(palette.ground)
+	if palette.has("road"): road_color=Color(palette.road)
 	for h in data.huts:
 		var d = {"kind": h[4], "w":h[2], "h":h[3]}
 		place_scenery(Vector2(h[0],h[1]),d)
 		add_rect(Rect2(h[0]-h[2]/2.0,h[1]-h[3]/2.0+15,h[2],h[3]-15))
-	for _i in range(170):
+	for _i in range(int(layout.get("tree_attempts",170))):
 		var p = Vector2(random.randf_range(45,1555),random.randf_range(65,1040))
-		if road_distance(p) < 110 or near_interest(p,145) or in_arena(p,90) or MapDetails.near_clearing(p,definition,30) or (world.stage == "bridge" and p.y < 310): continue
+		if road_distance(p) < 110 or near_interest(p,145) or in_arena(p,90) or MapDetails.near_clearing(p,definition,30) or HanshuiLayout.in_water(p,definition,45) or near_layout_solid(p,55) or (world.stage == "bridge" and p.y < 310): continue
 		var d = {"kind":"tree", "size":random.randf_range(25,44),"variant":random.randf(),"seed":random.randi()}
 		trees.append({"pos":p,"size":d.size}); place_scenery(p,d)
-	for _i in range(26):
+	for _i in range(int(layout.get("rock_attempts",26))):
 		var p = Vector2(random.randf_range(85,1515),random.randf_range(90,1010))
-		if road_distance(p) < 83 or near_interest(p,120) or in_arena(p,50) or MapDetails.near_clearing(p,definition,24) or (world.stage == "bridge" and p.y < 310): continue
+		if road_distance(p) < 83 or near_interest(p,120) or in_arena(p,50) or MapDetails.near_clearing(p,definition,24) or HanshuiLayout.in_water(p,definition,30) or near_layout_solid(p,35) or (world.stage == "bridge" and p.y < 310): continue
 		var r = random.randf_range(12,24); rocks.append({"pos":p,"r":r})
 		place_scenery(p,{"kind":"rock","size":r}); add_circle(p,r*.7)
 	if ground_texture==null:
@@ -72,11 +80,19 @@ func build(data: Dictionary) -> void:
 			var p=Vector2(c[0],c[1])
 			detail_circles.append({"pos":p,"radius":float(c[2])})
 			add_circle(p,c[2])
+	if world.stage=="hs_camp" and int(world.state.chapter)==2 and world.state.tactics.get("gate","PREPARE")=="PREPARE":
+		gate_body=add_rect(Rect2(960,440,80,240))
+		gate_geometry=geometry[-1]
 	if ground_texture==null:
 		var details=MapDetails.new()
 		details.stage=world.stage; details.definition=definition; details.layer="ground"
 		add_child(details)
+		if data.has("layout"):
+			var chapter_ground=HanshuiLayout.new()
+			chapter_ground.definition=definition; chapter_ground.stage=world.stage
+			add_child(chapter_ground)
 	MapDetails.attach_landmarks(world.actors,definition,world.stage)
+	if data.has("layout"): HanshuiLayout.attach_landmarks(world.actors,definition,world.stage)
 	if not baking:
 		var atmosphere = MapAtmosphere.new()
 		atmosphere.name = "MapAtmosphere"
@@ -84,6 +100,14 @@ func build(data: Dictionary) -> void:
 		atmosphere.configure(world,world.stage,trees,int(data.seed))
 	build_grid()
 	queue_redraw()
+
+func open_camp_gate() -> void:
+	if world.stage!="hs_camp" or not is_instance_valid(gate_body): return
+	# Physics, projectile occlusion and navigation change in the same operation.
+	gate_body.collision_layer=0
+	remove_child(gate_body); gate_body.queue_free(); gate_body=null
+	geometry.erase(gate_geometry); gate_geometry={}
+	build_grid(); queue_redraw()
 
 func place_scenery(p: Vector2, data: Dictionary):
 	var item = Scenery.new(); item.position = p; item.data = data; world.actors.add_child(item)
@@ -115,6 +139,13 @@ func near_interest(p: Vector2, radius: float) -> bool:
 		if p.distance_to(Vector2(obj.x,obj.y)) < radius: return true
 	for hut in definition.huts:
 		if p.distance_to(Vector2(hut[0],hut[1])) < radius: return true
+	return false
+
+func near_layout_solid(p: Vector2, margin: float) -> bool:
+	for shape in definition.get("layout",{}).get("solids",[]):
+		if shape.has("rect"):
+			var r=shape.rect
+			if Rect2(r[0],r[1],r[2],r[3]).grow(margin).has_point(p): return true
 	return false
 
 func in_arena(p: Vector2, margin: float = 0) -> bool:
@@ -167,6 +198,7 @@ func _draw() -> void:
 	if ground_texture!=null:
 		draw_texture(ground_texture,Vector2.ZERO)
 		if world.stage=="bridge" and not world.state.flags.supplies: draw_blockade()
+		if is_instance_valid(gate_body): draw_closed_camp_gate()
 		return
 	draw_rect(Rect2(0,0,1600,1100),ground_color)
 	for pool in pools:
@@ -249,6 +281,16 @@ func _draw() -> void:
 			draw_line(Vector2(x,35),Vector2(x,310),Color("435347"),7)
 			for y in range(42,310,40): draw_rect(Rect2(x-5,y-10,11,20),Color("6d7053"))
 		if not baking and not world.state.flags.supplies: draw_blockade()
+	if is_instance_valid(gate_body): draw_closed_camp_gate()
+
+func draw_closed_camp_gate() -> void:
+	draw_rect(Rect2(960,440,80,240),Color("7d7354"))
+	for y in range(449,680,15):
+		draw_line(Vector2(965,y),Vector2(1035,y),Color("a79a70"),9,true)
+		draw_line(Vector2(968,y-3),Vector2(1032,y-3),Color("c0ae7e"),1,true)
+	for x in [973,1027]: draw_line(Vector2(x,444),Vector2(x,676),Color("514e3c"),8,true)
+	draw_line(Vector2(974,450),Vector2(1026,670),Color("5f5b43"),8,true)
+	draw_line(Vector2(1026,450),Vector2(974,670),Color("5f5b43"),8,true)
 
 func draw_blockade() -> void:
 	# The east route changes with the story, so it stays outside the static bake.

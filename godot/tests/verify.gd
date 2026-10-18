@@ -55,6 +55,13 @@ func run() -> void:
 	world.mouse_attack_held=true; world.pause("pause")
 	expect(not world.mouse_attack_held and hero.buffer.is_empty(),"pause clears combat input and buffered actions")
 	world.resume(); hero.action={}
+	var logical_pause=InputEventKey.new(); logical_pause.keycode=KEY_ESCAPE; logical_pause.physical_keycode=KEY_PAUSE; logical_pause.pressed=true
+	world._unhandled_input(logical_pause); expect(world.mode=="pause","logical Escape works when Windows reports a different physical scan code")
+	world._unhandled_input(logical_pause); expect(world.mode=="playing","the same logical Escape resumes exactly once")
+	var logical_j=InputEventKey.new(); logical_j.keycode=KEY_J; logical_j.pressed=true
+	world._unhandled_input(logical_j); expect(world.keyboard_attack_held,"logical keyboard attack accepts alternate scan-code devices")
+	logical_j.pressed=false; world._input(logical_j); expect(not world.keyboard_attack_held,"logical keyboard release never leaves attack held")
+	hero.action={}
 	# These pixels are from the neighboring upright spear inside the sideways frame.
 	for index in [5, 13, 14, 15]:
 		var meta = hero.visual.atlas_data.attack.frames[index]

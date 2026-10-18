@@ -15,6 +15,13 @@ func advance(dt: float) -> void:
 	if kind in ["civil", "mother"]:
 		destination = Vector2(1270 + (18 if slot % 2 else -18), 145 + slot * 22) if world.state.flags.boss else world.hero.position + Vector2(-80 + (slot % 3 - 1) * 24, 90 + int(slot / 3) * 32)
 	elif active and world.command == "hold": destination = home
+	if world.state.chapter==2 and world.stage=="hs_camp" and world.command=="hold":
+		# Hidden troops hold formation; a single finite interception is explicit.
+		target=null; destination=home
+		var remaining=float(get_meta("intercept_left",0.0))-dt
+		set_meta("intercept_left",remaining)
+		var intercept=get_meta("intercept") if has_meta("intercept") else null
+		if remaining>0 and is_instance_valid(intercept) and intercept.body_alive(): target=intercept
 	if target and (world.command != "hold" or position.distance_to(home) < 140):
 		destination = target.position
 		if position.distance_to(target.position) < 62 and attack_cd <= 0:

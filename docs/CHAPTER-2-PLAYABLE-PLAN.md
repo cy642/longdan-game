@@ -1,6 +1,44 @@
-# 汉水孤营：首个可玩样段实施方案
+# 汉水孤营：实施方案与开发交接
 
-**DESIGN ONLY · 仅设计，尚未实现或加入正式试玩。** 本文件将[已定章节方向](CHAPTER-2-HANSHUI.md)收敛为开发任务，不表示第二章已经可玩。配套[坐标布局图](CHAPTER-2-LAYOUT.svg)也是设计图。日期：2026-10-13。
+**状态更新 · 2026-10-18：已接入六区首版，不再仅有三图样段。** 本轮实现见下方对照，关卡与初始数值以 `godot/data/chapter2.json` 为准，整体方向见[章节设计稿](CHAPTER-2-HANSHUI.md)。[原坐标图](CHAPTER-2-LAYOUT.svg)保留为 2026-10-13 的三图设计参考，未扩为当前六区总览。
+
+## 2026-10-18 实施对照
+
+| 项目 | 当前实现 | 后续检查 |
+|---|---|---|
+| 入口与区域 | 标题可独立选择第二章；`hs_forest/hs_grain/hs_return/hs_camp/hs_river/hs_final` 六区串接，含前进、返回与决战前确认 | 普通难度完整实玩，记录首次耗时与迷路位置 |
+| 黄忠接应 | 北山守军清场后 E 接应，有黄披风、长髯/弓轮廓和对白 | 目前是接应立绘，无黄忠独立战斗 AI，三幕正式演出待补 |
+| 粮车 | `grain_cart.gd` 原生碰撞、160 耐久；`TacticDirector` 控制停靠、护车距离、路障、检查点及停滞复位 | 校准等车/绕路时间，验证玩家误操作后的提示 |
+| 新敌人 | 双刀连斩、同向双发弩兵、铁盾撞阵、原创督军两阶段均已接入 | 补更完整独立手绘动作；按实玩调整混编与反击窗口 |
+| 新造型 | 现有原画 + 连续网格姿态 + 刚性弩/刀/盾/铁面/铜环钩斧配件；弩手底图没有旧弓 | 不将代码配件标成新手绘图集；四方向细化继续打磨 |
+| 营门 | 青旗按 2 藏兵，E 开门，真实门体碰撞随开门更新；两轮试探、一次有限补救、退军与 4 秒最佳鼓点 | 手工确认守门到鼓台的距离与提示易读程度 |
+| 反击 | 强、弱、直接三条路线；一次性齐射；保留退军个体、生命与伤亡，转入河湾继续追击 | 校准退军速度、锁线/金圈和战术反馈 |
+| 支线 | 东岗焚火箭辎重；西侧救张著和伤兵，影响补给、后续压制与战报 | 支线剧情表现、回营演出和环境提示待补 |
+| 督军与奖励 | 钩拉、回斧、砸地、半血追斩；汉水战报；空营计通关解锁回澜，重玩第二章可在暂停页切换 Q | 正式手感与声画验收，不能用自动击败替代 |
+| 存档 | 正式 v2 双章文件，各章独立检查点/旗标/战报；有效 v1 读入第一章后写新文件，原 v1 保留 | v2 磁盘往返、旧 v1 兼容、失败回退与跨章保留必须继续回归 |
+| 地图与资源 | 六张烘焙地表、汉水景物图集，共用地形/箭路/导航坐标；营门、旗、鼓台和车提示有实体 | 最终源码完成后重建字体、导入、导出并核对 PCK |
+| 验证 | 新增 `hanshui_layout_verify`、`hanshui_enemy_verify`、`hanshui_visual_verify`、`hanshui_flow_verify`，加入两种一键检查脚本 | 最终通过数量与本机图形结果统一记录在 `CLOUD-POLISH.md`，不在此重复易过期数字 |
+
+25–35 分钟为全章设计目标，原三图的 10–12 分钟是历史样段目标；当前没有将它们作为已测游玩时长。自动流程通过生产受击接口快速清场，仅证明状态推进和恢复，不证明难度、完整体验或玩家设备帧率。
+
+后续开发入口：`world.gd` 管章节与交互，`tactic_director.gd` 管战术/配额，`campaign.gd` 管双章进度，`chapter2.json` 管坐标与遭遇，`hanshui_layout.gd/terrain.gd` 管美术与实际碰撞，`enemy.gd/actor_visual.gd/effects.gd` 管招式、动作与预警。先调整可实测的流程问题，再补独立素材与剧情演出。
+
+```powershell
+./Run-Checks.ps1 -Engine "Godot 可执行文件绝对路径"
+godot --path godot --script res://tests/hanshui_visual_verify.gd -- --capture
+godot --path godot res://tests/hanshui_playtest.tscn -- --qa-stage=hs_camp
+godot --path godot --script res://tests/hanshui_performance.gd
+godot --path godot --script res://tests/hanshui_layout_verify.gd -- --bake
+godot --headless --path godot --editor --import --quit
+godot --headless --path godot --export-release "Web"
+python godot/tools/verify_export_pack.py
+```
+
+截图、烘焙和帧耗时必须使用原生图形渲染，不能加 `--headless`；逻辑回归在一键脚本内使用隔离测试配置。开发试玩场景也不会写正式玩家存档。
+
+## 历史方案 · 2026-10-13 三图样段
+
+以下保留初版坐标、验收约束和实现顺序，供理解设计取舍。这里的三图 ID、26 名配额、独立样段 v1 文件、暂不加入督军等是当时的计划，已被上方正式六区实现替代；不作为当前功能声明。原始完成判据仍可用于追加回归。
 
 ## 一、样段边界与现有工程契约
 

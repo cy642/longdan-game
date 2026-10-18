@@ -29,5 +29,17 @@ func run() -> void:
 			if enemy.visual.rig == null:
 				push_error("Missing exported enemy rig"); quit(1); return
 			enemies += 1
-	print("EXPORT_SMOKE_OK regions=6 modeled_landmarks=",modeled," articulated_enemies=",enemies)
+	world.state.reset("normal",2); world.load_chapter(2)
+	for stage in ["hs_forest","hs_grain","hs_return","hs_camp","hs_river","hs_final"]:
+		world.mode="playing"; world.enter_stage(stage,Vector2.INF,false); await process_frame
+		if not is_instance_valid(world.tactics) or world.terrain.ground_texture==null:
+			push_error("Missing exported second-chapter region: "+stage); quit(1); return
+	for kind in ["scout","crossbow","ironshield"]:
+		var enemy=world.spawn_enemy(kind,Vector2(700,700),"export_check"); enemy.update_visual()
+		if enemy.visual.rig==null:
+			push_error("Missing exported chapter-two enemy: "+kind); quit(1); return
+	world.begin_boss("dujun")
+	if world.boss.display_name!="铁面督军":
+		push_error("Missing exported final boss"); quit(1); return
+	print("EXPORT_SMOKE_OK regions=12 modeled_landmarks=",modeled," chapter1_articulated_enemies=",enemies," chapter2_new_enemies=3 boss=dujun")
 	world.queue_free(); await process_frame; quit()

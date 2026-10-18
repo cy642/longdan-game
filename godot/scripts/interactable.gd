@@ -18,6 +18,8 @@ func _ready() -> void:
 		person("chapter",3,Vector2(-4,-6),61)
 		for i in range(3): person("units",5+i,Vector2(-30+i*28,28+absf(i-1)*15),48)
 	elif data.id=="adou": person("chapter",4,Vector2(20,-4),63)
+	elif data.kind=="huangzhong": person("chapter",3,Vector2(2,-3),74)
+	elif data.kind=="wounded": person("chapter",5,Vector2(0,4),57)
 
 func person(key: String,index: int,p: Vector2,height: float) -> void:
 	var sprite=Sprite2D.new(); sprite.texture=Visual.frames[key][index]; sprite.centered=false
@@ -27,6 +29,9 @@ func person(key: String,index: int,p: Vector2,height: float) -> void:
 
 func _process(dt: float) -> void:
 	if world.mode=="playing": clock+=dt
+	if data.kind=="graincart":
+		var director=world.get("tactics")
+		if is_instance_valid(director) and is_instance_valid(director.cart): position=director.cart.position
 	if data.id=="civilians":
 		for sprite in people: sprite.visible=not world.state.flags.civilians
 	elif data.id=="adou":
@@ -38,10 +43,18 @@ func _process(dt: float) -> void:
 	focused = not nearest.is_empty() and nearest.id == data.id
 	focus_blocked = world.object_blocked(data)
 	var state=str(world.state.flags)+str(focused)+str(focus_blocked)
-	var animated=focused or data.kind=="camp" or data.kind=="supplies" and world.state.flags.supplies
-	var visible_area=Rect2(world.camera.position-world.get_viewport_rect().size*.6,world.get_viewport_rect().size*1.2).grow(120)
+	if data.kind=="gate": state+=gate_state()
+	var animated=focused or data.kind in ["camp","hideflag"] or data.kind=="supplies" and world.state.flags.supplies or data.kind=="beacon" and world.state.flags.get("beacon",false)
+	# Camera zoom expands the visible world area. Use the same bounds as the
+	# scenery so campfires and flags never freeze while still on screen.
+	var extent=world.get_viewport_rect().size/world.camera.zoom
+	var visible_area=Rect2(world.camera.get_screen_center_position()-extent*.5,extent).grow(120)
 	if state!=last_state or animated and world.mode=="playing" and visible_area.has_point(position):
 		last_state=state; queue_redraw()
+
+func gate_state() -> String:
+	var tactic_state=world.state.get("tactics")
+	return str(tactic_state.get("gate","PREPARE")) if tactic_state is Dictionary else "PREPARE"
 
 func oval(p: Vector2,r: float,squash: float,color: Color) -> void:
 	draw_set_transform(p,0,Vector2(1,squash)); draw_circle(Vector2.ZERO,r,color); draw_set_transform(Vector2.ZERO)
@@ -97,6 +110,7 @@ func _draw() -> void:
 			draw_polyline(PackedVector2Array([Vector2(2,-5),Vector2(9,0),Vector2(2,5)]),color,2,true)
 		"boss":
 			if data.id=="xiahouGate" and world.state.flags.temple or data.id=="zhangheGate" and world.state.flags.boss: return
+			if data.id=="hs_dujun" and world.state.flags.get("dujun",false): return
 			for x in [-30,30]:
 				draw_line(Vector2(x,6),Vector2(x,-78),Color("74674b"),4,true)
 				draw_colored_polygon(PackedVector2Array([Vector2(x+1,-76),Vector2(x+23,-71),Vector2(x+14,-46),Vector2(x+1,-49)]),Color("8e6553"))
@@ -113,9 +127,77 @@ func _draw() -> void:
 			oval(Vector2(-20,3),23,.6,Color("aaaf8b")); oval(Vector2(-20,-3),22,.55,Color("d0cbb1")); oval(Vector2(-20,-4),14,.53,Color("445d51"))
 			draw_line(Vector2(-46,-22),Vector2(1,-22),Color("756a50"),5,true)
 			for x in [-43,-1]: draw_line(Vector2(x,7),Vector2(x,-25),Color("8e7c58"),4,true)
+		"huangzhong":
+			# A pale-haired source portrait keeps the friendly Q-style face. The
+			# yellow mantle and full bow silhouette identify this older general.
+			oval(Vector2(3,10),29,.43,Color(.16,.26,.22,.22))
+			draw_colored_polygon(PackedVector2Array([Vector2(-20,-39),Vector2(13,-43),Vector2(29,-12),Vector2(24,8),Vector2(7,2),Vector2(-19,7),Vector2(-25,-14)]),Color("b5a05d"))
+			draw_polyline(PackedVector2Array([Vector2(-22,-37),Vector2(-26,-11),Vector2(-20,6)]),Color("e4d49b"),2.2,true)
+			draw_arc(Vector2(-25,-25),25,PI*.58,PI*1.42,24,Color("a48350"),3.8,true)
+			draw_line(Vector2(-32,-49),Vector2(-32,-1),Color("dbd1b0"),1.2,true)
+			draw_line(Vector2(-36,-25),Vector2(-13,-25),Color("a09267"),2,true)
+		"wounded":
+			oval(Vector2(0,12),31,.47,Color(.16,.27,.21,.23))
+			draw_rect(Rect2(-32,0,64,16),Color("8e8a65")); draw_rect(Rect2(-28,0,56,11),Color("b7b69b"))
+			for x in [-26,26]: draw_line(Vector2(x,10),Vector2(x,19),Color("6c6c50"),4,true)
+			var recovered=world.state.flags.get("wounded",false)
+			draw_rect(Rect2(21,-22,20,17),Color("ddd5ad"))
+			if not recovered:
+				draw_line(Vector2(31,-18),Vector2(31,-9),Color("a56f55"),3,true)
+				draw_line(Vector2(27,-14),Vector2(35,-14),Color("a56f55"),3,true)
+		"beacon":
+			oval(Vector2(1,10),40,.43,Color(.15,.25,.19,.25))
+			for x in [-26,26]: draw_line(Vector2(x,7),Vector2(x,-43),Color("655c43"),5,true)
+			for y in [-18,-5,8]: draw_line(Vector2(-31,y),Vector2(31,y),Color("8c7d56"),7,true)
+			for i in range(6):
+				var p=Vector2(-22+i*9,-20)
+				draw_line(p,p+Vector2(-8,-31),Color("bba66f"),2,true)
+				draw_colored_polygon(PackedVector2Array([p+Vector2(-10,-35),p+Vector2(-4,-32),p+Vector2(-6,-26)]),Color("a56d56"))
+			if world.state.flags.get("beacon",false): flame(Vector2(0,-20),27)
+		"hideflag":
+			oval(Vector2(0,6),24,.43,Color(.17,.25,.19,.21))
+			draw_line(Vector2(0,5),Vector2(0,-84),Color("676c50"),5,true)
+			draw_circle(Vector2(0,-87),3,Color("d6c28b"))
+			var sway=sin(clock*2.2)*2
+			draw_colored_polygon(PackedVector2Array([Vector2(2,-81),Vector2(44,-76+sway),Vector2(37,-45+sway),Vector2(21,-51),Vector2(3,-45)]),Color("548b82"))
+			draw_polyline(PackedVector2Array([Vector2(15,-70),Vector2(25,-62),Vector2(15,-55),Vector2(34,-55)]),Color("e1d6a6"),2,true)
+			oval(Vector2(-12,10),6,.43,Color("8a9d78")); oval(Vector2(13,13),6,.43,Color("8a9d78"))
+		"gate":
+			var open=gate_state()!="PREPARE"
+			# The interaction stands inside the camp; hinge art belongs on the
+			# actual wall opening, not 70 pixels in front of that opening.
+			var gate_x=float(world.definition.get("tactics",{}).get("gate_line",position.x))-position.x
+			draw_set_transform(Vector2(gate_x,0))
+			for side in [-1,1]:
+				var hinge=Vector2(0,side*118)
+				oval(hinge+Vector2(3,6),19,.44,Color(.17,.25,.19,.25))
+				draw_rect(Rect2(hinge-Vector2(14,30),Vector2(28,42)),Color("6c6d4d"))
+				draw_line(hinge-Vector2(9,29),hinge+Vector2(9,-29),Color("a5a174"),3,true)
+				var end=hinge+Vector2(85,0) if open else Vector2(0,side*3)
+				draw_line(hinge,end,Color("4c5542"),16,true)
+				draw_line(hinge+Vector2(-2,-3),end+Vector2(-2,-3),Color("9b8c5e"),8,true)
+				for n in range(1,5): draw_circle(hinge.lerp(end,n/5.0),2,Color("cfba7d"))
+			draw_set_transform(Vector2.ZERO)
+		"drum":
+			oval(Vector2(2,12),35,.44,Color(.15,.26,.22,.24))
+			for x in [-22,22]: draw_line(Vector2(x,10),Vector2(x,-21),Color("676248"),6,true)
+			draw_rect(Rect2(-27,-31,54,32),Color("8f5944")); oval(Vector2(0,0),27,.42,Color("b58255"))
+			oval(Vector2(0,-31),29,.48,Color("b69265")); oval(Vector2(0,-32),25,.45,Color("e0cf9b"))
+			for i in range(12):
+				var p=Vector2.from_angle(i*TAU/12)*Vector2(26,12)+Vector2(0,-32)
+				draw_circle(p,1.3,Color("705943"))
+			draw_line(Vector2(-22,-40),Vector2(16,-18),Color("9f8559"),3,true)
+			draw_line(Vector2(19,-41),Vector2(-14,-20),Color("b79b68"),3,true)
+		"graincart":
+			# The cart is a moving production node; this marker only locates the
+			# escort interaction, rather than painting a second stationary cart.
+			if focused: draw_arc(Vector2.ZERO,42,0,TAU,32,Color(.82,.82,.58,.35),1.2,true)
 	var label=data.label
 	if data.id=="civilians" and world.state.flags.civilians: label="医者与百姓已获救"
 	elif data.id=="adou" and world.state.flags.mother: label="井畔逆命 · 母子平安"
+	elif data.kind=="huangzhong" and world.state.flags.get("huangzhong",false): label="黄忠 · 已接应"
+	elif data.kind=="wounded" and world.state.flags.get("wounded",false): label="张著与伤兵 · 已获救"
+	elif data.kind=="beacon" and world.state.flags.get("beacon",false): label="火箭辎重 · 已焚毁"
 	if font:
 		var width=font.get_string_size(label,HORIZONTAL_ALIGNMENT_LEFT,-1,12).x
 		var p=Vector2(-width/2,30 if data.kind!="rescue" else 72)

@@ -34,6 +34,80 @@ var reaction_pose: Dictionary = neutral_pose()
 var death_start = -1.0
 var death_pose: Dictionary = neutral_pose()
 var death_direction = 1.0
+var enemy_equipment: Node2D
+
+# A few rigid, code-native additions give the Hanshui units readable silhouettes
+# without stretching their painted faces or requiring a second animated atlas.
+class EnemyEquipment extends Node2D:
+	var unit_kind = ""
+	var aim_tilt = 0.0
+
+	func polygon(points: Array, color: Color) -> void:
+		var outline = PackedVector2Array()
+		for point in points: outline.append(Vector2(point[0], point[1]))
+		draw_colored_polygon(outline, color)
+
+	func stroke(points: Array, color: Color, width: float = 1.0) -> void:
+		var line = PackedVector2Array()
+		for point in points: line.append(Vector2(point[0], point[1]))
+		draw_polyline(line, color, width, true)
+
+	func _draw() -> void:
+		match unit_kind:
+			"scout":
+				# The original sabre is the leading blade; the second hand carries a
+				# shorter reverse-grip knife. Both stay attached to the upper body.
+				polygon([[21,-22],[25,-22],[32,-7],[29,-2],[27,-8]],Color("dbe5dc"))
+				stroke([[21,-24],[25,-21],[28,-16]],Color("8d654b"),2.0)
+				stroke([[22,-20],[27,-8],[29,-4]],Color("788e8a"),.8)
+				polygon([[5,-34],[16,-31],[15,-26],[5,-28]],Color("546b66"))
+				stroke([[6,-32],[14,-29]],Color("99a18a"),1.0)
+			"crossbow":
+				# This base has no bow or spear painted into it. The stock, horizontal
+				# limbs, string and bolt therefore read as one complete small crossbow.
+				polygon([[-5,-26],[8,-29],[15,-22],[12,-15],[-6,-17]],Color("425c55"))
+				stroke([[-4,-23],[9,-24],[12,-19],[-5,-19]],Color("829186"),1.0)
+				var grip=Vector2(-9,-24)
+				draw_set_transform(grip-grip.rotated(aim_tilt),aim_tilt)
+				stroke([[-4,-22],[-21,-31],[-27,-30]],Color("544939"),4.0)
+				stroke([[-5,-23],[-21,-32]],Color("aa9066"),1.3)
+				stroke([[-23,-43],[-29,-36],[-30,-28],[-27,-20]],Color("344747"),3.0)
+				stroke([[-23,-43],[-27,-35],[-27,-28],[-25,-21]],Color("a9b9a8"),1.0)
+				stroke([[-23,-43],[-12,-30],[-27,-20]],Color("d4cfad"),.75)
+				stroke([[-7,-28],[-34,-36]],Color("e0d5ac"),.9)
+				polygon([[-33,-38],[-39,-38],[-35,-33]],Color("c5d8d3"))
+				draw_circle(Vector2(-10,-24),3.0,Color("bba17e"))
+				draw_set_transform(Vector2.ZERO)
+				stroke([[-6,-53],[1,-54],[11,-52]],Color("536c5e"),2.0)
+				polygon([[0,-55],[4,-55],[5,-52],[1,-51]],Color("b0ab7d"))
+			"ironshield":
+				# Broad dark rim, square top and copper boss distinguish the heavy
+				# shield from the first chapter's round wooden one at combat scale.
+				polygon([[9,-35],[29,-34],[30,-8],[20,-3],[9,-10]],Color("283a3b"))
+				stroke([[9,-35],[29,-34],[30,-8],[20,-3],[9,-10],[9,-35]],Color("a49165"),1.7)
+				polygon([[13,-31],[25,-30],[26,-10],[20,-7],[13,-12]],Color("4c5b58"))
+				stroke([[14,-27],[24,-26]],Color("819188"),1.0)
+				stroke([[14,-22],[25,-21]],Color("2d4140"),1.0)
+				draw_circle(Vector2(20,-20),4.4,Color("b49a65"))
+				draw_circle(Vector2(20,-20),2.5,Color("566861"))
+			"dujun":
+				# Black lamellar plates, an iron half-mask and three copper rings are
+				# persistent visual identifiers, including while the boss is idle.
+				polygon([[-5,-24],[10,-26],[20,-20],[15,-10],[-6,-12]],Color("283438"))
+				polygon([[-11,-25],[-3,-28],[3,-23],[-3,-18],[-11,-20]],Color("34464a"))
+				polygon([[13,-26],[22,-23],[26,-18],[18,-15],[12,-21]],Color("34464a"))
+				for y in [-21,-17,-13]: stroke([[-3,y],[13,y-1]],Color("7e8067"),.8)
+				polygon([[-3,-33],[12,-34],[16,-29],[9,-23],[0,-25]],Color("3b4849"))
+				stroke([[0,-30],[5,-29]],Color("b4b292"),.8)
+				stroke([[9,-30],[13,-31]],Color("b4b292"),.8)
+				stroke([[7,-29],[8,-26]],Color("83918a"),.8)
+				stroke([[-6,-18],[-29,-64]],Color("384341"),4.4)
+				stroke([[-7,-20],[-28,-63]],Color("bca772"),1.0)
+				polygon([[-29,-69],[-18,-64],[-13,-53],[-20,-48],[-18,-55],[-24,-59],[-35,-59],[-38,-63]],Color("aebfba"))
+				polygon([[-29,-66],[-20,-62],[-17,-55],[-22,-57],[-34,-61]],Color("526a69"))
+				stroke([[-38,-63],[-30,-69],[-18,-64],[-13,-53],[-20,-48]],Color("e0dfbc"),1.1)
+				for p in [Vector2(-26,-65),Vector2(-22,-63),Vector2(-18,-59)]:
+					draw_arc(p,2.4,0,TAU,12,Color("c9a96f"),1.0,true)
 
 static func neutral_pose() -> Dictionary:
 	return {"lean":0.0, "crouch":0.0, "arm":0.0, "reach":0.0, "stride":0.0, "lift":0.0, "guard":0.0}
@@ -105,7 +179,7 @@ func update_pose() -> void:
 			set_frame("attack", STRIKE[direction] if active_pose else WINDUP[direction], STRIKE_FLIP[direction] if active_pose else WINDUP_FLIP[direction], true)
 			# Actor movement already moves the boots and shadow together. A second
 			# visual-only lunge detached the feet from their ground contact.
-			if a.key in ["sweep", "sword", "thrust2"]:
+			if a.key in ["sweep", "huilan", "sword", "thrust2"]:
 				rotation = sin(a.t / (def.windup + def.active + def.recovery) * TAU) * .065
 		else:
 			var step = int(actor.walk_distance / actor.HERO_STEP_DISTANCE) % 2 if actor.moving else 0
@@ -116,9 +190,11 @@ func update_pose() -> void:
 	else:
 		var key = "units"; var index = 1
 		match actor.kind:
+			"scout": index = 1
+			"crossbow": index = 7
 			"spear": index = 2
 			"archer": index = 3
-			"shield": key = "chapter"; index = 0
+			"shield", "ironshield": key = "chapter"; index = 0
 			"elite": key = "chapter"; index = 1
 			"boss": key = "chapter"; index = 2 if actor.boss_id == "zhanghe" else 7
 			"ally": key = "chapter"; index = 5 + (int(actor.walk_distance / 32) % 2 if actor.moving else 0)
@@ -151,9 +227,10 @@ func _draw() -> void:
 # This function never advances the action or changes collision/hit timing.
 func sample_enemy_action(a: Dictionary) -> Dictionary:
 	var d = a.def
+	if actor.kind == "crossbow": return sample_crossbow_action(a)
 	var spear = actor.kind == "spear" or actor.boss_id == "zhanghe"
-	var archer = actor.kind == "archer"
-	var shield = actor.kind in ["shield", "elite"]
+	var archer = actor.kind in ["archer", "crossbow"]
+	var shield = actor.kind in ["shield", "elite", "ironshield"]
 	var sweep = float(d.get("arc", 0)) > 1.5
 	var loaded = neutral_pose()
 	loaded.merge({"lean":.105, "crouch":2.4, "arm":.30 if not spear else .12, "reach":3.0, "guard":.45 if shield else 0.0}, true)
@@ -168,6 +245,24 @@ func sample_enemy_action(a: Dictionary) -> Dictionary:
 		loaded.merge({"lean":.07, "crouch":.9, "arm":-.12, "reach":-2.5}, true)
 		strike.merge({"lean":.11, "crouch":1.0, "arm":.15, "reach":1.5}, true)
 		follow = strike.duplicate()
+	if actor.kind == "scout":
+		loaded.arm = .36
+		strike.arm = -.57
+		follow.lean = -.13
+		if d.get("style", "") == "dual_return":
+			loaded.arm = -.34; strike.arm = .45; follow.arm = .28
+	if actor.boss_id == "dujun":
+		loaded.crouch = 3.6
+		loaded.arm = .40 if d.get("pull", 0.0) > 0 else .25
+		strike.reach = -6.5
+		strike.arm = -.61
+		follow.arm = -.46
+		follow.crouch = 2.8
+		if d.get("style", "") == "axe_return":
+			loaded.arm = -.34; strike.arm = .40; follow.arm = .29
+		elif d.get("style", "") == "slam":
+			loaded.arm = .50; loaded.crouch = 2.5
+			strike.arm = -.70; strike.crouch = 6.0; follow.crouch = 5.0
 	# A small elevation adjustment follows the same locked direction as the hitbox.
 	var elevation = sin(a.dir) * .12
 	loaded.arm += elevation
@@ -181,6 +276,23 @@ func sample_enemy_action(a: Dictionary) -> Dictionary:
 	var recovery = (a.t - d.windup - d.active) / maxf(.001, d.recovery)
 	# Hold the follow-through briefly, then visibly release back into guard.
 	return blend_pose(follow, neutral_pose(), pose_ease((recovery - .12) / .88))
+
+func sample_crossbow_action(a: Dictionary) -> Dictionary:
+	var d = a.def
+	var loaded = neutral_pose()
+	loaded.merge({"lean":.06,"crouch":.8,"arm":-.15,"reach":-2.5},true)
+	var release = neutral_pose()
+	release.merge({"lean":.11,"crouch":1.3,"arm":.17,"reach":1.8},true)
+	if a.t < d.windup: return blend_pose(neutral_pose(),loaded,pose_ease(a.t/(d.windup*.82)))
+	var fired_time = a.t-d.windup
+	# The second visible release is tied to the same +.25 s boundary as the
+	# second projectile. Reloading never looks like a third accidental shot.
+	if fired_time < .045: return blend_pose(loaded,release,pose_ease(fired_time/.045))
+	if fired_time < .17: return blend_pose(release,loaded,pose_ease((fired_time-.045)/.125))
+	if fired_time < .25: return loaded
+	if fired_time < d.active: return blend_pose(loaded,release,pose_ease((fired_time-.25)/maxf(.001,d.active-.25)))
+	var reload_time = fired_time-d.active
+	return blend_pose(release,neutral_pose(),pose_ease((reload_time-.10)/maxf(.001,d.recovery-.10)))
 
 func update_enemy_pose(key: String, index: int) -> void:
 	if rig == null:
@@ -238,9 +350,16 @@ func update_enemy_pose(key: String, index: int) -> void:
 		modulate.a = lerpf(1.0, .42, pose_ease((actor.dead_time - .55) / .6)) * clampf(1.0 - maxf(0, actor.dead_time - 1.5) / 8.5, 0, 1)
 	displayed_pose = pose
 	deform_enemy_rig(pose, gait)
+	if enemy_equipment != null:
+		var unit = float(rig_data.height) / 65.0
+		enemy_equipment.transform = enemy_upper_transform(pose) * Transform2D(Vector2(unit,0),Vector2(0,unit),Vector2.ZERO)
+		if actor.kind == "crossbow":
+			var tilt = -sin(actor.facing)*.8
+			if not is_equal_approx(enemy_equipment.aim_tilt,tilt):
+				enemy_equipment.aim_tilt=tilt; enemy_equipment.queue_redraw()
 
 func build_enemy_rig(key: String, index: int) -> void:
-	var cache_key = key + ":" + str(index)
+	var cache_key = key + ":" + str(index) + ":" + actor.kind + ":" + actor.boss_id
 	if not enemy_rigs.has(cache_key):
 		var meta = atlas_data[key].frames[index]
 		var width = float(meta.region[2]); var height = float(meta.region[3])
@@ -299,16 +418,26 @@ func build_enemy_rig(key: String, index: int) -> void:
 	rig.uv = rig_data.uv
 	rig.polygons = rig_data.polygons
 	add_child(rig)
+	var equipment_kind = "dujun" if actor.boss_id == "dujun" else str(actor.kind)
+	if equipment_kind in ["scout", "crossbow", "ironshield", "dujun"]:
+		enemy_equipment = EnemyEquipment.new()
+		enemy_equipment.name = "HanshuiEquipment"
+		enemy_equipment.unit_kind = equipment_kind
+		rig.add_child(enemy_equipment)
+		if equipment_kind in ["ironshield", "dujun"]:
+			rig.self_modulate = Color("b6c2c0") if equipment_kind == "ironshield" else Color("98aaa9")
 
 func enemy_head_bounds() -> Rect2:
 	# These source-space rectangles protect the painted face and helmet as one
 	# rigid piece. The grid also includes a margin around their edges, preventing
 	# a weapon triangle from dragging neighboring facial pixels across the joint.
 	match actor.kind:
+		"scout": return Rect2(.13, .10, .69, .49)
+		"crossbow": return Rect2(.17, .14, .66, .47)
 		"sword": return Rect2(.13, .10, .69, .49)
 		"spear": return Rect2(.24, .10, .67, .49)
 		"archer": return Rect2(.26, .05, .63, .56)
-		"shield": return Rect2(.18, .10, .57, .41)
+		"shield", "ironshield": return Rect2(.18, .10, .57, .41)
 		"elite": return Rect2(.18, .05, .41, .54)
 		"boss": return Rect2(.20, .12, .49, .48) if actor.boss_id == "zhanghe" else Rect2(.19, .07, .56, .52)
 	return Rect2(.15, .1, .7, .5)
@@ -321,6 +450,7 @@ func enemy_weapon_region(n: Vector2) -> bool:
 		var shaft_x = .03 + n.y * .31 if actor.boss_id == "zhanghe" else .045 + n.y * .49
 		return absf(n.x - shaft_x) < .14
 	if actor.kind == "archer": return n.x < .40 and n.y < .80
+	if actor.kind == "crossbow": return false
 	return n.x < .34 and n.y > .24 and n.y < .73
 
 func enemy_upper_transform(pose: Dictionary) -> Transform2D:

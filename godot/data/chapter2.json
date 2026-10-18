@@ -1,0 +1,166 @@
+{
+  "chapter": "hanshui",
+  "name": "汉水孤营",
+  "W": 1600,
+  "H": 1100,
+  "order": ["hs_forest","hs_grain","hs_return","hs_camp","hs_river","hs_final"],
+  "StageDefinition": {
+    "hs_forest": {
+      "name":"汉水林道","chapter":"一 · 北山未归","seed":21901,"mood":"forest","spawn":[200,900],
+      "roads":[[[160,940],[420,840],[680,680],[990,460],[1360,180]],[[680,680],[480,540],[330,420]]],
+      "huts":[],"props":[],
+      "objects":[
+        {"id":"hs_forest_camp","kind":"camp","x":265,"y":900,"label":"林道行军点"},
+        {"id":"hs_forest_waypost","kind":"hint","x":370,"y":410,"label":"军报 · 黄忠受围北山"},
+        {"id":"hs_to_grain","kind":"exit","x":1390,"y":180,"label":"前往北山粮道","to":"hs_grain","group":"hs_f2"}
+      ],
+      "main_groups":["hs_f1","hs_f2"],"optional_groups":[],
+      "groups":[
+        {"id":"hs_f1","units":[["scout",590,740],["spear",700,680]]},
+        {"id":"hs_f2","units":[["scout",1090,375],["crossbow",1250,270],["sword",1190,410]]}
+      ],
+      "tutorial":"黄忠取粮逾期未归。沿白石路标接应北山；双刀斥候连斩两次，等整套结束再还击。",
+      "layout":{
+        "palette":{"ground":"728c7e","road":"afa985"},"tree_attempts":125,"rock_attempts":16,
+        "clearings":[[220,900,170,120],[660,700,170,140],[1170,360,240,170],[350,420,150,110]],
+        "surfaces":[{"kind":"gravel","polygon":[[470,795],[530,650],[700,580],[836,643],[798,768],[651,836]]},{"kind":"stone","polygon":[[1225,165],[1394,120],[1468,205],[1358,300],[1230,270]]}],
+        "solids":[],"landmarks":[{"id":"hs_forest_marker","kind":"waypost","position":[880,530],"direction":1},{"id":"hs_forest_cairn","kind":"cairn","position":[1290,150]}],
+        "decor":[{"kind":"bamboo","position":[360,660],"size":88},{"kind":"bamboo","position":[880,260],"size":95},{"kind":"bamboo","position":[1120,770],"size":82},{"kind":"bamboo","position":[540,220],"size":102}],
+        "water":[],"motif":"bamboo_path"
+      }
+    },
+    "hs_grain":{
+      "name":"北山粮道","chapter":"二 · 接应黄忠","seed":21902,"mood":"camp","spawn":[190,900],
+      "roads":[[[150,940],[470,835],[710,610],[1030,440],[1240,270],[1400,180]],[[710,610],[1000,740],[1340,800]]],
+      "huts":[[420,570,130,90,"tent"],[1410,540,120,95,"tent"]],"props":[],
+      "objects":[
+        {"id":"hs_huangzhong","kind":"huangzhong","x":1210,"y":270,"label":"接应黄忠","group":"hs_g2"},
+        {"id":"hs_beacon","kind":"beacon","x":1350,"y":790,"label":"焚毁火箭辎重","group":"hs_beacon_guard"},
+        {"id":"hs_to_return","kind":"exit","x":1400,"y":180,"label":"护粮车返回孤营","to":"hs_return","need":"huangzhong"},
+        {"id":"hs_back_forest","kind":"exit","x":130,"y":950,"label":"返回林道","to":"hs_forest"}
+      ],
+      "main_groups":["hs_g1","hs_g2"],"optional_groups":["hs_beacon_guard"],
+      "groups":[
+        {"id":"hs_g1","units":[["ironshield",620,710],["crossbow",790,570]]},
+        {"id":"hs_g2","units":[["scout",1100,360],["ironshield",1220,360],["crossbow",1310,260]]},
+        {"id":"hs_beacon_guard","optional":true,"units":[["spear",1210,795],["crossbow",1390,715]]}
+      ],
+      "tutorial":"击破围军后与黄忠会合。东南烽火岗藏有火箭辎重，先毁掉它，河湾追击会更从容。",
+      "layout":{
+        "palette":{"ground":"91957a","road":"b4aa7e"},"tree_attempts":85,"rock_attempts":14,
+        "clearings":[[690,660,210,180],[1210,330,250,210],[1320,800,230,180]],
+        "surfaces":[{"kind":"earth","polygon":[[480,620],[640,490],[850,510],[897,683],[750,820],[560,783]]},{"kind":"gravel","polygon":[[1025,202],[1225,140],[1415,220],[1427,366],[1253,472],[1080,426]]},{"kind":"earth","polygon":[[1150,670],[1390,644],[1475,765],[1410,915],[1190,900],[1090,785]]}],
+        "solids":[{"rect":[1000,760,90,45]},{"rect":[1370,860,100,50]}],
+        "landmarks":[{"id":"hs_grain_rack","kind":"grain_rack","position":[1070,280]},{"id":"hs_beacon_waypost","kind":"double_waypost","position":[960,700],"direction":-1}],
+        "decor":[{"kind":"grainstack","rect":[1000,760,90,45]},{"kind":"grainstack","rect":[1370,860,100,50]},{"kind":"bamboo","position":[220,370],"size":82},{"kind":"burnt_stakes","position":[1260,900]}],
+        "water":[],"motif":"grain_tracks"
+      }
+    },
+    "hs_return":{
+      "name":"乱石归途","chapter":"三 · 回枪救人","seed":21903,"mood":"forest","spawn":[200,900],
+      "roads":[[[200,925],[450,900],[720,840],[720,580],[1040,520],[1160,490],[1160,240],[1380,180]],[[600,840],[330,800],[330,560],[680,500]],[[1060,510],[1480,490],[1480,240],[1320,180]],[[330,560],[260,430],[350,300]]],
+      "huts":[],"props":[],
+      "objects":[
+        {"id":"hs_cart","kind":"graincart","x":260,"y":880,"label":"护粮车回营"},
+        {"id":"hs_zhangzhu","kind":"wounded","x":260,"y":430,"label":"救回张著与伤兵","group":"hs_wounded"},
+        {"id":"hs_wounded_to_camp","kind":"exit","x":450,"y":430,"label":"伤兵小径 · 直达内寨","to":"hs_camp","need":"cart","need_secondary":"wounded","spawn_to":[480,570]},
+        {"id":"hs_to_camp","kind":"exit","x":1380,"y":180,"label":"护车进入孤营","to":"hs_camp","need":"cart"},
+        {"id":"hs_back_grain","kind":"exit","x":125,"y":950,"label":"返回北山","to":"hs_grain"}
+      ],
+      "main_groups":["hs_r1","hs_r2","hs_r3"],"optional_groups":["hs_wounded"],
+      "groups":[
+        {"id":"hs_r1","units":[["sword",480,900],["spear",555,850],["crossbow",600,785]]},
+        {"id":"hs_r2","units":[["ironshield",720,590],["scout",620,525],["crossbow",900,520]]},
+        {"id":"hs_r3","units":[["ironshield",1160,270],["crossbow",1320,240]]},
+        {"id":"hs_wounded","optional":true,"units":[["scout",250,330],["spear",340,400]]}
+      ],
+      "tactics":{"waypoints":[[260,880],[450,900],[720,840],[720,580],[1040,520],[1160,490],[1160,240],[1380,180]],"stops":[{"index":0,"group":"hs_r1"},{"index":2,"group":"hs_r2"},{"index":5,"group":"hs_r3"}],"cart_speed":72,"cart_hp":160,"cart_radius":28,"cart_follow_radius":260,"cart_danger_radius":160,"cart_gate_groups":["hs_r1","hs_r2","hs_r3"]},
+      "tutorial":"粮车附近有敌人就会停下，先清路再靠近护送。石壁两侧可绕后；西边传来张著的求援声。",
+      "layout":{
+        "palette":{"ground":"859386","road":"b9ae86"},"tree_attempts":75,"rock_attempts":12,
+        "clearings":[[260,890,175,125],[720,820,140,100],[720,560,170,120],[1160,490,150,110],[1160,260,170,120],[1380,180,120,100],[260,420,175,150]],
+        "surfaces":[{"kind":"gravel","polygon":[[590,775],[678,714],[765,744],[808,835],[760,911],[620,919],[554,849]]},{"kind":"stone","polygon":[[1035,420],[1175,400],[1288,475],[1215,577],[1080,573],[1010,515]]},{"kind":"earth","polygon":[[130,320],[280,270],[415,344],[413,472],[300,545],[160,489]]}],
+        "solids":[{"rect":[400,640,240,120]},{"rect":[800,640,240,120]},{"rect":[880,300,200,120]},{"rect":[1240,300,200,120]},{"rect":[830,600,100,40]}],
+        "landmarks":[{"id":"hs_wounded_awning","kind":"aid_awning","position":[170,420]},{"id":"hs_return_marker","kind":"waypost","position":[1040,560],"direction":1}],
+        "decor":[{"kind":"rockwall","rect":[400,640,240,120]},{"kind":"rockwall","rect":[800,640,240,120]},{"kind":"rockwall","rect":[880,300,200,120]},{"kind":"rockwall","rect":[1240,300,200,120]},{"kind":"lowwall","rect":[830,600,100,40]}],
+        "water":[],"motif":"rock_pass"
+      }
+    },
+    "hs_camp":{
+      "name":"孤营大门","chapter":"四 · 偃旗息鼓","seed":21904,"mood":"camp","spawn":[260,900],
+      "roads":[[[220,940],[580,800],[860,680],[900,560],[1160,560],[1490,560]],[[580,800],[590,590],[640,360]],[[640,360],[680,500],[820,500]]],
+      "huts":[[335,600,130,90,"tent"],[370,245,120,95,"tent"]],"props":[],
+      "objects":[
+        {"id":"hs_camp_fire","kind":"camp","x":580,"y":800,"label":"孤营整备点"},
+        {"id":"hs_hideflag","kind":"hideflag","x":640,"y":360,"label":"藏兵旗 · 按 2 列阵"},
+        {"id":"hs_gate","kind":"gate","x":930,"y":560,"label":"大开营门"},
+        {"id":"hs_drum","kind":"drum","x":820,"y":500,"label":"战鼓 · 待敌退却"},
+        {"id":"hs_back_wounded","kind":"exit","x":480,"y":570,"label":"伤兵小径 · 返回张著落脚点","to":"hs_return","need":"cart","need_secondary":"wounded","spawn_to":[390,460]},
+        {"id":"hs_to_river","kind":"exit","x":1500,"y":560,"label":"出营反击","to":"hs_river","need":"counter"},
+        {"id":"hs_back_return","kind":"exit","x":170,"y":960,"label":"返回归途","to":"hs_return"}
+      ],
+      "main_groups":[],"optional_groups":[],"groups":[],
+      "tactics":{"hide_area":[480,240,300,240],"guard_points":[[560,320],[640,340],[700,400]],"gate_line":1000,"gate_span":[440,680],"probe_entries":[[1480,460],[1480,660]],"withdraw_line":1450,"pursuit_line":1500,"retreat_targets":[[1450,460],[1450,640],[1510,480],[1510,620]],"retreat_units":[["ironshield",1320,460],["scout",1320,640],["crossbow",1410,480],["crossbow",1410,620]],"best_window":4.0,"strong_volley_damage":35,"late_volley_damage":18},
+      "tutorial":"先到藏兵旗旁按 2，再 E 开营门。赵云亲自击退两次试探；敌军退却后回鼓台 E 擂鼓，错过时机也能正面破围。",
+      "layout":{
+        "palette":{"ground":"929479","road":"b5aa80"},"tree_attempts":28,"rock_attempts":8,
+        "clearings":[[620,780,235,150],[640,360,180,145],[820,500,150,110],[930,560,200,135],[1250,560,300,235],[1490,560,90,170]],
+        "surfaces":[{"kind":"earth","polygon":[[180,730],[630,650],[950,680],[950,920],[710,1000],[230,1020]]},{"kind":"gravel","polygon":[[480,240],[780,240],[780,480],[480,480]]},{"kind":"stone","polygon":[[754,438],[882,438],[893,557],[752,569]]},{"kind":"earth","polygon":[[1035,380],[1500,350],[1570,455],[1560,745],[1060,785]]}],
+        "solids":[{"rect":[960,100,80,340]},{"rect":[960,680,80,320]},{"rect":[790,200,80,240]}],
+        "landmarks":[{"id":"hs_camp_banner","kind":"banner","position":[480,680],"tone":"658a88"},{"id":"hs_camp_lantern","kind":"lantern","position":[875,790]}],
+        "decor":[{"kind":"palisade","rect":[960,100,80,340]},{"kind":"palisade","rect":[960,680,80,320]},{"kind":"palisade","rect":[790,200,80,240]},{"kind":"drum_platform","position":[820,500]},{"kind":"hide_markers","position":[640,360]}],
+        "water":[],"motif":"open_camp"
+      }
+    },
+    "hs_river":{
+      "name":"河湾反击","chapter":"五 · 一鼓破围","seed":21905,"mood":"river","spawn":[220,820],
+      "roads":[[[180,900],[500,760],[600,680],[600,420],[980,420],[1240,420],[1370,200]],[[500,760],[1040,760],[1040,500],[1240,420]]],
+      "huts":[],"props":[],
+      "objects":[
+        {"id":"hs_river_camp","kind":"camp","x":280,"y":870,"label":"河湾落脚点"},
+        {"id":"hs_to_final","kind":"exit","x":1370,"y":200,"label":"追击铁营督军","to":"hs_final","group":"hs_b2"},
+        {"id":"hs_back_camp","kind":"exit","x":140,"y":850,"label":"返回孤营 · 回头整备","to":"hs_camp"}
+      ],
+      "main_groups":["hs_b1","hs_b2"],"optional_groups":[],
+      "groups":[
+        {"id":"hs_b1","units":[["scout",640,740],["ironshield",800,730],["crossbow",980,700]]},
+        {"id":"hs_b2","units":[["spear",1210,430],["ironshield",1330,360],["crossbow",1370,270]]}
+      ],
+      "tactics":{"pursuit_entry":[1400,420],"pursuit_positions":[[620,760],[700,760],[800,740],[860,730]],"arrival_entries":[[1400,420],[1370,180]],"wave_order":["hs_b1","hs_b2"]},
+      "tutorial":"追上刚才退却的曹军。船架上下都有通路，利用木堆挡箭，再切向弩兵的装填空当。",
+      "layout":{
+        "palette":{"ground":"7d9690","road":"aaa785"},"tree_attempts":24,"rock_attempts":8,
+        "clearings":[[230,870,170,90],[560,735,150,115],[600,420,150,150],[1050,760,170,140],[1235,420,190,170],[1370,200,100,100]],
+        "surfaces":[{"kind":"gravel","polygon":[[480,345],[1100,300],[1430,365],[1440,520],[1220,580],[475,535]]},{"kind":"earth","polygon":[[460,650],[1100,660],[1170,825],[1050,900],[500,880],[380,790]]}],
+        "solids":[{"rect":[680,480,240,160]},{"rect":[360,560,140,80]},{"rect":[1120,240,80,160]},{"rect":[1480,100,120,1000]},{"rect":[100,940,1380,160]}],
+        "landmarks":[{"id":"hs_river_mooring","kind":"mooring","position":[1380,700]},{"id":"hs_river_waypost","kind":"waypost","position":[1240,540],"direction":1}],
+        "decor":[{"kind":"boatframe","rect":[680,480,240,160]},{"kind":"timber","rect":[360,560,140,80]},{"kind":"lowwall","rect":[1120,240,80,160]}],
+        "water":[[1480,100,120,1000],[100,940,1380,160]],"motif":"river_docks"
+      }
+    },
+    "hs_final":{
+      "name":"铁营决战","chapter":"六 · 龙胆回澜","seed":21906,"mood":"river","spawn":[200,900],
+      "roads":[[[150,950],[390,825],[615,680],[900,510],[1310,240]]],
+      "huts":[[280,555,130,90,"tent"],[1400,780,120,95,"tent"]],"props":[],
+      "arena":{"x":1000,"y":460,"rx":360,"ry":265},"boss":"dujun",
+      "objects":[
+        {"id":"hs_final_camp","kind":"camp","x":300,"y":900,"label":"决战前整备"},
+        {"id":"hs_dujun","kind":"boss","x":650,"y":690,"label":"铁面督军 · 入阵决战","group":"hs_final_guard"},
+        {"id":"hs_finish","kind":"finish","x":1390,"y":185,"label":"收军 · 汉水战报","need":"boss"},
+        {"id":"hs_back_river","kind":"exit","x":140,"y":965,"label":"返回河湾","to":"hs_river"}
+      ],
+      "main_groups":["hs_final_guard"],"optional_groups":[],
+      "groups":[{"id":"hs_final_guard","units":[["ironshield",465,795],["scout",535,745],["crossbow",600,630]]}],
+      "tutorial":"督军的钩斧会回拉，横斩之后还藏着追击。等整套落空，切到侧背破势；半血后提防锁链突进。",
+      "layout":{
+        "palette":{"ground":"82958c","road":"ada58a"},"tree_attempts":24,"rock_attempts":10,
+        "clearings":[[260,900,190,110],[510,760,180,130],[1000,460,420,320],[1390,185,105,95]],
+        "surfaces":[{"kind":"flagstone","polygon":[[710,250],[965,150],[1235,212],[1385,418],[1295,650],[1075,775],[815,715],[660,500]]},{"kind":"gravel","polygon":[[170,815],[340,760],[430,856],[390,985],[205,1025],[135,947]]}],
+        "solids":[{"rect":[650,0,800,120]},{"rect":[670,815,570,55]},{"rect":[1400,300,60,380]}],
+        "landmarks":[{"id":"hs_final_banner1","kind":"banner","position":[720,245],"tone":"755e58"},{"id":"hs_final_banner2","kind":"banner","position":[1325,670],"tone":"755e58"},{"id":"hs_final_lantern","kind":"lantern","position":[570,970]}],
+        "decor":[{"kind":"palisade","rect":[670,815,570,55]},{"kind":"palisade","rect":[1400,300,60,380]},{"kind":"burnt_stakes","position":[620,180]}],
+        "water":[[650,0,800,120]],"motif":"iron_arena"
+      }
+    }
+  }
+}

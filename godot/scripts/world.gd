@@ -10,6 +10,10 @@ const Sound = preload("res://scripts/sound.gd")
 const Interface = preload("res://scripts/interface.gd")
 const Interactable = preload("res://scripts/interactable.gd")
 const MapDetails = preload("res://scripts/map_details.gd")
+const HanshuiLayout = preload("res://scripts/hanshui_layout.gd")
+const TacticDirector = preload("res://scripts/tactic_director.gd")
+var tactics
+var chapter_definitions: Dictionary={}
 var state = Campaign.new()
 var definitions: Dictionary = {}
 var attacks: Dictionary = {}
@@ -55,6 +59,14 @@ func _ready() -> void:
 	definitions = data.StageDefinition; attacks = data.AttackDefinition
 	for id in definitions:
 		definitions[id] = MapDetails.apply_layout(definitions[id], id)
+	chapter_definitions[1]=definitions
+	var second=JSON.parse_string(FileAccess.get_file_as_string("res://data/chapter2.json"))
+	var regions: Dictionary=second.StageDefinition
+	for id in regions: regions[id]=HanshuiLayout.apply_layout(regions[id],id)
+	chapter_definitions[2]=regions
+	if second.has("AttackDefinition"): attacks.merge(second.AttackDefinition)
+	attacks.huilan=attacks.sweep.duplicate()
+	attacks.huilan.merge({"name":"龙胆·回澜","damage":33,"stagger":65,"range":170.0,"arc":2.85},true)
 	setup_input()
 	actors = Node2D.new(); actors.name = "Actors"; actors.y_sort_enabled = true; add_child(actors)
 	hero = Hero.instantiate(); hero.name = "ZhaoYun"; hero.world = self; hero.max_hp = 200; hero.hp = 200
@@ -77,10 +89,14 @@ func _ready() -> void:
 func setup_input() -> void:
 	var keys = {"move_left":[KEY_A,KEY_LEFT],"move_right":[KEY_D,KEY_RIGHT],"move_up":[KEY_W,KEY_UP],"move_down":[KEY_S,KEY_DOWN],"attack":[KEY_J],"dash":[KEY_SPACE,KEY_K],"sweep":[KEY_Q],"sword":[KEY_R],"heal":[KEY_F],"interact":[KEY_E],"pause":[KEY_ESCAPE],"map":[KEY_M],"follow":[KEY_1],"hold":[KEY_2],"charge":[KEY_3],"fullscreen":[KEY_F11]}
 	for action in keys:
-		if InputMap.has_action(action): continue
-		InputMap.add_action(action)
+		if not InputMap.has_action(action): InputMap.add_action(action)
 		for key in keys[action]:
-			var event = InputEventKey.new(); event.physical_keycode = key; InputMap.action_add_event(action,event)
+			# Some Windows layouts/input devices report a different physical scan
+			# code while retaining the correct logical key (observed with Escape).
+			var physical=InputEventKey.new(); physical.physical_keycode=key
+			var logical=InputEventKey.new(); logical.keycode=key
+			if not InputMap.action_has_event(action,physical): InputMap.action_add_event(action,physical)
+			if not InputMap.action_has_event(action,logical): InputMap.action_add_event(action,logical)
 	for action in ["mouse_attack","mouse_sweep"]:
 		if not InputMap.has_action(action): InputMap.add_action(action)
 		var event = InputEventMouseButton.new(); event.button_index = MOUSE_BUTTON_LEFT if action=="mouse_attack" else MOUSE_BUTTON_RIGHT
@@ -96,7 +112,7 @@ func _input(event: InputEvent) -> void:
 	# Releases must also clear input when the pointer ends over a UI control.
 	if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and not event.pressed:
 		mouse_attack_held=false
-	if event is InputEventKey and event.physical_keycode==KEY_J and not event.pressed:
+	if event is InputEventKey and (event.physical_keycode==KEY_J or event.keycode==KEY_J) and not event.pressed:
 		keyboard_attack_held=false
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -115,7 +131,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if mode!="playing": return
 	if event is InputEventMouseMotion:
 		mouse_aim = true
-	if event is InputEventKey and event.pressed and event.physical_keycode in [KEY_W,KEY_A,KEY_S,KEY_D,KEY_UP,KEY_DOWN,KEY_LEFT,KEY_RIGHT,KEY_J]:
+	if event is InputEventKey and event.pressed and (event.physical_keycode in [KEY_W,KEY_A,KEY_S,KEY_D,KEY_UP,KEY_DOWN,KEY_LEFT,KEY_RIGHT,KEY_J] or event.keycode in [KEY_W,KEY_A,KEY_S,KEY_D,KEY_UP,KEY_DOWN,KEY_LEFT,KEY_RIGHT,KEY_J]):
 		mouse_aim = false
 	if event.is_action_pressed("mouse_attack") or event.is_action_pressed("mouse_sweep"): mouse_aim = true
 	if event.is_action_pressed("attack") or event.is_action_pressed("mouse_attack"):
@@ -150,11 +166,14 @@ func _physics_process(dt: float) -> void:
 		enemy.advance(dt)
 	if mode!="playing": return
 	advance_arrows(dt); advance_props(dt); advance_rescue(dt); advance_loot(dt)
+	if is_instance_valid(tactics) and mode=="playing": tactics.advance(dt)
 	fx.advance(dt)
 
 func _process(dt: float) -> void:
 	if not is_instance_valid(hero): return
 	var target = hero.position
+	var zoom=1.05 if is_instance_valid(tactics) and stage=="hs_camp" and tactics.gate_state in ["WITHDRAW","BEST_WINDOW","LATE_WINDOW"] else 1.15
+	camera.zoom=camera.zoom.lerp(Vector2.ONE*zoom,1-exp(-4*dt))
 	if active_boss!="" and is_instance_valid(boss): target=target.lerp(boss.position,.28)
 	camera.position = camera.position.lerp(target,1-exp(-12*dt))
 	shake = maxf(0,shake-dt*18)
@@ -198,14 +217,38 @@ func resume() -> void:
 func title_screen() -> void:
 	save_progress(); hero.buffer={}; mode="menu"; ui.show_menu()
 
-func start_game(difficulty: String = "normal") -> void:
-	state.reset(difficulty); hero.max_hp=240 if difficulty=="story" else 200; hero.reset_combat()
-	mode="playing"; enter_stage("mountain",Vector2(190,910)); ui.hide_overlay()
+func load_chapter(id: int) -> void:
+	detach_tactics(false)
+	definitions=chapter_definitions[id]
+	command="follow"; pending_stage={}
+
+func detach_tactics(capture: bool=true) -> void:
+	if not is_instance_valid(tactics): return
+	if capture: tactics.capture_roster()
+	remove_child(tactics); tactics.queue_free(); tactics=null
+
+func start_game(difficulty: String = "normal", chapter_id: int = 1) -> void:
+	detach_tactics()
+	var saved=state.read_save()
+	if not saved.is_empty(): state.restore(saved)
+	state.switch_chapter(chapter_id,difficulty,true)
+	load_chapter(chapter_id)
+	hero.max_hp=240 if difficulty=="story" else 200; hero.reset_combat()
+	var start="mountain" if chapter_id==1 else "hs_forest"
+	mode="playing"; enter_stage(start); ui.hide_overlay()
+	if chapter_id==2:
+		dialog("建安二十四年 · 汉水","长坂的烽烟已远，北山粮道又传来军情。\n\n黄忠劫粮逾期未归。赵云披甲出营，三名随军跟上。\n\n记忆告诉你，这一战不只靠枪。接回黄忠，把退路布成自己的局。",[{"text":"沿汉水出营","detail":"青釭可用，先清斥候，再接应黄忠。","route":"continue"}],"赵云 · 军令")
+		return
 	dialog("长坂 · 记忆醒来","战鼓将你唤醒。你成了赵子龙，醒在长坂溃军之间。\n\n你记得独骑救主，也记得有人永远留在了这片火里。\n\n这一回，长枪在你手中。",[{"text":"握枪起身","detail":"沿山道学会出枪、闪避与破盾。","route":"continue"}],"赵云 · 心声")
 
-func continue_game() -> bool:
+func continue_game(chapter_id: int = 0) -> bool:
+	detach_tactics(false)
 	var saved = state.read_save()
 	if saved.is_empty() or not state.restore(saved): return false
+	if chapter_id>0 and chapter_id!=state.chapter:
+		if state.chapter_record(chapter_id).is_empty(): return false
+		state.switch_chapter(chapter_id)
+	load_chapter(state.chapter)
 	ui.run_started=true
 	hero.max_hp=240 if state.difficulty=="story" else 200; hero.reset_combat(); mode="playing"
 	var cp = state.checkpoint.duplicate(); enter_stage(cp.stage,Vector2(cp.x,cp.y),false); state.checkpoint=cp
@@ -213,11 +256,12 @@ func continue_game() -> bool:
 	if state.complete:
 		mode="ending"; ui.show_report(state.build_report()); return true
 	if cp.encounter=="rescue" and not state.flags.mother: start_rescue()
-	elif cp.encounter=="xiahou" and not state.flags.temple or cp.encounter=="zhanghe" and not state.flags.boss: begin_boss(cp.encounter)
+	elif cp.encounter=="dujun" and not state.flags.dujun or cp.encounter=="xiahou" and not state.flags.temple or cp.encounter=="zhanghe" and not state.flags.boss: begin_boss(cp.encounter)
 	toast("已从最近营火或入口继续，完成的命运选择都还在。")
 	return true
 
 func enter_stage(id: String, spawn: Vector2 = Vector2.INF, checkpoint: bool = true) -> void:
+	detach_tactics()
 	hero.buffer={}; hero.action={}; hero.dash_left=0; hero.invincible=.6
 	stage=id; definition=definitions[id]; active_boss=""; boss=null; rescue={}; arrows=[]; loot=[]; enemies=[]; allies=[]; civilians=[]; props=[]
 	for child in actors.get_children():
@@ -233,17 +277,24 @@ func enter_stage(id: String, spawn: Vector2 = Vector2.INF, checkpoint: bool = tr
 		actors.add_child(marker)
 	hero.position = Vector2(definition.spawn[0],definition.spawn[1]) if not spawn.is_finite() else spawn
 	hero.moving=false; hero.walk_distance=0; hero.update_visual()
-	for group in definition.groups:
-		if state.cleared.has(stage+":"+group.id) or group.has("unless") and state.flags[group.unless]: continue
-		for unit in group.units: spawn_enemy(unit[0],Vector2(unit[1],unit[2]),group.id)
+	if state.chapter==1:
+		for group in definition.groups:
+			if state.cleared.has(stage+":"+group.id) or group.has("unless") and state.flags[group.unless]: continue
+			for unit in group.units: spawn_enemy(unit[0],Vector2(unit[1],unit[2]),group.id)
 	for i in range(3):
 		var ally=Companion.new(); ally.name="Squad"+str(i+1); ally.world=self; ally.slot=i
-		ally.position=hero.position+Vector2(-65+(i-1)*48,65+(i%2)*24); actors.add_child(ally); allies.append(ally)
+		ally.position=hero.position+Vector2(-65+(i-1)*48,65+(i%2)*24)
+		if terrain.blocked(ally.position,ally.radius):
+			var cell=terrain.nearest_cell(ally.position); ally.position=Vector2(cell.x*40+20,cell.y*40+20)
+		actors.add_child(ally); allies.append(ally)
 	if stage=="bridge":
 		if state.flags.civilians:
 			for i in range(3): spawn_civil("civil",hero.position+Vector2(-45+i*25,65),i)
 		if state.flags.mother: spawn_civil("mother",hero.position+Vector2(-50,100),3)
 	fx.entries=[]; fx.labels=[]; hit_stop=0; shake=0
+	if state.chapter==2:
+		tactics=TacticDirector.new(); tactics.name="TacticDirector"; add_child(tactics); tactics.setup(self)
+		tactics.spawn_pending(0)
 	camera.position=hero.position; camera.reset_smoothing()
 	if checkpoint:
 		state.checkpoint={"stage":id,"x":hero.position.x,"y":hero.position.y,"encounter":""}; save_progress()
@@ -275,7 +326,9 @@ func melee_targets(origin, data: Dictionary, direction: float, mask: int) -> Arr
 	var targets: Array=[]
 	for result in results:
 		var target=result.collider
-		if target in enemies and target.body_alive() and attack_hits(origin.position,target.position,data,direction,target.radius): targets.append(target)
+		if target in enemies and target.body_alive() and attack_hits(origin.position,target.position,data,direction,target.radius):
+			var ray=PhysicsRayQueryParameters2D.create(origin.position,target.position,1)
+			if get_world_2d().direct_space_state.intersect_ray(ray).is_empty(): targets.append(target)
 	return targets
 
 func nearest_enemy(p: Vector2, radius: float):
@@ -291,11 +344,13 @@ func combat_friends() -> Array:
 	if active_boss!="": return friends
 	if squad_active(): friends.append_array(allies)
 	if not rescue.is_empty(): friends.append(rescue.healer)
+	if is_instance_valid(tactics) and is_instance_valid(tactics.cart) and tactics.cart.body_alive(): friends.append(tactics.cart)
 	return friends
 
-func nearest_friend(p: Vector2, radius: float):
+func nearest_friend(p: Vector2, radius: float, include_cart: bool=true):
 	var target=null; var best=radius
 	for friend in combat_friends():
+		if not include_cart and is_instance_valid(tactics) and friend==tactics.cart: continue
 		if not friend.body_alive(): continue
 		var distance=p.distance_to(friend.position)
 		if distance<best: best=distance; target=friend
@@ -304,20 +359,21 @@ func nearest_friend(p: Vector2, radius: float):
 func attackers_count() -> int:
 	var count=0
 	for enemy in enemies:
-		if enemy.body_alive() and enemy.kind!="archer" and not enemy.action.is_empty() and enemy.action.t<enemy.action.def.windup+enemy.action.def.active: count+=1
+		if enemy.body_alive() and not enemy.is_ranged() and (not enemy.sequence.is_empty() or not enemy.action.is_empty() and enemy.action.t<enemy.action.def.windup+enemy.action.def.active): count+=1
 	return count
 
 func camera_impact(strength: float) -> void:
 	shake=maxf(shake,strength)
 
 func fire_arrow(origin, a: Dictionary) -> void:
-	arrows.append({"id":a.id,"pos":origin.position+Vector2(0,-8),"dir":a.dir,"damage":a.def.damage,"life":2.1})
+	arrows.append({"id":a.id,"pos":origin.position+Vector2(0,-8),"dir":a.dir,"damage":a.def.damage,"life":2.1,"spawn_delay":a.get("spawn_delay",0.0)})
 
 func advance_arrows(dt: float) -> void:
 	var live: Array=[]
 	for arrow in arrows:
-		var previous=arrow.pos; var end=previous+Vector2.from_angle(arrow.dir)*400*minf(dt,arrow.life)
-		arrow.life-=dt
+		var travel_dt=maxf(0,dt-float(arrow.get("spawn_delay",0.0))); arrow.erase("spawn_delay")
+		var previous=arrow.pos; var end=previous+Vector2.from_angle(arrow.dir)*400*minf(travel_dt,arrow.life)
+		arrow.life-=travel_dt
 		var query=PhysicsRayQueryParameters2D.create(previous,end,1)
 		if not get_world_2d().direct_space_state.intersect_ray(query).is_empty(): continue
 		var hit=false
@@ -353,11 +409,12 @@ func advance_loot(dt: float) -> void:
 	loot=remaining
 
 func squad_active() -> bool:
-	return active_boss=="" and (not rescue.is_empty() or stage=="bridge" and not state.flags.boss)
+	return active_boss=="" and (state.chapter==2 or not rescue.is_empty() or stage=="bridge" and not state.flags.boss)
 
 func set_command(order: String) -> void:
 	command=order
 	for ally in allies: ally.home=ally.position; ally.path=[]
+	if is_instance_valid(tactics): tactics.command_changed(order)
 	toast({"follow":"随军集合 · 随你掩护","hold":"随军守点 · 固守当前位置","charge":"随军冲阵 · 牵制前方敌军"}[order] if squad_active() else "随军待命，在井畔营救与桥头突围时掩护你。")
 
 func group_alive(id: String = "") -> bool:
@@ -366,6 +423,8 @@ func group_alive(id: String = "") -> bool:
 	return false
 
 func check_groups() -> void:
+	if is_instance_valid(tactics):
+		tactics.check_groups(); return
 	for group in definition.groups:
 		var key=stage+":"+group.id
 		if not state.cleared.has(key) and not group_alive(group.id):
@@ -384,9 +443,15 @@ func nearest_object() -> Dictionary:
 	if mode!="playing" or active_boss!="" or not rescue.is_empty(): return {}
 	var best=100.0; var target: Dictionary={}
 	for object in definition.objects:
+		if state.chapter==2:
+			var done={"hs_huangzhong":"huangzhong","hs_zhangzhu":"wounded","hs_beacon":"beacon","hs_dujun":"dujun"}.get(object.id,"")
+			if not done.is_empty() and state.flags.get(done,false): continue
 		if object.id=="civilians" and state.flags.civilians or object.id=="xiahouGate" and state.flags.temple or object.id=="zhangheGate" and state.flags.boss or object.id=="adou" and state.flags.house and (state.flags.mother or state.flags.committed): continue
 		var distance=hero.position.distance_to(Vector2(object.x,object.y))
 		if distance<best: best=distance; target=object
+	if is_instance_valid(tactics) and is_instance_valid(tactics.cart):
+		if hero.position.distance_to(tactics.cart.position)<best:
+			return {"id":"hs_cart","kind":"graincart","label":"护送粮车","x":tactics.cart.position.x,"y":tactics.cart.position.y}
 	return target
 
 func camp_threatened(object: Dictionary) -> bool:
@@ -398,6 +463,7 @@ func camp_threatened(object: Dictionary) -> bool:
 	return false
 
 func object_blocked(object: Dictionary) -> bool:
+	if state.chapter==2: return hanshui_object_blocked(object)
 	if camp_threatened(object): return true
 	if object.has("need") and not state.flags[object.need]: return true
 	if object.has("group") and group_alive(object.group): return true
@@ -409,6 +475,9 @@ func object_blocked(object: Dictionary) -> bool:
 
 func interaction_text(object: Dictionary) -> String:
 	if object.is_empty(): return ""
+	if state.chapter==2:
+		if object_blocked(object): return "先完成当前目标 · 跟随金色指引"
+		return object.get("label","交互")
 	if object_blocked(object):
 		if object.kind == "camp": return "先击退附近敌军，再休整。"
 		if object.has("need") and not state.flags[object.need]: return {"mountain":"先清开山道","temple":"先击败夏侯恩","house":"先安置阿斗与糜夫人","boss":"先击退张郃"}[object.need]
@@ -418,11 +487,60 @@ func interaction_text(object: Dictionary) -> String:
 	if object.id=="adou" and state.flags.adou: return "请医者营救糜夫人" if state.flags.healer else "井畔还有一人 · 寻找医者"
 	return object.label
 
+func hanshui_object_blocked(object: Dictionary) -> bool:
+	if camp_threatened(object): return true
+	if object.has("need_secondary") and not state.flags.get(object.need_secondary,false): return true
+	var id=str(object.id); var kind=str(object.kind)
+	if kind=="camp" and stage=="hs_camp" and tactics.gate_state in ["PROBE_1","PROBE_2","WITHDRAW","BEST_WINDOW","LATE_WINDOW"]: return true
+	if kind in ["exit","boss","finish"] and not id.begins_with("hs_back"):
+		if not tactics.main_clear(): return true
+		if stage=="hs_river" and not tactics.roster_clear(): return true
+	if object.has("group") and not state.cleared.has(stage+":"+str(object.group)): return true
+	if object.has("need"):
+		if object.need=="counter": return not state.tactics.get("volley_spent",false)
+		if object.need=="boss": return not state.flags.dujun
+		if not state.flags.get(object.need,false): return true
+	return false
+
+func interact_hanshui(object: Dictionary) -> bool:
+	if object_blocked(object): toast(interaction_text(object)); return false
+	if tactics.interact_object(object): return true
+	match object.kind:
+		"hint":
+			dialog("北山军报","黄忠正在北山粮道接应撤军。林道清开后，沿军旗向北。\n\n1 集合，2 守点，3 冲阵。盾兵转身慢，弩兵两发后才收弩装填。",[{"text":"整队前进","detail":"跟随金色军路。","route":"continue"}],"随军"); return true
+		"huangzhong":
+			state.flags.huangzhong=true; state.record("北山粮道接回黄忠，撤军转向孤营。")
+			dialog("黄忠脱险","黄忠放下弓：子龙来得正好！粮车还在归途，追兵紧得很。\n\n赵云：将军先退，我带兵断后。营门这一次，由我亲手打开。",[{"text":"护粮车回营","detail":"东岗有火箭辎重，破坏后可减轻河湾压力。","route":"continue"}],"黄忠")
+		"wounded":
+			state.flags.wounded=true; state.record("回救张著与两名伤兵，营中捷径开启。")
+			dialog("伤兵归营","张著扶着长枪起身：将军本可先走……\n\n赵云：既然回身了，就一道回去。\n\n两名伤兵沿小路撤回营地，留下补给药和内寨捷径。",[{"text":"继续护送","detail":"获得一份行军药，战报记录伤兵归营。","route":"continue"}],"张著")
+			hero.potions=mini(4,hero.potions+1)
+		"beacon":
+			state.flags.beacon=true; state.record("烽火岗火箭辎重被毁，河湾火箭压制撤去。")
+			fx.add("explosion",Vector2(object.x,object.y),.65,{"radius":72.0}); sound.play_cue("explosion")
+			toast("火箭辎重已毁，河湾压制撤去。")
+		"boss": prepare_boss("dujun"); return true
+		"finish": return finish()
+		"exit":
+			if object.to=="hs_river": tactics.capture_roster()
+			if object.to=="hs_final":
+				dialog("决战之前","前方是铁面督军。\n\n"+("张著和伤兵已归营。" if state.flags.wounded else "乱石归途还有伤兵。")+("\n东岗火箭已毁。" if state.flags.beacon else "\n北山东岗的火箭仍在。")+"\n你仍可先回头准备，再独挑督军。",[{"text":"进入铁营","detail":"营火补药后迎战督军。","route":"hanshuiFinal"},{"text":"先回头整备","detail":"保留当前进度。","route":"continue"}],"赵云"); return true
+			var spawn=Vector2.INF
+			if object.has("spawn_to"): spawn=Vector2(object.spawn_to[0],object.spawn_to[1])
+			elif str(object.id).begins_with("hs_back"):
+				for exit in definitions[object.to].objects:
+					if exit.get("to")==stage and not str(exit.id).begins_with("hs_back"):
+						spawn=Vector2(exit.x-70,exit.y+55); break
+			pending_stage={"id":object.to,"pos":spawn}; return true
+		_: return false
+	save_progress(); return true
+
 func interact() -> bool:
 	var object=nearest_object()
 	if object.is_empty(): return false
+	if state.chapter==2 and object.kind!="camp": return interact_hanshui(object)
 	if object.kind=="camp":
-		if camp_threatened(object):
+		if object_blocked(object):
 			toast("先击退附近敌军，再休整。"); return false
 		hero.hp=hero.max_hp; hero.qi=100; hero.potions=3; hero.action={}; hero.buffer={}
 		for ally in allies: ally.hp=ally.max_hp
@@ -471,12 +589,16 @@ func choose_route(route: String) -> void:
 		state.flags.house=true; state.flags.motherDecision=true; state.route="bridge"
 		state.record("你先护住阿斗，井畔仍有一个未尽的承诺。")
 	elif route.begins_with("bossStart:"): begin_boss(route.trim_prefix("bossStart:"))
+	elif route=="hanshuiFinal": pending_stage={"id":"hs_final"}
 	save_progress()
 
 func prepare_boss(id: String) -> void:
 	state.checkpoint={"stage":stage,"x":hero.position.x,"y":hero.position.y,"encounter":id}
 	if state.seen.has(id): begin_boss(id); return
 	state.seen.append(id)
+	if id=="dujun":
+		dialog("铁营 · 此路由我作主","督军钩斧落地，铜环作响。\n\n铁面督军：空开寨门，莫非还想骗过我？\n赵云：既已追来，便由我送你回去。\n\n钩锁锁定后侧闪，重斧有迟势回斩，半血会断锁变招。",[{"text":"迎战督军","detail":"支路可在战后回头；看清整套再反击。","route":"bossStart:dujun"}],"铁面督军")
+		save_progress(); return
 	var text="夏侯恩：这柄青釭，专斩来将。\n\n赵云：剑是好剑。只是今日，我要借它开一条生路。\n\n快剑有第二招，重斩则须晚一点避。" if id=="xiahou" else "随军护送百姓先行上桥。\n\n张郃：赵子龙！你能救几人，便能挡几枪？\n\n赵云：他们走得多远，我便守到多远。\n\n随军撤向桥北，赵云独自断后。"
 	dialog("破庙 · 青釭在谁手" if id=="xiahou" else "北桥 · 谁来断后",text,[{"text":"入阵","detail":"观察敌将起手，等整套连招收完再反击。","route":"bossStart:"+id}],"夏侯恩" if id=="xiahou" else "张郃"); save_progress()
 
@@ -490,11 +612,16 @@ func begin_boss(id: String) -> void:
 	for i in range(allies.size()):
 		allies[i].position=Vector2(1270+(i-1)*22,165+i*20) if id=="zhanghe" else Vector2(400+i*26,850)
 	for i in range(civilians.size()): civilians[i].position=Vector2(1270+(20 if i%2 else -20),260-i*28)
-	toast("夏侯恩 · 等第二剑收招再反击。" if id=="xiahou" else "张郃 · 三连突后才有长破绽。"); save_progress()
+	toast("夏侯恩 · 等第二剑收招再反击。" if id=="xiahou" else "铁面督军 · 钩锁后侧闪，双轮重斧等回斩。" if id=="dujun" else "张郃 · 三连突后才有长破绽。"); save_progress()
 
 func boss_defeated(enemy) -> void:
 	active_boss=""; arrows=[]; hero.action={}; hero.invincible=1
 	for ally in allies: ally.hp=ally.max_hp
+	if enemy.boss_id=="dujun":
+		state.flags.dujun=true; state.checkpoint={"stage":"hs_final","x":1110.0,"y":360.0,"encounter":""}
+		state.record("铁面督军败退，赵云守住汉水营地。")
+		dialog("汉水追兵退去","督军收斧退入烟尘。你听见河湾的鼓声，也看见归营的军旗。\n\n这一战，你亲自把退路变成了胜势。",[{"text":"返回军旗","detail":"按 E 查看汉水战报；也可以先回头补完支路。","route":"continue"}],"赵云")
+		sound.play_cue("victory"); save_progress(); return
 	if enemy.boss_id=="xiahou":
 		state.flags.temple=true; state.flags.sword=true; hero.rage=100
 		state.checkpoint={"stage":"temple","x":1090.0,"y":550.0,"encounter":""}
@@ -550,10 +677,15 @@ func retry() -> void:
 	var cp=state.checkpoint.duplicate(); hero.reset_combat(); mode="playing"
 	enter_stage(cp.stage,Vector2(cp.x,cp.y),false); state.checkpoint=cp; ui.hide_overlay()
 	if cp.encounter=="rescue": start_rescue()
-	elif cp.encounter in ["xiahou","zhanghe"]: begin_boss(cp.encounter)
+	elif cp.encounter in ["xiahou","zhanghe","dujun"]: begin_boss(cp.encounter)
 	toast("重新握枪，已完成的救援和夺剑仍在。"); save_progress()
 
 func finish() -> bool:
+	if state.chapter==2:
+		if mode!="playing" or stage!="hs_final" or not state.flags.dujun or state.complete: return false
+		state.flags.huilan=state.flags.deception; state.complete=true
+		if state.flags.huilan: state.rewards.huilan=true
+		mode="ending"; hero.buffer={}; ui.show_report(state.build_report()); sound.play_cue("victory"); save_progress(); return true
 	if mode!="playing" or stage!="bridge" or not state.flags.adou or not state.flags.boss or state.complete: return false
 	state.complete=true; mode="ending"; hero.buffer={}; ui.show_report(state.build_report()); sound.play_cue("victory"); save_progress()
 	return true
@@ -569,6 +701,7 @@ func mission() -> Dictionary:
 		return {"title":boss.display_name+" · 单挑","text":"看清起手，等整套连招结束再反击。精准闪避可接回马枪。","pos":boss.position}
 	if not rescue.is_empty():
 		return {"title":"守住井畔 · 第 "+str(rescue.wave)+" / 2 波","text":"医者体力 "+str(int(ceil(rescue.healer.hp)))+" · 剩余追兵 "+str(rescue_remaining()),"pos":rescue.healer.position}
+	if is_instance_valid(tactics): return tactics.mission()
 	var object: Dictionary={}; var guard=null; var title=""; var text=""
 	match stage:
 		"mountain":
@@ -604,6 +737,7 @@ func clear_input() -> void:
 	for key in InputMap.get_actions(): Input.action_release(key)
 
 func save_progress() -> void:
+	if is_instance_valid(tactics): tactics.capture_roster()
 	if test_mode: return
 	state.save()
 
