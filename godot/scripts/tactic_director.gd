@@ -12,6 +12,8 @@ var retreat_time=0.0
 var best_left=4.0
 var fire_clock=0.0
 var fire_targets: Array=[]
+var cart_follow_radius=520.0
+var cart_danger_radius=160.0
 var gate_state: String:
 	get: return str(world.state.tactics.get("gate","PREPARE"))
 	set(value): world.state.tactics.gate=value
@@ -22,6 +24,10 @@ func setup(game) -> void:
 		var config=world.definition.tactics
 		points=config.waypoints; stops=config.stops
 		cart=Cart.new(); cart.world=world; cart.name="GrainCart"
+		cart.cruise_speed=float(config.get("cart_speed",112.0))
+		cart.catchup_speed=maxf(cart.cruise_speed,float(config.get("cart_catchup_speed",164.0)))
+		cart_follow_radius=float(config.get("cart_follow_radius",520.0))
+		cart_danger_radius=float(config.get("cart_danger_radius",160.0))
 		var index=clampi(int(world.state.tactics.get("escort_index",0)),0,points.size()-1)
 		cart.position=point(points[index]); world.actors.add_child(cart)
 		if world.state.flags.cart: cart.position=point(points.back())
@@ -122,13 +128,21 @@ func advance(dt: float) -> void:
 func advance_cart(dt: float) -> void:
 	if not is_instance_valid(cart) or not cart.body_alive() or world.state.flags.cart: return
 	var index=clampi(int(world.state.tactics.get("escort_index",0)),0,points.size()-1)
+	# Only the next uncleared roadblock can activate. Zhao Yun may clear it
+	# ahead of the cart; the cart still cannot cross its route checkpoint.
 	for stop in stops:
-		if index>=int(stop.index) and not world.state.cleared.has(world.stage+":"+str(stop.group)):
-			request_group(str(stop.group)); return
+		if world.state.cleared.has(world.stage+":"+str(stop.group)): continue
+		var units=units_for(str(stop.group))
+		if index>=int(stop.index) or not units.is_empty() and world.hero.position.distance_to(Vector2(units[0][1],units[0][2]))<420:
+			request_group(str(stop.group))
+		if index>=int(stop.index):
+			stuck=0; return
+		break
 	if index>=points.size()-1:
 		world.state.flags.cart=true; world.state.record("粮车穿过乱石归途，撤军平安归营。")
 		world.toast("粮车已到营门，靠近军旗按 E 进营。"); world.save_progress(); return
-	if world.hero.position.distance_to(cart.position)>260 or world.nearest_enemy(cart.position,160): return
+	if world.hero.position.distance_to(cart.position)>cart_follow_radius or world.nearest_enemy(cart.position,cart_danger_radius):
+		stuck=0; return
 	var next=point(points[index+1])
 	if cart.position.distance_to(next)<7:
 		world.state.tactics.escort_index=index+1
@@ -137,9 +151,14 @@ func advance_cart(dt: float) -> void:
 			world.state.checkpoint={"stage":world.stage,"x":cart.position.x-55,"y":cart.position.y+65,"encounter":""}
 			world.toast("已通过第一道路障，粮车检查点已保存。")
 		world.save_progress(); return
-	var distance=cart.travel(next,dt)
+	# Catch up only while the player is ahead along this leg, never when
+	# Zhao Yun doubles back for the wounded or stands behind the cart.
+	var lead=(world.hero.position-cart.position).dot((next-cart.position).normalized())
+	var speed=lerpf(cart.cruise_speed,cart.catchup_speed,clampf((lead-120)/220,0,1))
+	var distance=cart.travel(next,dt,speed)
+	var was_stuck=stuck>3
 	stuck=stuck+dt if distance<dt else 0
-	if stuck>3: world.toast("粮车受阻，靠近按 E 复位到最近安全路点。")
+	if stuck>3 and not was_stuck: world.toast("粮车受阻，靠近按 E 复位到最近安全路点。")
 
 func restore_gate() -> void:
 	if gate_state!="PREPARE" and world.terrain.has_method("open_camp_gate"): world.terrain.open_camp_gate()
@@ -170,7 +189,7 @@ func open_gate() -> bool:
 	gate_state="PROBE_1"; world.state.checkpoint={"stage":"hs_camp","x":900.0,"y":560.0,"encounter":""}
 	if world.terrain.has_method("open_camp_gate"): world.terrain.open_camp_gate()
 	request_group("gate_probe1",[["scout",1480,460],["scout",1480,540]])
-	world.toast("营门已开，击退两次试探。" if hidden>0 and hidden==living else "随军未藏好，直接守门破围也能通关。")
+	world.toast("藏兵计成。赵云守门迎两次试探，随后回鼓台反击。" if world.state.tactics.deception_ok else "转为正面破围：击退两次试探，再擂鼓或追击。")
 	world.save_progress(); return true
 
 func hide_area() -> Rect2:
@@ -184,7 +203,7 @@ func command_changed(order: String) -> void:
 		if world.hero.position.distance_to(Vector2(flag.get("x",640),flag.get("y",360)))<170:
 			var guards=world.definition.tactics.get("guard_points",[[560,320],[640,340],[700,400]])
 			for i in range(world.allies.size()): world.allies[i].home=point(guards[i]); world.allies[i].path=[]
-			world.toast("藏兵军令已下，等随军进入青旗区域再开门。")
+			world.toast("随军前往青旗藏兵。留意任务中的就位人数，随后到营门按 E。")
 	if order!="hold" and gate_state in ["PROBE_1","PROBE_2","WITHDRAW","BEST_WINDOW"]: world.state.tactics.deception_ok=false
 
 func advance_gate(dt: float) -> void:
@@ -198,9 +217,9 @@ func advance_gate(dt: float) -> void:
 					world.toast("敌军越过门线！随军牵制，击退补救小队即可稳住。"); world.save_progress(); break
 		if gate_state=="PROBE_1" and world.state.cleared.has("hs_camp:gate_probe1"):
 			gate_state="PROBE_2"; request_group("gate_probe2",[["ironshield",1480,660],["spear",1480,580]])
-			world.toast("第一波退去，留意盾枪试探。"); world.save_progress()
+			world.toast("试探 1 / 2 已退。下一波盾枪，绕盾侧背；结束后回鼓台。"); world.save_progress()
 		elif gate_state=="PROBE_2" and world.state.cleared.has("hs_camp:gate_probe2") and (not world.state.tactics.get("extra_used",false) or world.state.cleared.has("hs_camp:gate_extra")):
-			gate_state="WITHDRAW"; create_roster(); world.save_progress(); world.toast("敌军迟疑退却！到鼓台准备反击。")
+			gate_state="WITHDRAW"; create_roster(); world.save_progress(); world.toast("两波已退！立即回鼓台，金圈亮起后有 4 秒战机。")
 		if world.state.tactics.get("deception_ok",false):
 			var present=0
 			for ally in world.allies:
@@ -289,32 +308,41 @@ func interact_object(object: Dictionary) -> bool:
 			if is_instance_valid(cart) and stuck>3:
 				cart.position=point(points[clampi(int(world.state.tactics.get("escort_index",0)),0,points.size()-1)]); stuck=0
 				world.toast("粮车退回安全路点，耐久与已清遭遇保留。")
-			else: world.toast("靠近粮车护送，清开路障后继续前行。")
+			else: world.toast(cart_mission().text)
 			return true
 	return false
 
 func mission() -> Dictionary:
 	if world.stage=="hs_camp":
 		var rows={
-			"PREPARE":["藏兵开门","到青旗按 2 藏兵，队伍就位后到营门按 E。",Vector2(640,360)],
-			"PROBE_1":["门前压阵 · 1 / 2","击退试探兵，随军侧寨掩护。",Vector2(1140,560)],
-			"PROBE_2":["门前压阵 · 2 / 2","留意盾撞与枪线。",Vector2(1140,560)],
-			"WITHDRAW":["敌军退却","回鼓台，等金色战机亮起。",Vector2(820,500)],
+			"PREPARE":["计策 · 藏兵开门","青旗按 2 藏兵再开门；也可直接开门正面破围。",Vector2(640,360)],
+			"PROBE_1":["门前压阵 · 1 / 2","双刀会连斩两次，整套落空后还击。",Vector2(1140,560)],
+			"PROBE_2":["门前压阵 · 2 / 2","绕过盾兵侧背，避开直线枪刺。",Vector2(1140,560)],
+			"WITHDRAW":["回鼓台 · 准备反击","敌军正在退却，先回鼓台；金圈亮后有 4 秒战机。",Vector2(820,500)],
 			"BEST_WINDOW":["擂鼓反击 · %.1f 秒"%best_left,"鼓台按 E，下令弩阵齐射。",Vector2(820,500)],
 			"LATE_WINDOW":["仍可反击","鼓台按 E，或越过东门直接追击。",Vector2(820,500)]}
 		var row=rows.get(gate_state,["乘势追击","东门按 E 进入河湾，追兵状态会保留。",Vector2(1490,560)])
-		if gate_state=="PREPARE" and world.command=="hold":
+		if gate_state=="PREPARE":
 			var hidden=0
 			for ally in world.allies:
 				if ally.body_alive() and hide_area().has_point(ally.position): hidden+=1
 			var living=0
 			for ally in world.allies:
 				if ally.body_alive(): living+=1
-			if hidden>0 and hidden==living: row=["藏兵就位","营门按 E 开门，赵云亲自迎敌。",Vector2(930,560)]
+			if living==0: row=["正面破围","随军已倒下，营门按 E；赵云仍可独自完成反击。",Vector2(930,560)]
+			elif world.command=="hold":
+				row=["藏兵就位 · %d / %d"%[hidden,living],"随军自行赶往青旗，赵云可先走向营门。",Vector2(930,560)]
+				if hidden==living: row=["藏兵就位 · %d / %d"%[hidden,living],"营门按 E 开门，赵云亲自迎敌。",Vector2(930,560)]
+		elif gate_state in ["PROBE_1","PROBE_2"]:
+			var alive=living_count()
+			if alive>0: row[0]+=" · 余 %d 人"%alive
+			elif not waiting.is_empty(): row[1]="下一队来向已标记，保持距离迎击；别挡住入口。"
+			if not world.state.tactics.get("deception_ok",false): row[1]+=" 藏兵已暴露，仍可正面破围。"
+		elif gate_state=="BEST_WINDOW" and not world.state.tactics.get("deception_ok",false):
+			row=["擂鼓反击","藏兵已暴露；鼓台按 E 普通齐射，或直接追击。",Vector2(820,500)]
 		return {"title":row[0],"text":row[1],"pos":row[2]}
 	if world.stage=="hs_return" and not world.state.flags.cart:
-		var guard=world.first_guard(main_groups())
-		return {"title":"且战且退 · 护粮车","text":"粮车 %d / 160，清开路障并保持在车旁 260 以内。"%int(cart.hp),"pos":guard.position if guard else cart.position}
+		return cart_mission()
 	var guard=world.first_guard(main_groups())
 	if not guard and world.stage=="hs_river": guard=world.first_guard(["river_roster"])
 	if guard: return {"title":"接应黄忠" if world.stage=="hs_grain" else "清开汉水军路","text":"绕盾切弩兵，看清两发再切入。","pos":guard.position}
@@ -328,3 +356,29 @@ func mission() -> Dictionary:
 		for candidate in world.definition.objects:
 			if candidate.kind in ["exit","finish"] and not str(candidate.id).begins_with("back"): object=candidate; break
 	return {"title":"铁营决战" if world.stage=="hs_final" else "继续进军","text":"靠近目标按 E。决战前可以回头完成支路。","pos":Vector2(object.get("x",world.hero.position.x),object.get("y",world.hero.position.y))}
+
+func cart_mission() -> Dictionary:
+	var index=clampi(int(world.state.tactics.get("escort_index",0)),0,points.size()-1)
+	var cleared=0; var next_stop: Dictionary={}
+	for stop in stops:
+		if world.state.cleared.has(world.stage+":"+str(stop.group)): cleared+=1
+		elif next_stop.is_empty(): next_stop=stop
+	var title="护粮回营 · 清路 %d / %d"%[cleared,stops.size()]
+	var health="粮车 %d / %d。 "%[int(cart.hp),int(cart.max_hp)]
+	var nearby=world.nearest_enemy(cart.position,cart_danger_radius)
+	if nearby:
+		return {"title":title,"text":health+"车旁有敌军，先击退拦车追兵。","pos":nearby.position}
+	if not next_stop.is_empty() and index>=int(next_stop.index):
+		var guard=world.first_guard([str(next_stop.group)])
+		var units=units_for(str(next_stop.group))
+		var target=guard.position if guard else Vector2(units[0][1],units[0][2]) if not units.is_empty() else cart.position
+		return {"title":title,"text":health+"前方路障未清，击退这队敌军即可继续。","pos":target}
+	if world.hero.position.distance_to(cart.position)>cart_follow_radius:
+		return {"title":"粮车等待接应","text":health+"你离队太远，返回粮车附近；已清路障保留。","pos":cart.position}
+	if stuck>3:
+		return {"title":"粮车受阻","text":health+"靠近粮车按 E 复位，耐久与清路进度保留。","pos":cart.position}
+	if not next_stop.is_empty():
+		var units=units_for(str(next_stop.group))
+		if not units.is_empty():
+			return {"title":title,"text":health+"可先去前方清路，粮车会沿安全路段追上。","pos":Vector2(units[0][1],units[0][2])}
+	return {"title":"道路已清 · 护粮入营","text":health+"沿道路到营门，留在粮车附近即可加速跟进。","pos":point(points.back())}

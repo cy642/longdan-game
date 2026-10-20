@@ -31,6 +31,8 @@ var stagger_shield = 0.0
 var shield_broken = 0.0
 var phase2 = false
 var phase_time = 0.0
+var hit_interrupt_guard = 0.0
+var interrupt_guard_noticed = false
 
 func configure(unit_kind: String, boss: String = "") -> void:
 	kind = unit_kind; boss_id = boss
@@ -90,7 +92,7 @@ func advance(dt: float) -> void:
 		action = {}; sequence = []; cooldown = maxf(cooldown,.6)
 		if stun <= 0: navigate(get_meta("retreat_target",position),speed,dt)
 		update_visual(); return
-	for key in ["cooldown", "stagger_shield", "shield_broken", "phase_time"]:
+	for key in ["cooldown", "stagger_shield", "shield_broken", "phase_time", "hit_interrupt_guard"]:
 		set(key, maxf(0, float(get(key)) - dt))
 	stagger = maxf(0, stagger - dt * 1.6)
 	if stun > 0 or phase_time > 0:
@@ -201,7 +203,15 @@ func take_hit(damage: float, direction: float, knock: float, source: String, poi
 	if source == "player": world.hero.rage = minf(100, world.hero.rage + 4)
 	if kind != "boss" and not blocked:
 		knockback += Vector2.from_angle(direction) * knock
-		if source == "player" and kind != "elite": stun = maxf(stun, .12); action = {}; sequence = []
+		if source == "player" and kind != "elite":
+			if break_shield or hit_interrupt_guard <= 0:
+				stun = maxf(stun, .12); action = {}; sequence = []
+				hit_interrupt_guard = .65; interrupt_guard_noticed = false
+			elif not interrupt_guard_noticed:
+				# Keep the same visible windup and active times. Light hits still
+				# damage, but cannot repeatedly erase this soldier's retaliation.
+				interrupt_guard_noticed = true
+				world.fx.floater(position, "稳住阵脚", Color("e9b78f"))
 	if stagger_shield <= 0:
 		stagger += poise
 		if stagger >= stagger_max:

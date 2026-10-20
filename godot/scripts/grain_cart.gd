@@ -6,6 +6,8 @@ var max_hp=160.0
 var radius=28.0
 var uid=0
 var last_hit=-1
+var cruise_speed=112.0
+var catchup_speed=164.0
 
 func _ready() -> void:
 	uid=get_instance_id(); collision_layer=8; collision_mask=1
@@ -22,9 +24,10 @@ func take_damage(amount: float, attack_id: int=-1) -> bool:
 	if hp<=0: world.defeat("粮车损毁","重试从最近通过的路障开始，车的耐久补满。")
 	return true
 
-func travel(target: Vector2, dt: float) -> float:
+func travel(target: Vector2, dt: float, requested_speed: float=-1.0) -> float:
 	var previous=position; var offset=target-position
-	if offset.length()>.1: move_and_collide(offset.normalized()*minf(offset.length(),72*dt))
+	var speed=cruise_speed if requested_speed<0 else clampf(requested_speed,0,catchup_speed)
+	if offset.length()>.1: move_and_collide(offset.normalized()*minf(offset.length(),speed*maxf(0,dt)))
 	return position.distance_to(previous)
 
 func _draw() -> void:

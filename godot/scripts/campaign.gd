@@ -5,6 +5,10 @@ const SAVE_PATH = "user://longdan-godot-v2.json"
 const LEGACY_PATH = "user://longdan-godot-v1.json"
 const HANSHUI_FLAGS = ["huangzhong", "wounded", "beacon", "cart", "dujun", "deception", "volley", "huilan"]
 const CHAPTER_STAGES = {1:["mountain", "village", "temple", "house", "fork", "bridge"], 2:["hs_forest", "hs_grain", "hs_return", "hs_camp", "hs_river", "hs_final"]}
+const BATTLE_ARTS = {
+	"assault":{"name":"连锋","detail":"第三枪命中积 2 格枪势。适合打满三式，再用强化横扫破阵。"},
+	"counter":{"name":"游龙","detail":"精准闪避积 2 格枪势，回马枪命中回 12 气力。适合闪避反击。"}
+}
 var chapter = 1
 var chapters: Dictionary = {}
 var rewards={"huilan":false}
@@ -14,6 +18,7 @@ var cleared: Array = []
 var seen: Array = []
 var history: Array = []
 var difficulty = "normal"
+var battle_art = ""
 var checkpoint = {"stage": "mountain", "x": 190.0, "y": 910.0, "encounter": ""}
 var route = "bridge"
 var time = 0.0
@@ -30,6 +35,7 @@ func _init() -> void:
 func reset(level: String = "normal", chapter_id: int = 1) -> void:
 	chapter = chapter_id
 	difficulty = "story" if level == "story" else "normal"
+	battle_art = ""
 	flags.clear()
 	for key in FLAGS:
 		flags[key] = false
@@ -46,7 +52,7 @@ func record(message: String) -> void:
 		history.append(message)
 
 func run_snapshot() -> Dictionary:
-	return {"chapter":chapter, "difficulty":difficulty, "checkpoint":checkpoint.duplicate(true), "flags":flags.duplicate(), "cleared":cleared.duplicate(), "seen":seen.duplicate(), "history":history.duplicate(), "route":route, "time":time, "kills":kills, "precision_count":precision_count, "complete":complete, "tactics":tactics.duplicate(true)}
+	return {"chapter":chapter, "difficulty":difficulty, "battle_art":battle_art, "checkpoint":checkpoint.duplicate(true), "flags":flags.duplicate(), "cleared":cleared.duplicate(), "seen":seen.duplicate(), "history":history.duplicate(), "route":route, "time":time, "kills":kills, "precision_count":precision_count, "complete":complete, "tactics":tactics.duplicate(true)}
 
 func snapshot() -> Dictionary:
 	var data = run_snapshot()
@@ -55,11 +61,16 @@ func snapshot() -> Dictionary:
 	return data
 
 func switch_chapter(chapter_id: int, level: String = "normal", fresh: bool = false) -> void:
+	var carried_art=battle_art if chapter==1 and complete and chapter_id==2 else ""
 	chapters[str(chapter)] = run_snapshot()
 	var saved: Dictionary = chapters.get(str(chapter_id),{}).duplicate(true)
 	reset(level,chapter_id)
 	if not fresh and not saved.is_empty(): restore_run(saved)
-	if chapter_id==2 and rewards.huilan: tactics.huilan_equipped=true
+	elif saved.is_empty(): battle_art=carried_art
+	if chapter_id==2 and rewards.huilan and (fresh or saved.is_empty()): tactics.huilan_equipped=true
+
+func battle_art_name() -> String:
+	return BATTLE_ARTS[battle_art].name if BATTLE_ARTS.has(battle_art) else "基础枪法"
 
 func chapter_record(chapter_id: int) -> Dictionary:
 	return run_snapshot() if chapter_id == chapter else chapters.get(str(chapter_id),{}).duplicate(true)
@@ -84,6 +95,8 @@ static func valid_run(data: Variant, chapter_id: int) -> bool:
 		if not (stored is int or stored is float) or not is_finite(float(stored)) or float(stored)!=chapter_id: return false
 	if not data.get("difficulty") in ["normal", "story"]:
 		return false
+	# Optional in older v1/v2 saves. Unknown values never become runtime bonuses.
+	if not data.get("battle_art","") in ["","assault","counter"]: return false
 	var cp = data.get("checkpoint")
 	if not cp is Dictionary or not cp.get("stage") in CHAPTER_STAGES[chapter_id]:
 		return false
@@ -155,6 +168,7 @@ func restore_run(data: Dictionary) -> void:
 	route = "healer" if data.get("route") == "healer" else "bridge"
 	time = data.time; kills = int(data.kills); precision_count = int(data.precision_count); complete = data.complete
 	tactics = data.get("tactics",{}).duplicate(true)
+	battle_art = data.get("battle_art","")
 
 func save() -> bool:
 	last_save = snapshot()

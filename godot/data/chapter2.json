@@ -74,7 +74,7 @@
         {"id":"hs_r3","units":[["ironshield",1160,270],["crossbow",1320,240]]},
         {"id":"hs_wounded","optional":true,"units":[["scout",250,330],["spear",340,400]]}
       ],
-      "tactics":{"waypoints":[[260,880],[450,900],[720,840],[720,580],[1040,520],[1160,490],[1160,240],[1380,180]],"stops":[{"index":0,"group":"hs_r1"},{"index":2,"group":"hs_r2"},{"index":5,"group":"hs_r3"}],"cart_speed":72,"cart_hp":160,"cart_radius":28,"cart_follow_radius":260,"cart_danger_radius":160,"cart_gate_groups":["hs_r1","hs_r2","hs_r3"]},
+      "tactics":{"waypoints":[[260,880],[450,900],[720,840],[720,580],[1040,520],[1160,490],[1160,240],[1380,180]],"stops":[{"index":0,"group":"hs_r1"},{"index":2,"group":"hs_r2"},{"index":5,"group":"hs_r3"}],"cart_speed":112,"cart_catchup_speed":164,"cart_hp":160,"cart_radius":28,"cart_follow_radius":520,"cart_danger_radius":160,"cart_gate_groups":["hs_r1","hs_r2","hs_r3"]},
       "tutorial":"粮车附近有敌人就会停下，先清路再靠近护送。石壁两侧可绕后；西边传来张著的求援声。",
       "layout":{
         "palette":{"ground":"69877d","road":"a2aea2"},"tree_attempts":75,"rock_attempts":12,

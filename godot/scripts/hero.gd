@@ -3,6 +3,7 @@ extends "res://scripts/actor.gd"
 const BUFFER = .14
 var qi = 100.0
 var rage = 0.0
+var spear_spirit = 0
 var potions = 3
 var combo = 0
 var combo_left = 0.0
@@ -24,9 +25,20 @@ func _init() -> void:
 
 func reset_combat() -> void:
 	hp = max_hp; qi = 100; potions = 3; rage = 0
+	spear_spirit = 0
 	action = {}; buffer = {}; combo_left = 0; dash_left = 0; dash_cd = 0; sweep_cd = 0; counter_left = 0
 	invincible = .7; knockback = Vector2.ZERO; stun = 0; hurt_flash = 0
 	footprint = int(walk_distance / HERO_STEP_DISTANCE)
+
+func battle_art() -> String:
+	var choice = world.state.get("battle_art")
+	return choice if choice is String else ""
+
+func add_spear_spirit(amount: int) -> void:
+	var before = spear_spirit
+	spear_spirit = clampi(spear_spirit + amount, 0, 3)
+	if before < 3 and spear_spirit == 3:
+		world.fx.floater(position, "枪势已满 · Q 破阵", Color("f6d89d"))
 
 func attack_direction(aim: float) -> float:
 	if is_finite(aim):
@@ -89,7 +101,17 @@ func perform(kind_name: String, move: Vector2, aim: float) -> bool:
 			return false
 		potions -= 1
 	else: return false
-	action = world.new_action(key, world.attacks[key], facing)
+	var definition = world.attacks[key]
+	var empowered = key in ["sweep", "huilan"] and spear_spirit >= 3
+	if empowered:
+		# Only this cast owns the enhancement; later casts and the shared
+		# attack table must keep their authored reach and poise values.
+		definition = definition.duplicate(true)
+		definition.range *= 1.18
+		definition.stagger *= 1.6
+		spear_spirit = 0
+	action = world.new_action(key, definition, facing)
+	if empowered: action.empowered = true
 	return true
 
 func consume_buffer(dt: float) -> void:
@@ -144,6 +166,9 @@ func advance_action(dt: float) -> void:
 				world.sound.play_cue("heal")
 			else:
 				world.fx.add("slash", position, d.active + .22, {"dir": a.dir, "radius": d.range, "arc": d.arc, "key": a.key})
+				if a.get("empowered", false):
+					world.fx.add("rally", position, .5, {"radius": d.range * .6})
+					world.fx.floater(position, "龙胆·破阵", Color("f6d89d"))
 				world.sound.play_cue("ultimate" if a.key == "sword" else "heavy" if a.key in ["sweep", "huilan", "thrust3", "counter"] else "swing")
 		if a.key != "heal":
 			for enemy in world.melee_targets(self, d, a.dir, 4):
@@ -152,6 +177,16 @@ func advance_action(dt: float) -> void:
 				var before = enemy.hp
 				enemy.take_hit(d.damage, a.dir, 245 if a.key=="huilan" else 205 if a.key == "sweep" else 65, "player", d.stagger, a.key in ["sweep", "huilan", "sword"])
 				if enemy.hp < before:
+					# One action earns one reward, regardless of how many native
+					# hitboxes overlap or how many physics steps cross its window.
+					if world.mode == "playing" and hp > 0:
+						if a.key == "thrust3" and not a.get("spirit_awarded", false):
+							a.spirit_awarded = true
+							add_spear_spirit(2 if battle_art() == "assault" else 1)
+						if a.key == "counter" and battle_art() == "counter" and not a.get("counter_refunded", false):
+							a.counter_refunded = true
+							qi = minf(100, qi + 12)
+							world.fx.floater(position, "游龙 · 回气", Color("b7f1f0"))
 					world.camera_impact(5 if a.key == "sword" else 3 if a.key in ["thrust3", "sweep", "counter"] else 1.5)
 					if not a.get("stopped", false):
 						world.hit_stop = .055 if a.key == "sword" else .04 if a.key in ["thrust3", "sweep", "counter"] else .018
@@ -164,16 +199,18 @@ func advance_action(dt: float) -> void:
 	if a.t >= d.windup + d.active + d.recovery: action = {}
 
 func take_damage(amount: float, attack_id: int = -1) -> bool:
-	if hp <= 0: return false
+	if hp <= 0 or amount <= 0: return false
 	if invincible > 0:
 		var precision_window = .18 if world.state.difficulty == "story" else .12
 		if attack_id >= 0 and dash_left > 0 and dash_age <= precision_window and last_precision != attack_id:
 			last_precision = attack_id; counter_left = 1.2; qi = minf(100, qi + 12); rage = minf(100, rage + 8)
+			add_spear_spirit(2 if battle_art() == "counter" else 1)
 			world.state.precision_count += 1
 			world.fx.add("perfect", position, .55, {"radius": 80.0})
 			world.fx.floater(position, "精准闪避 · 回马枪", Color("b7f1f0")); world.sound.play_cue("perfect")
 		return false
 	amount *= .64 if world.state.difficulty == "story" else 1
+	spear_spirit = maxi(0, spear_spirit - 1)
 	hp = maxf(0, hp - amount); invincible = .26; hurt_flash = .22
 	world.fx.floater(position, "-" + str(int(round(amount))), Color("efad98"))
 	world.camera_impact(4); world.sound.play_cue("hurt")

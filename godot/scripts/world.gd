@@ -120,7 +120,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("fullscreen"):
 		toggle_fullscreen(); get_viewport().set_input_as_handled(); return
 	if event.is_action_pressed("pause"):
-		if mode in ["pause","map"]: resume()
+		if mode in ["pause","map","camp"]: resume()
 		elif mode=="playing": pause("pause")
 		elif mode=="dialog": ui.focus_choice()
 		get_viewport().set_input_as_handled(); return
@@ -212,7 +212,7 @@ func pause(kind: String) -> void:
 	hero.buffer = {}; mode = kind; clear_input(); ui.show_pause(kind)
 
 func resume() -> void:
-	if mode not in ["pause","map"]: return
+	if mode not in ["pause","map","camp"]: return
 	mode="playing"; hero.buffer={}; clear_input(); ui.hide_overlay()
 
 func title_screen() -> void:
@@ -249,20 +249,46 @@ func continue_game(chapter_id: int = 0) -> bool:
 	if chapter_id>0 and chapter_id!=state.chapter:
 		if state.chapter_record(chapter_id).is_empty(): return false
 		state.switch_chapter(chapter_id)
+	resume_chapter_checkpoint()
+	return true
+
+func resume_chapter_checkpoint(persist: bool=false) -> void:
 	load_chapter(state.chapter)
 	ui.run_started=true
 	hero.max_hp=240 if state.difficulty=="story" else 200; hero.reset_combat(); mode="playing"
 	var cp = state.checkpoint.duplicate(); enter_stage(cp.stage,Vector2(cp.x,cp.y),false); state.checkpoint=cp
+	if persist: save_progress()
 	ui.hide_overlay()
 	if state.complete:
-		mode="ending"; ui.show_report(state.build_report()); return true
+		mode="ending"; ui.show_report(state.build_report()); return
 	if cp.encounter=="rescue" and not state.flags.mother: start_rescue()
 	elif cp.encounter=="dujun" and not state.flags.dujun or cp.encounter=="xiahou" and not state.flags.temple or cp.encounter=="zhanghe" and not state.flags.boss: begin_boss(cp.encounter)
 	toast("已从最近营火或入口继续，完成的命运选择都还在。")
+
+func continue_journey() -> bool:
+	# The report is the campaign hand-off. Never route it through "new game":
+	# an existing Hanshui checkpoint or completed report must survive.
+	if mode!="ending" or state.chapter!=1 or not state.complete: return false
+	hero.buffer={}; clear_input(); save_progress()
+	if not state.chapter_record(2).is_empty():
+		state.switch_chapter(2,state.difficulty,false)
+		resume_chapter_checkpoint(true)
+		return true
+	var legacy="你带回的不止阿斗，还有本该留在长坂的人。" if state.flags.mother else "你护住阿斗，也将长坂未尽的承诺记在心里。"
+	dialog("长坂之后 · 再赴汉水","建安十三年，长坂。\n"+legacy+"\n\n十一年后，建安二十四年。汉水营外战马嘶鸣，黄忠劫粮迟迟未归。\n\n这次，你要带兵出营，将追兵引入自己布下的局。",[{"text":"继续征程 · 汉水孤营","detail":"接应黄忠，护住粮车。长坂战报与所选难度均保留。","route":"journey:hanshui"}],"军情 · 黄忠逾期未归")
+	return true
+
+func enter_next_chapter() -> bool:
+	if mode!="dialog" or state.chapter!=1 or not state.complete: return false
+	var difficulty=state.difficulty
+	state.switch_chapter(2,difficulty,false)
+	resume_chapter_checkpoint(true)
+	toast("第二章 · 汉水孤营。接回黄忠，把退路布成自己的局。")
 	return true
 
 func enter_stage(id: String, spawn: Vector2 = Vector2.INF, checkpoint: bool = true) -> void:
 	detach_tactics()
+	hero.spear_spirit=0
 	hero.buffer={}; hero.action={}; hero.dash_left=0; hero.invincible=.6
 	stage=id; definition=definitions[id]; active_boss=""; boss=null; rescue={}; arrows=[]; loot=[]; enemies=[]; allies=[]; civilians=[]; props=[]
 	for child in actors.get_children():
@@ -478,12 +504,13 @@ func interaction_text(object: Dictionary) -> String:
 	if object.is_empty(): return ""
 	if state.chapter==2:
 		if object_blocked(object): return "先完成当前目标 · 跟随金色指引"
+		if object.kind=="camp": return "营火整备 · 补药 / 选战法"
 		return object.get("label","交互")
 	if object_blocked(object):
 		if object.kind == "camp": return "先击退附近敌军，再休整。"
 		if object.has("need") and not state.flags[object.need]: return {"mountain":"先清开山道","temple":"先击败夏侯恩","house":"先安置阿斗与糜夫人","boss":"先击退张郃"}[object.need]
 		return "先击退守军 · 跟随金色指引"
-	if object.kind=="camp": return "休整 · 补满体力与行军药"
+	if object.kind=="camp": return "营火整备 · 补药 / 选战法"
 	if object.id=="supplies": return "粮营已毁" if state.flags.supplies else "点火焚粮" if state.flags.elite else "挑战盾阵校尉"
 	if object.id=="adou" and state.flags.adou: return "请医者营救糜夫人" if state.flags.healer else "井畔还有一人 · 寻找医者"
 	return object.label
@@ -546,7 +573,9 @@ func interact() -> bool:
 		hero.hp=hero.max_hp; hero.qi=100; hero.potions=3; hero.action={}; hero.buffer={}
 		for ally in allies: ally.hp=ally.max_hp
 		state.checkpoint={"stage":stage,"x":object.x,"y":object.y+35,"encounter":""}; save_progress(); sound.play_cue("heal")
-		fx.add("heal",hero.position,.8,{"radius":65.0}); toast("营火记住了你的来路，体力与三份行军药已补满。"); return true
+		hero.spear_spirit=0
+		fx.add("heal",hero.position,.8,{"radius":65.0})
+		mode="camp"; clear_input(); ui.show_camp(); return true
 	if object_blocked(object): toast(interaction_text(object)); return false
 	if object.kind=="exit":
 		if object.to=="bridge" and not state.flags.committed:
@@ -577,11 +606,20 @@ func interact() -> bool:
 	if object.kind=="finish": return finish()
 	return false
 
+func choose_battle_art(id: String) -> bool:
+	if mode!="camp" or not state.BATTLE_ARTS.has(id): return false
+	state.battle_art=id; hero.spear_spirit=0; hero.counter_left=0
+	save_progress(); resume()
+	toast("战法 · "+state.battle_art_name()+"。三格枪势满时，Q 使出龙胆破阵。")
+	return true
+
 func dialog(title: String, text: String, choices: Array, speaker: String) -> void:
 	hero.buffer={}; clear_input(); mode="dialog"; ui.show_dialog(title,text,choices,speaker)
 
 func choose_route(route: String) -> void:
 	if mode!="dialog": return
+	if route=="journey:hanshui":
+		enter_next_chapter(); return
 	mode="playing"; ui.hide_overlay(); clear_input()
 	if route=="commit": state.flags.committed=true; pending_stage={"id":"bridge"}
 	elif route=="rescue": start_rescue()
@@ -686,9 +724,9 @@ func finish() -> bool:
 		if mode!="playing" or stage!="hs_final" or not state.flags.dujun or state.complete: return false
 		state.flags.huilan=state.flags.deception; state.complete=true
 		if state.flags.huilan: state.rewards.huilan=true
-		mode="ending"; hero.buffer={}; ui.show_report(state.build_report()); sound.play_cue("victory"); save_progress(); return true
+		mode="ending"; hero.buffer={}; clear_input(); save_progress(); ui.show_report(state.build_report()); sound.play_cue("victory"); return true
 	if mode!="playing" or stage!="bridge" or not state.flags.adou or not state.flags.boss or state.complete: return false
-	state.complete=true; mode="ending"; hero.buffer={}; ui.show_report(state.build_report()); sound.play_cue("victory"); save_progress()
+	state.complete=true; mode="ending"; hero.buffer={}; clear_input(); save_progress(); ui.show_report(state.build_report()); sound.play_cue("victory")
 	return true
 
 func first_guard(groups: Array):
@@ -708,7 +746,7 @@ func mission() -> Dictionary:
 		"mountain":
 			guard=first_guard(["m1","m2","m3"]); object=object_by_id("toVillage")
 			title={"m1":"枪起长坂","m2":"识破枪势","m3":"破盾开路"}.get(guard.group_id,"枪起长坂") if guard else "营火与前路"
-			text="击退剑兵，J / 左键接三式。" if guard and guard.group_id=="m1" else "看红区，空格 / K 闪避后反击。" if guard and guard.group_id=="m2" else "Q / 右键破盾，或借油车破阵。" if guard else "营火可补药并保存进度，之后前往荒村。"
+			text="J 接三式，第三枪命中蓄枪势；满三格后 Q 强化破阵。" if guard and guard.group_id=="m1" else "看红区闪避，精准闪避积枪势并接回马枪。" if guard and guard.group_id=="m2" else "Q 破盾，或引燃油车。别在敌人稳住阵脚后硬拼。" if guard else "营火补药并选战法，再前往荒村。"
 		"village":
 			var seeking=state.route=="healer" and not state.flags.healer
 			guard=first_guard(["vRescue"] if seeking else ["v1","v2","v3"])
