@@ -72,11 +72,11 @@ func run() -> void:
 	for i in range(8):
 		hero.facing=i*PI/4; hero.action={}; hero.update_visual(); var idle=hero.visual.body.texture
 		var idle_meta=hero.visual.atlas_data.walk.frames[hero.visual.WALK[i]]
-		expect(is_equal_approx(hero.visual.current_scale*idle_meta.head_height,26),"idle head scale direction "+str(i))
+		expect(is_equal_approx(hero.visual.current_scale,.34),"idle retains authored model density direction "+str(i))
 		hero.request("attack",Vector2.ZERO,hero.facing); hero.action.t=hero.action.def.windup+.01; hero.update_visual()
 		expect(hero.visual.body.texture!=idle,"direction "+str(i)+" changes to a real attack pose")
 		var index=hero.visual.STRIKE[i]; var meta=hero.visual.atlas_data.attack.frames[index]
-		expect(is_equal_approx(hero.visual.current_scale*meta.head_height,26),"attack head scale direction "+str(i))
+		expect(is_equal_approx(hero.visual.current_scale,.34),"attack retains idle model density direction "+str(i))
 		expect(absf(hero.visual.body.position.y+meta.anchor[1]*hero.visual.current_scale)<.01,"attack feet anchor direction "+str(i))
 		for phase in [hero.action.def.windup*.7, hero.action.def.windup+hero.action.def.active*.6, hero.action.def.windup+hero.action.def.active+hero.action.def.recovery*.4]:
 			hero.action.t=phase; hero.update_visual()

@@ -7,6 +7,7 @@ class MemoryCampaign extends Campaign:
 	func save() -> bool: return true
 var world
 var regions = ["mountain", "village", "temple", "house", "fork", "bridge"]
+var chapter = 1
 var heading: Label
 var shown_stage = ""
 
@@ -36,8 +37,12 @@ func _ready() -> void:
 	select_region(0)
 
 func select_region(index: int) -> void:
-	world.state.reset()
+	world.load_chapter(chapter)
+	world.state.reset("normal",chapter)
 	for key in world.state.flags: world.state.flags[key] = true
+	if chapter==2:
+		world.state.flags.adou=false
+		world.state.tactics={"gate":"COUNTER_DIRECT","volley_spent":true,"roster":[]}
 	for id in regions:
 		for group in world.definitions[id].groups:
 			world.state.cleared.append(id+":"+str(group.id))
@@ -50,13 +55,19 @@ func select_region(index: int) -> void:
 
 func refresh_heading() -> void:
 	shown_stage = world.stage
-	heading.text = "地图巡游 · " + world.definition.name + "\nF1–F6 切换区域 · M 军图 · 不保存进度"
+	heading.text = "地图巡游 · " + world.definition.name + "\nTab 切换章节 · F1–F6 切换区域 · M 军图 · 不保存进度"
 
 func _process(_delta: float) -> void:
 	if world and heading and shown_stage != world.stage: refresh_heading()
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.physical_keycode>=KEY_F1 and event.physical_keycode<=KEY_F6:
-			select_region(event.physical_keycode-KEY_F1)
+		var key=event.physical_keycode if event.physical_keycode else event.keycode
+		if key==KEY_TAB:
+			chapter=2 if chapter==1 else 1
+			regions=Campaign.CHAPTER_STAGES[chapter].duplicate()
+			select_region(0)
+			get_viewport().set_input_as_handled()
+		elif key>=KEY_F1 and key<=KEY_F6:
+			select_region(key-KEY_F1)
 			get_viewport().set_input_as_handled()

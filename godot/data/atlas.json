@@ -1,6 +1,7 @@
 {
   "hero": {
     "file": "res://assets/zhaoyun-actions-v1.png",
+    "model_scale": 0.29,
     "frames": [
       {
         "region": [
@@ -132,6 +133,7 @@
   },
   "walk": {
     "file": "res://assets/zhaoyun-walk-v2.png",
+    "model_scale": 0.34,
     "frames": [
       {
         "region": [
@@ -375,6 +377,7 @@
   },
   "attack": {
     "file": "res://assets/zhaoyun-attack-v3.png",
+    "model_scale": 0.34,
     "frames": [
       {
         "region": [

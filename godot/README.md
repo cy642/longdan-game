@@ -1,7 +1,7 @@
 # 龙胆：逆命三国 · Godot 电脑版
 
-本轮（2026-10-18）在远端更新基础上完成第一章回归与收尾，接入第二章六区、计策、护粮车、两条支线和新敌将。实际验证范围、导出和发布记录见 [开发记录](../CLOUD-POLISH.md)；早期云端与浏览器数据保留在历史章节，不代表本轮成绩。
-地图打磨版：可编辑布局见 `data/map_details.json`，六区巡游入口为 `../Map-Tour.cmd`，地图设计与测试说明见 [MAP-POLISH.md](../MAP-POLISH.md)。仓库正式构建沿用原有 Godot 存档目录；此前单独交付的本地预览包使用 `LongdanMapPolishPreview`，两者存档互不迁移。
+本轮（2026-10-20）修复赵云在帧切换及计策阶段的比例变化，按长坂战乱/汉水设伏区分两章地表、景物和环境运动。第二章六区、计策、护粮车、两条支线和新敌将保留。实际验证范围、导出和发布记录见 [开发记录](../CLOUD-POLISH.md)；早期云端与浏览器数据保留在历史章节，不代表本轮成绩。
+地图打磨版：可编辑布局见 `data/map_details.json` 与 `data/chapter2.json`，双章巡游入口为 `../Map-Tour.cmd`，地图设计与测试说明见 [MAP-POLISH.md](../MAP-POLISH.md)。仓库正式构建沿用原有 Godot 存档目录；此前单独交付的本地预览包使用 `LongdanMapPolishPreview`，两者存档互不迁移。
 
 宣传副标题：**重生之我在三国当赵子龙**。Godot 4.7.2 / GDScript 的原生 2D 动作冒险，含第一章「长坂逆命」与第二章「汉水孤营」，各有六个区域。原来的 Canvas 网页版继续保留在仓库根目录；新增玩法开发以本目录为准。
 
@@ -11,7 +11,7 @@
 - 本地导出后可双击 `../builds/windows/Longdan.exe`，运行此程序无需安装 Godot、Python 或联网；Windows 构建包不纳入源码仓库。
 - 打开工程：在 Godot 4.7.2 中导入本目录的 `project.godot`，按 F5 运行。
 - 标题可选择任一章、普通/剧情难度，开始或继续所选章节；另一章进度会保留。查看战报也按当前选择的章节读取。
-- 快速巡览：打开 `tests/map_tour.tscn` 后按 F6，或在 Windows 使用根目录 `Map-Tour.cmd`；F1–F6 切换六区，WASD / 方向键移动，M 打开军图。巡览不读取或写入玩家存档。
+- 快速巡览：打开 `tests/map_tour.tscn` 后按 F6，或在 Windows 使用根目录 `Map-Tour.cmd`；Tab 切章、F1–F6 切换该章六区，WASD / 方向键移动，M 打开军图。巡览不读取或写入玩家存档。
 - Windows 版和浏览器版分别保存进度；旧 Canvas 版存档不会自动迁移。
 
 ## 操作与战斗
@@ -66,7 +66,7 @@
 - `scenes/main.tscn`：游戏入口。
 - `scenes/hero.tscn`、`scenes/enemy.tscn`：原生 `CharacterBody2D` 与地面碰撞形状。
 - `scripts/hero.gd`、`enemy.gd`、`companion.gd`：动作阶段、闪避、敌人连招、盾防与军令。
-- `scripts/actor_visual.gd`、`frame_texture.gd`：赵云八方向动作、统一头部比例与脚底锚点；原画网格保持敌人脸和武器刚性，重叠图集通过绘制几何排除邻帧碎片。第二章另有弩、双刀、铁盾和督军装备配件。
+- `scripts/actor_visual.gd`、`frame_texture.gd`：赵云八方向动作、固定模型比例与脚底锚点；`data/atlas.json` 的 `model_scale` 为整套原画的像素密度校准，walk/attack 共用 0.34，旧 hero 倒地原画为 0.29。不要再用逐帧头发色块高度或含长枪的包围盒自动归一化。原画网格保持敌人脸和武器刚性，重叠图集通过绘制几何排除邻帧碎片。
 - `scripts/terrain.gd`、`scenery.gd`：原生地形碰撞、Godot AStarGrid2D 绕障碍路径、烘焙地表与共用景物图集。
 - `scripts/hanshui_layout.gd`：第二章六区共用的美术、地形与碰撞布局；动态营门开合与路径更新由 `terrain.gd` 提供。
 - `assets/maps/`：两章各六张 1600 × 1100 地表，以及共用景物图集、第二章景物图集和脚底坐标。树木、岩石和建筑仍按原位置遮挡人物，动态路障单独绘制。
@@ -89,12 +89,15 @@
 ```powershell
 godot --headless --path godot --editor --import --quit
 godot --headless --path godot --script res://tests/verify.gd
+godot --headless --path godot --script res://tests/hero_scale_verify.gd
 godot --headless --path godot --script res://tests/audio_verify.gd
 godot --headless --path godot --script res://tests/map_verify.gd
 godot --headless --path godot --script res://tests/map_view_verify.gd
 godot --headless --path godot --script res://tests/atmosphere_verify.gd
+godot --headless --path godot --script res://tests/theme_atmosphere_verify.gd
 godot --headless --path godot --script res://tests/enemy_animation_verify.gd
 godot --headless --path godot --script res://tests/hanshui_layout_verify.gd
+godot --headless --path godot --script res://tests/hanshui_world_layout_verify.gd
 godot --headless --path godot --script res://tests/hanshui_enemy_verify.gd
 godot --headless --path godot --script res://tests/hanshui_visual_verify.gd
 godot --headless --path godot --script res://tests/hanshui_flow_verify.gd
@@ -103,7 +106,7 @@ godot --headless --path godot --export-release "Windows Desktop"
 godot --headless --path godot --export-release "Web"
 ```
 
-Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与十一组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。检查输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程的环境变量。两个 `.cmd` 启动器也支持把引擎路径作为第一个参数，或使用 `GODOT_EXE` / PATH。
+Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与十三组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。检查输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程的环境变量。两个 `.cmd` 启动器也支持把引擎路径作为第一个参数，或使用 `GODOT_EXE` / PATH。
 
 输出目录为仓库的 `builds/windows/` 与 `godot-play/`。`builds/`、`.godot/`、`.qa/`、日志和本机引擎不入库。`godot-play/` 是已跟踪的 Web 导出，修改 Godot 游戏后须重新导出并与源码一起提交。现有 GitHub Pages 从 `main` 分支的仓库根目录自动发布，Pages 流程不会替你运行测试或导出 Godot；根目录的 Canvas 入口继续保留，Godot 入口为 `/godot-play/`。
 
@@ -111,23 +114,27 @@ Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与十一组回归：
 
 自动检查运行真实 Godot 节点与物理空间，覆盖：八方向动作 / 脚底与比例、邻帧枪尖排除且保留真实枪头、蓄势 / 出枪 / 收招期间脚底与阴影不分离、真实命中时段、跨帧服药、服药打断、动作缓冲与闪避取消、精准闪避、鼠标释放与暂停清理、盾防反击、随军输出上限、绕建筑路径、两波营救、两位敌将、焚粮部署、木桥通路、三种命运、战报回读、无效存档和保存失败回退。测试使用独立存档，不会替换玩家进度。在仓库根目录用 `godot --path godot res://tests/pose_preview.tscn` 可核对八方向的站立、行走、蓄势和出枪，预览不读取或写入存档。
 
-第二章四套检查分别覆盖真实地图可达/碰撞与营门开合，新敌兵和督军的跨帧命中/双发锁向，新造型的四方向姿态/脸部刚性/装备握点，以及主线/支线/粮车/计策/存档恢复。流程回归会加速击败遭遇以验证状态推进，不代表人工通关、难度合适或达到目标游玩时长。
+第二章五套检查分别覆盖真实地图可达/碰撞与营门开合、原生世界转场，新敌兵和督军的跨帧命中/双发锁向，新造型的四方向姿态/脸部刚性/装备握点，以及主线/支线/粮车/计策/存档恢复。流程回归会加速击败遭遇以验证状态推进，不代表人工通关、难度合适或达到目标游玩时长。
 
 原生图形验收单独运行，不能加 `--headless`：
 
 ```powershell
 godot --path godot --script res://tests/hanshui_visual_verify.gd -- --capture
+godot --path godot --script res://tests/hero_pose_capture.gd
+godot --path godot --script res://tests/theme_preview.gd
 godot --path godot res://tests/hanshui_playtest.tscn -- --qa-stage=hs_camp
 godot --path godot --script res://tests/hanshui_performance.gd
 ```
 
-截图入口保存 `.qa/hanshui-visuals.png`，实际渲染新敌人动作与交互实体；开发试玩使用隔离测试进度打开指定汉水区域，供键鼠实玩；性能入口以本机真实图形渲染采样 8 敌/3 随军、营门、退军河湾和督军二阶段，输出 `.qa/hanshui-performance.json`。人工检查要记录设备、分辨率、难度和耗时；不能用无界面检查冒充画面、声音或性能验收。
+截图入口保存 `.qa/hanshui-visuals.png`，实际渲染新敌人动作与交互实体；`hero_pose_capture.gd` 输出八方向六状态联系表，`theme_preview.gd` 输出十二区真实游戏镜头 `.qa/theme-区域.png`，使用内存进度。开发试玩使用隔离测试进度打开指定汉水区域；性能入口采样 8 敌/3 随军、营门、退军河湾和督军二阶段，输出 `.qa/hanshui-performance.json`。人工检查要记录设备、分辨率、难度和耗时；不能用无界面检查冒充画面、声音或性能验收。
 
 关卡和参数同步工具为 `tools/sync_data.mjs`；原始图集元数据读取工具为 `tools/prepare_assets.py`（Pillow / NumPy）。提交内已包含可直接运行的图集与元数据，平时开发无需运行这些工具。
 
 中文字体为 Noto Sans SC 的游戏字符子集，已按 OFL 更名为 Longdan Game Sans；许可见 `assets/fonts/LICENSE.txt`。新增中文对白后需运行 `tools/subset_font.py` 重建字符子集（fonttools，首次从官方来源下载原字体并缓存）。Godot 与第三方组件许可见 `assets/licenses/`。
 
 ## 地图与性能
+
+第一章的暖土配色在 `terrain.gd` 的 `CHANGBAN_PALETTES`，瓦砾、山脊岩纹和行军脚印在 `map_details.gd`；第二章配色在 `chapter2.json` 的 `layout.palette`，湿石/粮辙/军营与河岸材质在 `hanshui_layout.gd`。景物沿用共享图集并按章着色，新增美术使用独立随机源，不改变原树木、岩石、路线与碰撞。`map_atmosphere.gd` 根据真实水域生成有限水光与芦苇，只在游玩时以 24 Hz 更新，静态细节全部烘焙。正常游戏镜头固定为 1.15，计策阶段不自动变焦。
 
 静态草叶、路边碎石、树荫、屋基和河面已离线烘焙；树木、岩石、房屋共用一张 1920 × 1920 图集。运行时无需重画数千个细碎图形。图集裁掉透明边距并保留脚底锚点，碰撞与寻路仍使用原始地形。更改矢量地图绘制后，可用带图形渲染的 Godot 重建：
 

@@ -20,6 +20,14 @@ var banks: Array = []
 var detail_circles: Array = []
 var gate_body: StaticBody2D
 var gate_geometry: Dictionary = {}
+const CHANGBAN_PALETTES = {
+	"mountain":["999578","c5ad7b"],
+	"village":["a2987f","bba078"],
+	"temple":["898b7d","a5a18d"],
+	"house":["9a927a","b4a07d"],
+	"fork":["9e9472","b9a06e"],
+	"bridge":["939a84","b8aa83"]
+}
 
 func build(data: Dictionary) -> void:
 	if data.has("layout"): data = HanshuiLayout.apply_layout(data,world.stage)
@@ -31,6 +39,9 @@ func build(data: Dictionary) -> void:
 	road_color = Color("c1ac7c") if data.mood != "temple" else Color("a6afa0")
 	var layout: Dictionary = data.get("layout", {})
 	var palette: Dictionary = layout.get("palette", {})
+	if CHANGBAN_PALETTES.has(world.stage):
+		ground_color=Color(CHANGBAN_PALETTES[world.stage][0])
+		road_color=Color(CHANGBAN_PALETTES[world.stage][1])
 	if palette.has("ground"): ground_color=Color(palette.ground)
 	if palette.has("road"): road_color=Color(palette.road)
 	for h in data.huts:
@@ -111,6 +122,14 @@ func open_camp_gate() -> void:
 
 func place_scenery(p: Vector2, data: Dictionary):
 	var item = Scenery.new(); item.position = p; item.data = data; world.actors.add_child(item)
+	# Keep the shared atlas and original colliders; chapter lighting is a vertex
+	# tint, not an extra full-screen pass or a second texture for each prop.
+	if str(world.stage).begins_with("hs_"):
+		item.modulate=Color("b4cdd0") if data.kind=="tree" else Color("c6d4d6")
+	elif data.kind=="tree":
+		item.modulate=Color("d8bf94") if world.stage in ["mountain","fork"] else Color("c5b59d")
+	elif data.kind!="oil":
+		item.modulate=Color("e3cbb0")
 	return item
 
 func add_rect(rect: Rect2):
@@ -202,10 +221,17 @@ func _draw() -> void:
 		return
 	draw_rect(Rect2(0,0,1600,1100),ground_color)
 	for pool in pools:
-		for i in range(4):
-			draw_set_transform(pool.pos,0,Vector2(1,.62))
-			draw_circle(Vector2.ZERO,pool.r*(1-i*.16),Color(.88,.86,.64,.019) if pool.light>.5 else Color(.1,.25,.18,.022))
-	draw_set_transform(Vector2.ZERO)
+		# Broad irregular patches read as soil/moss, rather than a uniform carpet
+		# of equally spaced V-shaped blades. All of this is baked offline.
+		for band in range(3):
+			var points=PackedVector2Array()
+			for vertex in range(18):
+				var angle=vertex*TAU/18.0
+				var radius=pool.r*(1.0-band*.13)*(1.0+sin(vertex*2.3+pool.pos.x*.03)*.16)
+				points.append(pool.pos+Vector2(cos(angle)*radius,sin(angle)*radius*.58))
+			var color=ground_color.lightened(.24) if pool.light>.54 else ground_color.darkened(.35)
+			color.a=.035
+			draw_colored_polygon(points,color)
 	for tree in trees:
 		draw_set_transform(tree.pos,0,Vector2(1,.5))
 		draw_circle(Vector2.ZERO,tree.size*1.5,Color(.13,.31,.22,.07))
@@ -213,15 +239,15 @@ func _draw() -> void:
 	for road in definition.roads:
 		var points = PackedVector2Array()
 		for p in road: points.append(Vector2(p[0],p[1]))
-		stroke(points,Color(.22,.3,.19,.10),115)
-		stroke(points,Color(.29,.32,.19,.16),103)
+		stroke(points,Color(ground_color.darkened(.45),.11),115)
+		stroke(points,Color(road_color.darkened(.40),.19),103)
 		stroke(points,road_color.darkened(.09),95)
-		stroke(points,road_color,86); stroke(points,Color(.9,.82,.61,.18),58)
-		stroke(points,Color(.95,.89,.69,.07),32)
+		stroke(points,road_color,86); stroke(points,Color(road_color.lightened(.22),.18),58)
+		stroke(points,Color(road_color.lightened(.32),.07),32)
 		for offset in [-17,17]:
 			var rut = PackedVector2Array()
 			for p in points: rut.append(p+Vector2(offset,4))
-			draw_polyline(rut,Color(.39,.33,.23,.12),2,true)
+			draw_polyline(rut,Color(road_color.darkened(.48),.22),2,true)
 	for g in grain:
 		var p = g.pos
 		if world.stage == "bridge" and p.y<310: continue
@@ -232,17 +258,21 @@ func _draw() -> void:
 			draw_set_transform(Vector2.ZERO)
 			if g.light>.88: draw_line(p,p+Vector2(g.size*2,1),Color(.47,.41,.26,.13),1,true)
 		else:
-			var c = Color(.23,.38,.24,.33) if g.light>.5 else Color(.72,.79,.53,.37)
+			var cluster=sin(p.x*.018+sin(p.y*.014)*2.0)*cos(p.y*.024+p.x*.004)
+			if g.light < .25+cluster*.22: continue
+			var c = Color(ground_color.darkened(.31),.46) if g.light>.5 else Color(ground_color.lightened(.27),.48)
 			if g.light>.8:
-				draw_set_transform(p,0,Vector2(1,.4)); draw_circle(Vector2.ZERO,g.size*.8,Color(.21,.36,.23,.12)); draw_set_transform(Vector2.ZERO)
-			draw_polyline(PackedVector2Array([p+Vector2(-2,-g.size*.65),p,p+Vector2(2,-g.size)]),c,1,true)
-			if g.flower: draw_circle(p+Vector2(0,-g.size),1.5,Color("e5dfad"))
+				draw_set_transform(p,0,Vector2(1,.4)); draw_circle(Vector2.ZERO,g.size*.8,Color(ground_color.darkened(.4),.12)); draw_set_transform(Vector2.ZERO)
+			var lean=sin(p.x*.13)*2.0
+			draw_polyline(PackedVector2Array([p+Vector2(-2+lean,-g.size*.55),p,p+Vector2(2+lean,-g.size)]),c,1,true)
+			if g.flower: draw_line(p+Vector2(-1,-g.size),p+Vector2(2,-g.size-1),Color(ground_color.lightened(.45),.7),1.2,true)
 	for bank in banks:
 		draw_set_transform(bank.pos,0,Vector2(1,.48))
-		draw_circle(Vector2.ZERO,bank.r,Color(.27,.36,.22,.24))
-		draw_circle(Vector2(-1,-1),bank.r*.76,Color(.62,.67,.43,.42))
+		draw_circle(Vector2.ZERO,bank.r,Color(ground_color.darkened(.35),.24))
+		draw_circle(Vector2(-1,-1),bank.r*.76,Color(ground_color.lightened(.16),.42))
 		draw_set_transform(Vector2.ZERO)
-		for i in range(3): draw_line(bank.pos+Vector2(i*3-3,1),bank.pos+Vector2(i*3-4,-bank.r*(.7+i*.16)),Color(.43,.53,.31,.48),1.3,true)
+		if bank.color>.4:
+			for i in range(3): draw_line(bank.pos+Vector2(i*3-3,1),bank.pos+Vector2(i*3-4,-bank.r*(.7+i*.16)),Color(ground_color.darkened(.12),.58),1.3,true)
 	for tree in trees:
 		for i in range(4):
 			draw_set_transform(tree.pos+Vector2(12+i*4,8+i*2),0,Vector2(1,.43))

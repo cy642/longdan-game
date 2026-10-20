@@ -41,6 +41,12 @@ specs = {'hero': ('zhaoyun-actions-v1.png', 8, 2),
          'attack': ('zhaoyun-attack-v3.png', 16, 4),
          'units': ('chibi-units-v1.png', 8, 2),
          'chapter': ('chapter1-units-v2.png', 8, 2)}
+# Walk and thrust sheets were drawn at the same source-pixel density. Preserve
+# it across every pose instead of scaling from changing hair-color patches.
+# The older 1800px reaction sheet has a larger painted head/body; the 0.29
+# calibration matches its 156px head core to the current sheets' ~133px core.
+# These are uniform transforms only: no raster is resized or repainted.
+hero_model_scales = {'walk': .34, 'attack': .34, 'hero': .29}
 for key, (filename, count, rows) in specs.items():
     shutil.copy2(source / filename, destination / filename)
     pixels = np.asarray(Image.open(source / filename).convert('RGBA'))
@@ -88,6 +94,8 @@ for key, (filename, count, rows) in specs.items():
             exclusions.append([left, top, right - left, bottom - top])
         frames.append({'region': [sx, sy, sw, sh], 'anchor': [round(anchor_x, 3), y1 - sy + 1], 'head_height': head_height, 'exclude': exclusions})
     atlases[key] = {'file': 'res://assets/' + filename, 'frames': frames}
+    if key in hero_model_scales:
+        atlases[key]['model_scale'] = hero_model_scales[key]
 atlases['attack']['frames'][1]['anchor'][1] -= 35
 atlases['attack']['frames'][3]['anchor'][1] -= 22
 # Wide thrust stances use the midpoint of the boots, rather than the hair center.

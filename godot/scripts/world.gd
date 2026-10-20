@@ -172,8 +172,9 @@ func _physics_process(dt: float) -> void:
 func _process(dt: float) -> void:
 	if not is_instance_valid(hero): return
 	var target = hero.position
-	var zoom=1.05 if is_instance_valid(tactics) and stage=="hs_camp" and tactics.gate_state in ["WITHDRAW","BEST_WINDOW","LATE_WINDOW"] else 1.15
-	camera.zoom=camera.zoom.lerp(Vector2.ONE*zoom,1-exp(-4*dt))
+	# Keep Zhao Yun's screen size stable through combat, retreat and drum phases.
+	# Camera framing can follow the actors without changing their apparent scale.
+	camera.zoom=Vector2.ONE*1.15
 	if active_boss!="" and is_instance_valid(boss): target=target.lerp(boss.position,.28)
 	camera.position = camera.position.lerp(target,1-exp(-12*dt))
 	shake = maxf(0,shake-dt*18)

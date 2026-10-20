@@ -1,5 +1,5 @@
 extends Node2D
-## Frames exclude neighboring sprites and retain a stable head scale and boot pivot.
+## Frames exclude neighboring sprites and retain one authored model scale and boot pivot.
 const FrameTexture = preload("res://scripts/frame_texture.gd")
 const WALK = [12, 2, 0, 2, 4, 6, 8, 10]
 const WINDUP = [12, 2, 0, 2, 12, 10, 8, 10]
@@ -157,7 +157,11 @@ func set_frame(key: String, index: int, flip: bool, hero: bool, height: float = 
 	last_frame=frame
 	var meta = atlas_data[key].frames[index]
 	body.texture = frames[key][index]
-	current_scale = 26.0 / float(meta.head_height) if hero else height / float(meta.region[3])
+	# Hair highlights change with direction, so their colored-pixel height is not
+	# a ruler for Zhao Yun's anatomy. Both current sheets use the same art scale;
+	# the older reaction sheet has its own once-calibrated source density.
+	# Never refit each pose to its bounds: crouches and long spears must stay natural.
+	current_scale = float(atlas_data[key].model_scale) if hero else height / float(meta.region[3])
 	# The pivot always remains on the ground; spear tips cannot change body scale.
 	body.position = Vector2(-meta.anchor[0], -meta.anchor[1]) * current_scale
 	body.scale = Vector2.ONE * current_scale

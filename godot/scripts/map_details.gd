@@ -119,8 +119,10 @@ func _draw() -> void:
 	var details: Dictionary = definition.get("map_details", {})
 	if stage == "mountain": _mountain_shelves()
 	if stage == "bridge": _shoreline()
+	_war_ground()
 	for surface in details.get("surfaces", []): _surface(surface)
 	_worn_paths(details)
+	_march_tracks()
 	for step in details.get("steps", []): _stairs(step)
 	match stage:
 		"village":
@@ -139,9 +141,80 @@ func _poly(points: Array, color: Color) -> void:
 func _oval(center: Vector2, radius: float, squash: float, color: Color) -> void:
 	draw_set_transform(center,0,Vector2(1,squash)); draw_circle(Vector2.ZERO,radius,color); draw_set_transform(Vector2.ZERO)
 
+func _war_ground() -> void:
+	# Chapter-one battle damage is paint on the ground, never an unmarked solid.
+	# Use a separate art RNG so adding a tile cannot move a gameplay tree/rock.
+	if stage not in ["mountain","village","temple","house","fork","bridge"]: return
+	var random=RandomNumberGenerator.new(); random.seed=int(definition.seed)+1607
+	if stage in ["village","house","fork"]:
+		for hut in definition.huts:
+			var center=Vector2(hut[0],hut[1]+hut[3]*.52)
+			for band in range(4):
+				var edge=PackedVector2Array()
+				for vertex in range(20):
+					var angle=vertex*TAU/20
+					var radius=1.0+sin(vertex*2.4+center.x)*.12
+					edge.append(center+Vector2(cos(angle)*(hut[2]*.65+29-band*6),sin(angle)*(27-band*3))*radius)
+				draw_colored_polygon(edge,Color(.27,.23,.19,.055))
+			for i in range(23):
+				var p=center+Vector2(random.randf_range(-hut[2]*.68,hut[2]*.68),random.randf_range(-7,37))
+				if i%3==0:
+					draw_set_transform(p,random.randf_range(-.8,.8))
+					draw_rect(Rect2(-10,-2,20+random.randf()*13,4),Color("73654e"))
+					draw_line(Vector2(-8,-2),Vector2(9,-2),Color("a18a65"),1,true)
+					draw_set_transform(Vector2.ZERO)
+				else:
+					var tone=Color("77746a") if i%2 else Color("a18c70")
+					draw_colored_polygon(PackedVector2Array([p+Vector2(-3,-2),p+Vector2(4,-3),p+Vector2(6,1),p+Vector2(-2,3)]),tone)
+					draw_line(p+Vector2(-2,-2),p+Vector2(3,-3),tone.lightened(.22),1,true)
+	# Dry shale terraces and scattered leaf litter follow the hillside contours.
+	if stage=="mountain":
+		for center in [Vector2(150,215),Vector2(464,334),Vector2(922,150)]:
+			for i in range(22):
+				var p=center+Vector2(random.randf_range(-85,85),random.randf_range(-50,50))
+				draw_line(p,p+Vector2(random.randf_range(7,23),-4),Color(.35,.31,.24,.23),1.5,true)
+				draw_line(p+Vector2(0,-1),p+Vector2(10,-3),Color(.82,.73,.53,.30),1,true)
+	if stage in ["temple","house"]:
+		for center in ([Vector2(702,480),Vector2(1185,635)] if stage=="temple" else [Vector2(961,605),Vector2(1287,476)]):
+			for i in range(24):
+				var p=center+Vector2(random.randf_range(-28,28),random.randf_range(-14,14))
+				draw_set_transform(p,random.randf()*PI)
+				_poly([[-4,0],[0,-2],[6,0],[0,2]],Color("ae8f5e") if i%3 else Color("766e53"))
+				draw_set_transform(Vector2.ZERO)
+	if stage=="bridge":
+		for center in [Vector2(1095,345),Vector2(1446,365),Vector2(1084,667)]:
+			_oval(center,27,.32,Color(.30,.29,.22,.18))
+			for i in range(5):
+				var p=center+Vector2(random.randf_range(-22,22),random.randf_range(-10,10))
+				draw_set_transform(p,random.randf_range(-.7,.7))
+				_poly([[-17,-3],[12,-3],[20,0],[13,3],[-17,2]],Color("897356"))
+				draw_line(Vector2(-12,-2),Vector2(10,-2),Color("b19a72"),1,true)
+				draw_set_transform(Vector2.ZERO)
+
+func _march_tracks() -> void:
+	if stage not in ["mountain","village","house","fork","bridge"]: return
+	var random=RandomNumberGenerator.new(); random.seed=int(definition.seed)+752
+	for road in definition.roads:
+		for i in range(1,road.size()):
+			var a=Vector2(road[i-1][0],road[i-1][1]); var b=Vector2(road[i][0],road[i][1])
+			var forward=(b-a).normalized(); var side=forward.orthogonal()
+			var count=int(a.distance_to(b)/19)
+			for step in range(1,count):
+				if step%7 in [0,1]: continue
+				var p=a.lerp(b,float(step)/count)+side*(7 if step%2 else -7)
+				draw_set_transform(p,forward.angle())
+				# Small heel and sole impressions, not dotted route instructions.
+				draw_rect(Rect2(-3,-1.5,4,3),Color(.35,.28,.20,.12))
+				draw_rect(Rect2(2,-1.4,2,2.8),Color(.35,.28,.20,.10))
+				draw_set_transform(Vector2.ZERO)
+				if stage=="fork" and step%3==0:
+					var straw=p+side*random.randf_range(31,46)
+					draw_line(straw,straw+Vector2(9,-4),Color(.84,.71,.43,.45),1,true)
+					draw_line(straw+Vector2(3,0),straw+Vector2(6,-6),Color(.55,.44,.25,.3),1,true)
+
 func _surface(surface: Dictionary) -> void:
 	var points = _points(surface.polygon)
-	var tone = {"stone":Color("a8ac92"),"flagstone":Color("9fa999"),"cobbles":Color("b5b496"),"earth":Color("b2a475"),"gravel":Color("b8b18c")}.get(surface.kind,Color("b2a475"))
+	var tone = {"stone":Color("a6a18d"),"flagstone":Color("9b9b8d"),"cobbles":Color("b0a58d"),"earth":Color("af9a74"),"gravel":Color("b5a580")}.get(surface.kind,Color("b2a475"))
 	var closed = points.duplicate(); closed.append(points[0])
 	draw_polyline(closed,Color(.25,.36,.26,.15),14,true)
 	draw_colored_polygon(points,tone)
@@ -253,16 +326,16 @@ func _mountain_shelves() -> void:
 	]
 	for shelf in shelves:
 		var polygon = _points(shelf)
-		draw_colored_polygon(polygon,Color(.47,.57,.47,.54))
+		draw_colored_polygon(polygon,Color(.54,.48,.36,.54))
 		var center = Vector2.ZERO
 		for p in polygon: center += p
 		center /= polygon.size()
 		for band in range(4):
 			var line = PackedVector2Array()
 			for p in polygon: line.append(center+(p-center)*(1-band*.18))
-			line.append(line[0]); draw_polyline(line,Color(.69,.73,.59,.21),2,true)
+			line.append(line[0]); draw_polyline(line,Color(.78,.69,.50,.30),2,true)
 		for offset in [-27,18]:
-			draw_polyline(PackedVector2Array([center+Vector2(-47,offset),center+Vector2(-9,offset-7),center+Vector2(7,offset+4),center+Vector2(48,offset-3)]),Color(.27,.39,.32,.25),2,true)
+			draw_polyline(PackedVector2Array([center+Vector2(-47,offset),center+Vector2(-9,offset-7),center+Vector2(7,offset+4),center+Vector2(48,offset-3)]),Color(.34,.30,.23,.30),2,true)
 
 func _camp_platform() -> void:
 	# Open front edge and broad steps point toward the existing interactive fire.
