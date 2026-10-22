@@ -10,6 +10,15 @@ var redraw_clock=0.0
 var last_state=""
 var focused = false
 var focus_blocked = false
+var support_aim=Vector2.LEFT
+var support_tension=0.0
+var support_recoil=0.0
+
+func set_support_pose(direction: Vector2,tension: float,recoil: float) -> void:
+	if data.kind!="huangzhong": return
+	if support_aim.is_equal_approx(direction) and is_equal_approx(support_tension,tension) and is_equal_approx(support_recoil,recoil): return
+	support_aim=direction; support_tension=clampf(tension,0,1); support_recoil=clampf(recoil,0,1)
+	queue_redraw()
 
 func _ready() -> void:
 	font=load("res://assets/fonts/NotoSansSC-Regular.otf")
@@ -133,9 +142,16 @@ func _draw() -> void:
 			oval(Vector2(3,10),29,.43,Color(.16,.26,.22,.22))
 			draw_colored_polygon(PackedVector2Array([Vector2(-20,-39),Vector2(13,-43),Vector2(29,-12),Vector2(24,8),Vector2(7,2),Vector2(-19,7),Vector2(-25,-14)]),Color("b5a05d"))
 			draw_polyline(PackedVector2Array([Vector2(-22,-37),Vector2(-26,-11),Vector2(-20,6)]),Color("e4d49b"),2.2,true)
-			draw_arc(Vector2(-25,-25),25,PI*.58,PI*1.42,24,Color("a48350"),3.8,true)
-			draw_line(Vector2(-32,-49),Vector2(-32,-1),Color("dbd1b0"),1.2,true)
-			draw_line(Vector2(-36,-25),Vector2(-13,-25),Color("a09267"),2,true)
+			var bow_direction=support_aim if support_tension>0 or support_recoil>0 else Vector2.LEFT
+			draw_set_transform(Vector2(0,-25),bow_direction.angle())
+			draw_arc(Vector2(25-support_recoil*3,0),25,-PI*.42,PI*.42,24,Color("a48350"),3.8,true)
+			var drawn=Vector2(32-support_tension*14,0)
+			draw_polyline(PackedVector2Array([Vector2(32,-24),drawn,Vector2(32,24)]),Color("dbd1b0"),1.2,true)
+			draw_line(drawn,drawn+Vector2(25,0),Color("a09267"),2,true)
+			if support_tension>0:
+				draw_circle(Vector2(18,1),3,Color("dfbd98"))
+				draw_circle(drawn+Vector2(0,2),3,Color("dfbd98"))
+			draw_set_transform(Vector2.ZERO)
 		"wounded":
 			oval(Vector2(0,12),31,.47,Color(.16,.27,.21,.23))
 			draw_rect(Rect2(-32,0,64,16),Color("8e8a65")); draw_rect(Rect2(-28,0,56,11),Color("b7b69b"))

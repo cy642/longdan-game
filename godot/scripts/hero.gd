@@ -19,6 +19,7 @@ var last_precision = -1
 var buffer: Dictionary = {}
 var footprint = 0
 var ghost_clock = 0.0
+var feedback_left = 0.0
 
 func _init() -> void:
 	faction = "hero"; kind = "hero"; speed = 202; radius = 16; facing = -.6
@@ -26,6 +27,7 @@ func _init() -> void:
 func reset_combat() -> void:
 	hp = max_hp; qi = 100; potions = 3; rage = 0
 	spear_spirit = 0
+	feedback_left = 0
 	action = {}; buffer = {}; combo_left = 0; dash_left = 0; dash_cd = 0; sweep_cd = 0; counter_left = 0
 	invincible = .7; knockback = Vector2.ZERO; stun = 0; hurt_flash = 0
 	footprint = int(walk_distance / HERO_STEP_DISTANCE)
@@ -62,7 +64,32 @@ func request(kind_name: String, move: Vector2 = Vector2.ZERO, aim: float = INF) 
 	if resource and wait > 0 and wait <= BUFFER:
 		buffer = {"kind": kind_name, "move": move, "aim": aim, "left": BUFFER}
 		return true
+	if kind_name != "attack" and feedback_left <= 0:
+		var reason=unavailable_reason(kind_name)
+		if reason!="": world.toast(reason); feedback_left=.75
 	return false
+
+func unavailable_reason(kind_name: String) -> String:
+	# A single read-only explanation drives both failed input and the HUD.
+	# Do not disable buttons: a legal late input must still enter BUFFER.
+	if kind_name=="dash":
+		if qi<16: return "闪避需要 16 气力，先游走回气。"
+		if dash_cd>0 or dash_left>0: return "闪避恢复中 · %.1f 秒"%maxf(dash_cd,dash_left)
+		if not action.is_empty() and action.t>=action.def.windup and action.t<action.def.windup+action.def.active:
+			return "正在出枪，招式收尾可接闪避。"
+		return ""
+	if kind_name=="sweep":
+		if qi<30: return "横扫需要 30 气力，枪势会保留。"
+		if sweep_cd>0: return "横扫恢复中 · %.1f 秒"%sweep_cd
+	if kind_name=="sword":
+		if not world.state.flags.sword: return "先击败夏侯恩，夺得青釭剑。"
+		if rage<100: return "青釭需要满战意，命中敌人可积累。"
+	if kind_name=="heal":
+		if hp>=max_hp: return "体力充足，先留住行军药。"
+		if potions<=0: return "药已用尽，到营火补满。"
+	if dash_left>0: return "正在闪避，落脚后可接招。"
+	if not action.is_empty(): return "正在收招，稍后再接下一式。"
+	return ""
 
 func perform(kind_name: String, move: Vector2, aim: float) -> bool:
 	if dash_left > 0: return false
@@ -82,23 +109,15 @@ func perform(kind_name: String, move: Vector2, aim: float) -> bool:
 		counter_left = 0; combo_left = 1.25
 	elif key == "sweep":
 		if sweep_cd > 0: return false
-		if qi < 30:
-			world.toast("气力不足，游走回气。")
-			return false
+		if qi < 30: return false
 		facing = attack_direction(aim); qi -= 30; sweep_cd = 3.4
 		if world.state.chapter==2 and world.state.rewards.huilan and world.state.tactics.get("huilan_equipped",false): key="huilan"
 	elif key == "sword":
-		if not world.state.flags.sword:
-			world.toast("先击败夏侯恩，夺得青釭剑。")
-			return false
-		if rage < 100:
-			world.toast("命中敌人积累战意，满时可使青釭断势。")
-			return false
+		if not world.state.flags.sword: return false
+		if rage < 100: return false
 		facing = attack_direction(aim); rage = 0
 	elif key == "heal":
-		if hp >= max_hp or potions <= 0:
-			world.toast("体力充足，先留住行军药。" if hp >= max_hp else "药已用尽，到营火补满。")
-			return false
+		if hp >= max_hp or potions <= 0: return false
 		potions -= 1
 	else: return false
 	var definition = world.attacks[key]
@@ -124,7 +143,7 @@ func consume_buffer(dt: float) -> void:
 
 func advance(dt: float, move: Vector2, held_attack: bool, aim: float) -> void:
 	tick_common(dt)
-	for key in ["combo_left", "sweep_cd", "dash_cd", "dash_left", "invincible", "counter_left"]:
+	for key in ["combo_left", "sweep_cd", "dash_cd", "dash_left", "invincible", "counter_left", "feedback_left"]:
 		set(key, maxf(0, float(get(key)) - dt))
 	dash_age += dt; qi = minf(100, qi + dt * (0 if dash_left > 0 else 17))
 	consume_buffer(dt)
@@ -165,9 +184,8 @@ func advance_action(dt: float) -> void:
 				world.fx.floater(position, "+" + str(int(ceil(amount))) + " 体力", Color("b7e9c4"))
 				world.sound.play_cue("heal")
 			else:
-				world.fx.add("slash", position, d.active + .22, {"dir": a.dir, "radius": d.range, "arc": d.arc, "key": a.key})
+				world.fx.add("slash", position, d.active + .22, {"dir": a.dir, "radius": d.range, "arc": d.arc, "key": a.key, "empowered": a.get("empowered",false)})
 				if a.get("empowered", false):
-					world.fx.add("rally", position, .5, {"radius": d.range * .6})
 					world.fx.floater(position, "龙胆·破阵", Color("f6d89d"))
 				world.sound.play_cue("ultimate" if a.key == "sword" else "heavy" if a.key in ["sweep", "huilan", "thrust3", "counter"] else "swing")
 		if a.key != "heal":

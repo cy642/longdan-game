@@ -134,7 +134,7 @@ def validate(entries, project):
         image = f"assets/maps/{region}.png"
         if image not in entries and image + ".import" not in entries:
             errors.append(f"Missing chapter-two baked ground: {image}")
-    for script in ("map_atmosphere", "map_details", "campaign", "tactic_director", "grain_cart", "hanshui_layout"):
+    for script in ("map_atmosphere", "map_details", "campaign", "tactic_director", "grain_cart", "hanshui_layout", "huangzhong_support"):
         name = f"scripts/{script}.gd"
         if name not in entries and not all(
                 resource in entries for resource in (name + ".remap", name + "c")):

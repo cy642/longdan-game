@@ -104,7 +104,17 @@ func _draw() -> void:
 				var key = info.get("key","")
 				var gold = key in ["sweep","thrust3"]
 				var c = Color(1,.69,.42,alpha) if enemy else Color(1,.86,.54,alpha) if gold else Color(.6,.95,1,alpha)
-				if arc>.95 or key in ["sweep","sword"]:
+				if not enemy and info.get("empowered",false) and key in ["sweep","huilan"]:
+					# A hollow cyan/gold spear arc, not an opaque flash over enemy
+					# warnings. Five draw calls replace the old slash + rally ring.
+					var center = p+Vector2(0,-20)
+					var spread = minf(arc,PI-.02)
+					trail(center,direction,r*(.72+.12*t),spread,Color(.57,.94,1,alpha*.62),2 if soft else 3)
+					trail(center,direction,r*(.83+.12*t),spread,Color(1,.88,.54,alpha*.62),2 if soft else 3)
+					for offset in [-.55,0.0,.55]:
+						var ray = Vector2.from_angle(direction+spread*offset)
+						draw_line(center+ray*r*(.76+.12*t),center+ray*r*(.94+.06*t),Color(1,.96,.74,alpha*.78),2,true)
+				elif arc>.95 or key in ["sweep","sword"]:
 					for i in range(3): trail(p+Vector2(0,-20),direction,r*(.6+.12*i),minf(arc,PI-.02),Color(c,alpha*(.22+i*.14)),(8-i*2) if not soft else 2)
 				else:
 					var start = p+Vector2(0,-25)+Vector2.from_angle(direction)*25
@@ -140,16 +150,25 @@ func _draw() -> void:
 
 func draw_enemy_status(enemy) -> void:
 	var p = enemy.position
+	# Only the nameplate is culled; a distant bow can still telegraph into
+	# the viewport. This avoids redrawing offscreen health/text every frame.
+	var screen_position = get_canvas_transform() * (p+Vector2(0,-85))
+	if not get_viewport_rect().grow(100).has_point(screen_position): return
 	if enemy.kind not in ["boss","elite"] and enemy.hp<enemy.max_hp:
 		draw_rect(Rect2(p+Vector2(-18,-76),Vector2(36,3)),Color(.08,.17,.17,.8))
 		draw_rect(Rect2(p+Vector2(-18,-76),Vector2(36*enemy.hp/enemy.max_hp,3)),Color("d99178"))
-	var text = ""
-	if enemy.phase_time>0: text="变招 · 留意新式"
-	elif enemy.stun>.2 and enemy.stagger_shield>0: text="破势 · 可反击"
-	elif enemy.shield_broken>0: text="盾防已破"
-	elif not enemy.action.is_empty() and enemy.action.t>=enemy.action.def.windup+enemy.action.def.active and enemy.sequence.is_empty(): text="收招 · 可反击"
+	if enemy.kind != "boss" and (enemy.stagger > 0 or enemy.hp < enemy.max_hp):
+		draw_rect(Rect2(p+Vector2(-18,-71),Vector2(36,2)),Color(.08,.17,.17,.7))
+		if enemy.stagger_shield <= 0:
+			draw_rect(Rect2(p+Vector2(-18,-71),Vector2(36*clampf(enemy.stagger/enemy.stagger_max,0,1),2)),Color("efcf83"))
+	var status = enemy.combat_status()
+	var text = {"phase":"变招 · 留意新式","break":"破势 · 追击","shield":"盾防已破","recovery":"收招 · 反击","guard":"稳势 · 抗轻击"}.get(status,"")
+	var tint = Color("e8d398") if status not in ["guard","recovery"] else Color("e6ae72") if status == "guard" else Color("a7e1d1")
 	if text!="" and font:
 		var size = font.get_string_size(text,HORIZONTAL_ALIGNMENT_LEFT,-1,12).x
 		var origin = p+Vector2(-size/2,-102 if enemy.kind=="boss" else -88)
 		draw_rect(Rect2(origin+Vector2(-6,-14),Vector2(size+12,19)),Color(.07,.18,.17,.85))
-		draw_string(font,origin,text,HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("e8d398"))
+		draw_string(font,origin,text,HORIZONTAL_ALIGNMENT_LEFT,-1,12,tint)
+		if status != "phase":
+			var remaining = enemy.combat_status_remaining(status)
+			draw_line(origin+Vector2(-4,3),origin+Vector2(-4+(size+8)*remaining,3),tint,2,true)

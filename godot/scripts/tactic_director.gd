@@ -1,7 +1,9 @@
 extends Node2D
 ## One owner for finite waves, escort checkpoints and the camp stratagem.
 const Cart=preload("res://scripts/grain_cart.gd")
+const HuangzhongSupport=preload("res://scripts/huangzhong_support.gd")
 var world
+var support
 var spawned: Dictionary={}
 var waiting: Array=[]
 var cart
@@ -20,6 +22,10 @@ var gate_state: String:
 
 func setup(game) -> void:
 	world=game
+	if world.stage=="hs_grain":
+		var marker=world.actors.get_node_or_null("hs_huangzhong")
+		if marker:
+			support=HuangzhongSupport.new(); support.name="HuangzhongSupport"; add_child(support); support.setup(world,marker)
 	if world.stage=="hs_return":
 		var config=world.definition.tactics
 		points=config.waypoints; stops=config.stops
@@ -105,6 +111,7 @@ func check_groups() -> void:
 			world.state.cleared.append(key); world.save_progress()
 
 func advance(dt: float) -> void:
+	if is_instance_valid(support): support.advance(dt)
 	spawn_pending(dt); check_groups()
 	if world.stage=="hs_return": advance_cart(dt)
 	elif world.stage=="hs_camp": advance_gate(dt)
@@ -196,15 +203,22 @@ func hide_area() -> Rect2:
 	var a=world.definition.get("tactics",{}).get("hide_area",[480,240,300,240])
 	return Rect2(a[0],a[1],a[2],a[3])
 
-func command_changed(order: String) -> void:
-	if world.stage!="hs_camp": return
+func request_support() -> bool:
+	return support.request() if is_instance_valid(support) else false
+
+func support_status() -> Dictionary:
+	return support.status() if is_instance_valid(support) else {"visible":false,"ready":false,"cooldown":0.0,"text":""}
+
+func command_changed(order: String) -> String:
+	if world.stage!="hs_camp": return ""
 	if order=="hold" and gate_state=="PREPARE":
 		var flag=world.object_by_id("hs_hideflag")
 		if world.hero.position.distance_to(Vector2(flag.get("x",640),flag.get("y",360)))<170:
 			var guards=world.definition.tactics.get("guard_points",[[560,320],[640,340],[700,400]])
 			for i in range(world.allies.size()): world.allies[i].home=point(guards[i]); world.allies[i].path=[]
-			world.toast("随军前往青旗藏兵。留意任务中的就位人数，随后到营门按 E。")
+			return "随军前往青旗藏兵。留意任务中的就位人数，随后到营门按 E。"
 	if order!="hold" and gate_state in ["PROBE_1","PROBE_2","WITHDRAW","BEST_WINDOW"]: world.state.tactics.deception_ok=false
+	return ""
 
 func advance_gate(dt: float) -> void:
 	if gate_state in ["PROBE_1","PROBE_2"]:

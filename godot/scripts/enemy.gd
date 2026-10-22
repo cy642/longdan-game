@@ -33,6 +33,9 @@ var phase2 = false
 var phase_time = 0.0
 var hit_interrupt_guard = 0.0
 var interrupt_guard_noticed = false
+# A visual clock for an actual poise break, separate from the longer period
+# during which poise cannot build again. Other stuns must not claim a break.
+var poise_break_left = 0.0
 
 func configure(unit_kind: String, boss: String = "") -> void:
 	kind = unit_kind; boss_id = boss
@@ -46,6 +49,26 @@ func configure(unit_kind: String, boss: String = "") -> void:
 
 func is_ranged() -> bool:
 	return kind in ["archer","crossbow"]
+
+func combat_status() -> String:
+	if hp <= 0 or get_meta("withdrawing",false): return ""
+	if phase_time > 0: return "phase"
+	if poise_break_left > 0 and stun > 0: return "break"
+	if not action.is_empty() and action.t >= action.def.windup + action.def.active and sequence.is_empty(): return "recovery"
+	if hit_interrupt_guard > 0 and stun <= 0 and kind not in ["boss","elite"]: return "guard"
+	if shield_broken > 0: return "shield"
+	return ""
+
+func combat_status_remaining(status: String) -> float:
+	match status:
+		"break": return clampf(minf(poise_break_left,stun)/(2.1 if kind == "boss" else 1.3),0,1)
+		"guard": return clampf(hit_interrupt_guard/.65,0,1)
+		"shield": return clampf(shield_broken/2.8,0,1)
+		"recovery":
+			if not action.is_empty():
+				var d = action.def
+				return clampf((d.windup+d.active+d.recovery-action.t)/maxf(.001,d.recovery),0,1)
+	return 0.0
 
 func ranged_slot_available() -> bool:
 	# A burst owns one slot through its reload, so a second archer cannot
@@ -92,7 +115,7 @@ func advance(dt: float) -> void:
 		action = {}; sequence = []; cooldown = maxf(cooldown,.6)
 		if stun <= 0: navigate(get_meta("retreat_target",position),speed,dt)
 		update_visual(); return
-	for key in ["cooldown", "stagger_shield", "shield_broken", "phase_time", "hit_interrupt_guard"]:
+	for key in ["cooldown", "stagger_shield", "shield_broken", "phase_time", "hit_interrupt_guard", "poise_break_left"]:
 		set(key, maxf(0, float(get(key)) - dt))
 	stagger = maxf(0, stagger - dt * 1.6)
 	if stun > 0 or phase_time > 0:
@@ -216,6 +239,7 @@ func take_hit(damage: float, direction: float, knock: float, source: String, poi
 		stagger += poise
 		if stagger >= stagger_max:
 			stagger = 0; stun = 2.1 if kind == "boss" else 1.3; stagger_shield = 4.4; action = {}; sequence = []; cooldown = 1.2
+			poise_break_left = stun
 			world.fx.add("break",position,.5,{"radius":65.0}); world.fx.floater(position,"破势 · 反击",Color("f6d89d")); world.sound.play_cue("break")
 	if visual: visual.react_to_hit(direction, blocked, hp <= 0)
 	world.fx.floater(position,str(int(round(actual))),Color("a7c6b0") if source == "ally" else Color("fff0bb"))

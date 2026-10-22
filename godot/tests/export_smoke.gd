@@ -34,6 +34,8 @@ func run() -> void:
 		world.mode="playing"; world.enter_stage(stage,Vector2.INF,false); await process_frame
 		if not is_instance_valid(world.tactics) or world.terrain.ground_texture==null:
 			push_error("Missing exported second-chapter region: "+stage); quit(1); return
+		if stage=="hs_grain" and (not is_instance_valid(world.tactics.support) or not world.tactics.support_status().visible):
+			push_error("Missing exported Huangzhong support"); quit(1); return
 	for kind in ["scout","crossbow","ironshield"]:
 		var enemy=world.spawn_enemy(kind,Vector2(700,700),"export_check"); enemy.update_visual()
 		if enemy.visual.rig==null:
@@ -41,5 +43,5 @@ func run() -> void:
 	world.begin_boss("dujun")
 	if world.boss.display_name!="铁面督军":
 		push_error("Missing exported final boss"); quit(1); return
-	print("EXPORT_SMOKE_OK regions=12 modeled_landmarks=",modeled," chapter1_articulated_enemies=",enemies," chapter2_new_enemies=3 boss=dujun")
+	print("EXPORT_SMOKE_OK regions=12 modeled_landmarks=",modeled," chapter1_articulated_enemies=",enemies," chapter2_new_enemies=3 boss=dujun huangzhong_support=ready")
 	world.queue_free(); await process_frame; quit()

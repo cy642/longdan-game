@@ -44,7 +44,11 @@ func run() -> void:
 		expect(world.interact() and world.mode=="camp","safe camp opens actual loadout panel in chapter "+str(chapter))
 		expect(world.hero.hp==world.hero.max_hp and world.hero.potions==3 and world.hero.spear_spirit==0,"rest refills resources but never gives a free empowered attack")
 		expect(not world.keyboard_attack_held,"camp clears held combat input")
-		expect(is_instance_valid(world.ui.first_choice) and world.ui.first_choice.text.contains("继续前行"),"camp has an explicit keyboard-friendly exit")
+		expect(is_instance_valid(world.ui.first_choice) and world.ui.first_choice.text.contains("连锋"),"first camp focuses a concrete battle-art choice")
+		var continue_button: Button
+		for candidate in world.ui.overlay.find_children("*","Button",true,false):
+			if candidate.text.contains("继续前行"): continue_button=candidate; break
+		expect(continue_button!=null,"camp still has an explicit continue action without choosing a style")
 		expect(not world.choose_battle_art("unknown") and world.mode=="camp","invalid camp choice does not close or change loadout")
 		var before=state.time
 		world._physics_process(.5)

@@ -1,7 +1,7 @@
 # 龙胆：逆命三国 · Godot 电脑版
 
-本轮（2026-10-20）修复赵云在帧切换及计策阶段的比例变化，按长坂战乱/汉水设伏区分两章地表、景物和环境运动。第二章六区、计策、护粮车、两条支线和新敌将保留。实际验证范围、导出和发布记录见 [开发记录](../CLOUD-POLISH.md)；早期云端与浏览器数据保留在历史章节，不代表本轮成绩。
-随后完成 0.3.0 可玩性迭代：枪势循环、营火战法、杂兵防持续轻击压制、主动清路护车，以及第一章战报直接续入第二章。设计取舍、当前实现与后续目标见 [PLAYABILITY-PLAN.md](../docs/PLAYABILITY-PLAN.md)。
+本轮 0.3.1（2026-10-22）补齐首玩提示、首次营火引导、技能不可用原因和敌人状态反馈，并加入北山接应战的玩家军令援射。二十组回归 **42,687 项采样/状态断言、0 失败**，实际图形、导出和发布验收记录见 [开发记录](../CLOUD-POLISH.md)；历史浏览器与性能数据不代表本轮成绩。
+0.3.0 的枪势循环、营火战法、杂兵防持续轻击压制、主动清路护车和第一章战报直接续入第二章均保留。角色固定比例、长坂暖土/汉水冷青的主题地表也继续使用。设计取舍、当前实现与后续目标见 [PLAYABILITY-PLAN.md](../docs/PLAYABILITY-PLAN.md)。
 地图打磨版：可编辑布局见 `data/map_details.json` 与 `data/chapter2.json`，双章巡游入口为 `../Map-Tour.cmd`，地图设计与测试说明见 [MAP-POLISH.md](../MAP-POLISH.md)。仓库正式构建沿用原有 Godot 存档目录；此前单独交付的本地预览包使用 `LongdanMapPolishPreview`，两者存档互不迁移。
 
 宣传副标题：**重生之我在三国当赵子龙**。Godot 4.7.2 / GDScript 的原生 2D 动作冒险，含第一章「长坂逆命」与第二章「汉水孤营」，各有六个区域。原来的 Canvas 网页版继续保留在仓库根目录；新增玩法开发以本目录为准。
@@ -27,11 +27,16 @@
 | 行军药 | F；服药可被打断，营火补满三份 |
 | 救援 / 休整 / 前进 | E |
 | 集合 / 守点 / 冲阵 | 1 / 2 / 3 |
+| 黄忠援射 | 北山接应战靠近黄忠按 3；与冲阵军令同时请求，冷却 6 秒 |
 | 军图 / 暂停 / 全屏 | M / Esc / F11 |
 
 键盘出枪优先锁住近处敌人，鼠标出枪跟随指向。攻击只有实际命中时段产生伤害，同一次动作对同一目标只命中一次。动作尾段支持 0.14 秒短按缓冲；普攻与技能收招可用闪避取消，实际出枪时段不能提前取消。
 
 左下角三格「枪势」：第三枪真实命中或精准闪避各积一格，满三格的下一次 Q 自动消耗，攻击范围 ×1.18、破势 ×1.6，基本伤害不增加。受击掉一格，休整/死亡/切图清空。营火 E 可选「连锋」（第三枪积两格）或「游龙」（精准闪避积两格，回马枪首次命中回 12 气），免费更换且按章保存。选择期间暂停战斗，Esc 可退出。普兵轻击被打断后 0.65 秒防重复轻击打断，仍受伤且继续原有预警；Q/R/破势仍可打断。
+
+入区提示只在正常游玩时计时，读对白、打开暂停/军图/营火不会把它耗尽。第一次清开山道后，未选战法且未休整过的玩家会被金标引向营火；访问过或已有战法后改指出口，主线出口始终可自由选择。营火首次把键盘焦点放在「连锋」，已有战法时优先「继续前行」；保持基础枪法同样能继续。
+
+闪避和横扫按钮显示冷却或缺气；满枪势时若 Q 仍缺气/冷却，会提示保留枪势。过早或资源不足的技能输入给出原因，0.75 秒内限流，正常 0.14 秒缓冲仍可接招，不会提前扣气。敌人头顶细势条显示破势积累，「稳势」表示轻击仍伤血但不能反复中断；「破势」和整套连招后的收招提示对应真实窗口，连招中途不会提前叫玩家反击。
 
 敌人起手红区与真实命中范围一致，前段跟踪、后段锁定。弓箭和冲枪以线段 / 连续位移判定，避免跨帧穿过障碍。完整盾防的正面普通攻击保留盾兵反击，横扫、绕后或破势可创造开口。夏侯恩双剑与张郃三连突需等整套连招收完；张郃半血变招。
 
@@ -54,6 +59,8 @@
 
 六区按「汉水林道 → 北山粮道 → 乱石归途 → 孤营大门 → 河湾反击 → 铁营决战」推进。林道对付斥候与弩兵，粮道接应黄忠，归途护送耐久 160 的粮车；可提前靠近下一路障清敌，车沿已清路段跟上。车速 112，赵云在前方时渐进追至 164，护送范围 520；附近有敌或离队仍停。目标提示解释停止原因。车毁可从最近通过的路障重试；停滞时可用 E 按提示复位到安全路点。
 
+北山主线围军未清、黄忠尚未接应时，赵云在黄忠 520 范围内按 3 可请求援射。目标须在赵云 360、黄忠 560 范围内且箭路通畅；黄忠拉弓 0.28 秒后发出一箭，6 秒冷却，锁定方向后不追踪敌人。援箭沿实际路径碰撞，基础伤害 10、破势 24，遵守友军的 22% 体力下限；非正面盾挡的有效命中可留下 0.32 秒切入机会。HUD 会说明冷却、距离、遮挡和围军已退。主路清开后靠近按 E 接应，援射结束；正式 Boss 战、支线和其他地图不提供此技能。它是玩家指令下的局部协作机制，尚非完整自主伙伴 AI。
+
 孤营青旗旁按 2，把三名随军送至藏兵守点，然后 E 开营门；赵云击退两次试探，敌军才会撤退。退军到位后的金色战机为 4 秒，鼓台 E 触发一次齐射；迟到也可普通齐射或直接追击。突破营门只追加一次有限补救队，不会无限刷兵；暂停、军图与对白不会消耗擂鼓时机。进入河湾的退军保留原有生命和伤亡，不会复制一队满血敌人。
 
 北山可焚毁火箭辎重，乱石归途西侧可救回张著与伤兵；支线改变后续压力、补给和战报。进入督军决战前会提示仍可回头整备。铁面督军有窄线钩拉、迟势回斧、扇区砸地及半血冲斩；新弩兵两发后才装填，第二箭使用原先锁定的方向。
@@ -63,6 +70,8 @@
 ### 双章存档
 
 `user://longdan-godot-v2.json` 保存两章独立检查点、已清遭遇、支线、计策、退军名册、战法与战报，以及已解锁奖励。`battle_art` 是可选新字段，缺失时使用基础枪法，未知值拒绝读入。瞬时枪势不入档。重开所选章节保留另一章记录。有效旧 `user://longdan-godot-v1.json` 只作为第一章旧进度读入，新保存写入 v2；旧文件保留，不删除、不覆盖。Windows 与 Web 存档互不自动同步。
+
+本轮不提升存档版本；营火访问标记追加到原有 `seen` 数组（例如 `camp:mountain`），保留旧剧情记录。玩家选择保留基础枪法后，读档不会再次被引导回已访问的营火。黄忠援射的拉弓、飞箭和冷却属于本次遭遇运行状态，不添加永久奖励或新章节存档字段。
 
 ## Godot 的结构
 
@@ -76,6 +85,7 @@
 - `scripts/effects.gd`、`sound.gd`：战斗预警、枪芒、受击火花、残影、局部音效。
 - `scripts/world.gd`、`campaign.gd`：章节入口、剧情、目标、v2 独立进度、旧 v1 兼容、战报和奖励。
 - `scripts/tactic_director.gd`：第二章有限波次/存活上限、藏兵与门前试探、退军名册、擂鼓结果及稳定恢复阶段。
+- `scripts/huangzhong_support.gd`：北山玩家军令援射、候选目标、锁向单箭、碰撞和冷却；由战术调度创建、推进与取消。
 - `scripts/grain_cart.gd`：粮车原生碰撞、耐久与受击；路线和停靠由战术调度控制。
 - `scripts/interactable.gd`：营火、出入口、黄忠/伤兵、火箭辎重、藏兵旗、门扇和鼓台实物；粮车提示跟随车移动。
 - `scripts/interface.gd`、`map_view.gd`：原生中文界面、暂停、军图和战斗状态。
@@ -104,12 +114,19 @@ godot --headless --path godot --script res://tests/hanshui_world_layout_verify.g
 godot --headless --path godot --script res://tests/hanshui_enemy_verify.gd
 godot --headless --path godot --script res://tests/hanshui_visual_verify.gd
 godot --headless --path godot --script res://tests/hanshui_flow_verify.gd
+godot --headless --path godot --script res://tests/combat_loop_verify.gd
+godot --headless --path godot --script res://tests/battle_art_verify.gd
+godot --headless --path godot --script res://tests/hanshui_pacing_verify.gd
+godot --headless --path godot --script res://tests/chapter_progression_verify.gd
+godot --headless --path godot --script res://tests/first_minutes_verify.gd
+godot --headless --path godot --script res://tests/combat_clarity_verify.gd
+godot --headless --path godot --script res://tests/huangzhong_support_verify.gd
 New-Item -ItemType Directory -Force builds/windows, godot-play | Out-Null
 godot --headless --path godot --export-release "Windows Desktop"
 godot --headless --path godot --export-release "Web"
 ```
 
-Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与十七组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。新增 `combat_loop_verify`、`battle_art_verify`、`hanshui_pacing_verify`、`chapter_progression_verify`。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。检查输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程的环境变量。两个 `.cmd` 启动器也支持把引擎路径作为第一个参数，或使用 `GODOT_EXE` / PATH。
+Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与二十组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。0.3.1 新增 `first_minutes_verify`、`combat_clarity_verify`、`huangzhong_support_verify`，与上一轮枪势/战法/护车/双章衔接专项一起运行。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。检查输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程的环境变量。两个 `.cmd` 启动器也支持把引擎路径作为第一个参数，或使用 `GODOT_EXE` / PATH。
 
 输出目录为仓库的 `builds/windows/` 与 `godot-play/`。`builds/`、`.godot/`、`.qa/`、日志和本机引擎不入库。`godot-play/` 是已跟踪的 Web 导出，修改 Godot 游戏后须重新导出并与源码一起提交。现有 GitHub Pages 从 `main` 分支的仓库根目录自动发布，Pages 流程不会替你运行测试或导出 Godot；根目录的 Canvas 入口继续保留，Godot 入口为 `/godot-play/`。
 
@@ -156,4 +173,4 @@ godot --path godot --script res://tests/performance.gd -- --label=my-computer
 
 完整设计与本轮实现对照见 [第二章设计稿](../docs/CHAPTER-2-HANSHUI.md)，坐标与状态机交接见 [实施方案](../docs/CHAPTER-2-PLAYABLE-PLAN.md)。下一轮先在普通难度完整实玩，校准等车、绕路、藏兵到鼓台的节奏与督军反击窗口；25–35 分钟仍是设计目标，不是实测结果。
 
-黄忠目前是原画立绘接应点，尚无独立战斗 AI 和三幕正式过场；角色配件与剧情镜头仍需美术统一，完整环境音/音乐未完成。第二章资源须在源码确定后重新烘焙、补齐中文字体、导入并导出。浏览器实际帧耗时、长时间稳定性和音频听感需要独立实测；第一章过去的 WebGL 警告和软件渲染数据不得当作本轮已解决或已达标。
+黄忠已有北山军令援射与拉弓表现，但自主移动/持续战斗 AI、三幕正式过场尚未制作；角色配件与剧情镜头仍需美术统一，完整环境音/音乐未完成。修改地图后重烘焙，新增中文后补齐字体，再导入和导出。浏览器实际帧耗时、长时间稳定性和音频听感需要独立实测；第一章过去的 WebGL 警告和软件渲染数据不得当作本轮已解决或已达标。

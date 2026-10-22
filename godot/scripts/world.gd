@@ -325,8 +325,8 @@ func enter_stage(id: String, spawn: Vector2 = Vector2.INF, checkpoint: bool = tr
 	camera.position=hero.position; camera.reset_smoothing()
 	if checkpoint:
 		state.checkpoint={"stage":id,"x":hero.position.x,"y":hero.position.y,"encounter":""}; save_progress()
-	if mode!="menu": toast(definition.tutorial)
 	if ui: ui.stage_changed()
+	if mode!="menu": toast(definition.tutorial)
 
 func spawn_enemy(kind: String, p: Vector2, group: String = "extra", boss_name: String = ""):
 	var unit=Enemy.instantiate(); unit.world=self; unit.group_id=group; unit.configure(kind,boss_name); unit.position=p
@@ -441,8 +441,11 @@ func squad_active() -> bool:
 func set_command(order: String) -> void:
 	command=order
 	for ally in allies: ally.home=ally.position; ally.path=[]
-	if is_instance_valid(tactics): tactics.command_changed(order)
-	toast({"follow":"随军集合 · 随你掩护","hold":"随军守点 · 固守当前位置","charge":"随军冲阵 · 牵制前方敌军"}[order] if squad_active() else "随军待命，在井畔营救与桥头突围时掩护你。")
+	var instruction=""
+	if is_instance_valid(tactics): instruction=tactics.command_changed(order)
+	toast(instruction if instruction!="" else {"follow":"随军集合 · 随你掩护","hold":"随军守点 · 固守当前位置","charge":"随军冲阵 · 牵制前方敌军"}[order] if squad_active() else "随军待命，在井畔营救与桥头突围时掩护你。")
+	if order=="charge" and is_instance_valid(tactics) and tactics.support_status().visible:
+		tactics.request_support()
 
 func group_alive(id: String = "") -> bool:
 	for enemy in enemies:
@@ -572,6 +575,8 @@ func interact() -> bool:
 			toast("先击退附近敌军，再休整。"); return false
 		hero.hp=hero.max_hp; hero.qi=100; hero.potions=3; hero.action={}; hero.buffer={}
 		for ally in allies: ally.hp=ally.max_hp
+		var visit="camp:"+stage
+		if not state.seen.has(visit): state.seen.append(visit)
 		state.checkpoint={"stage":stage,"x":object.x,"y":object.y+35,"encounter":""}; save_progress(); sound.play_cue("heal")
 		hero.spear_spirit=0
 		fx.add("heal",hero.position,.8,{"radius":65.0})
@@ -747,6 +752,9 @@ func mission() -> Dictionary:
 			guard=first_guard(["m1","m2","m3"]); object=object_by_id("toVillage")
 			title={"m1":"枪起长坂","m2":"识破枪势","m3":"破盾开路"}.get(guard.group_id,"枪起长坂") if guard else "营火与前路"
 			text="J 接三式，第三枪命中蓄枪势；满三格后 Q 强化破阵。" if guard and guard.group_id=="m1" else "看红区闪避，精准闪避积枪势并接回马枪。" if guard and guard.group_id=="m2" else "Q 破盾，或引燃油车。别在敌人稳住阵脚后硬拼。" if guard else "营火补药并选战法，再前往荒村。"
+			if not guard and state.battle_art=="" and not state.seen.has("camp:mountain"):
+				object=object_by_id("campMountain")
+				title="营火整备 · 选定战法"; text="靠近营火按 E，选择连锋或游龙；也可以直接去荒村。"
 		"village":
 			var seeking=state.route=="healer" and not state.flags.healer
 			guard=first_guard(["vRescue"] if seeking else ["v1","v2","v3"])
