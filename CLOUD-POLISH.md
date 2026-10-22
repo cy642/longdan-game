@@ -17,7 +17,9 @@
 
 原生 Intel Arc B370 / 1280×720 / Compatibility、关闭垂直同步和帧限，预热 0.8 秒、每场采样 3.2 秒：林道 8 敌＋3 随军 P95 **1.985 ms**，营门 4 敌 **1.924 ms**，河湾退军 **1.908 ms**，督军二阶段 **1.224 ms**；最大分别 **3.377 / 3.365 / 2.996 / 2.416 ms**。保留 `.qa/map-identity-performance.json` 与同名日志；这是本机短时采样，不证明历史偶发长帧已解决，也不代表网页/其他设备的帧率。共享景物图集像素面积下降约 14.7%，仍使用离线绘制和运行时贴图。
 
-Windows/Web 0.4.0 导出成功。PCK **10,695,176 字节**（前版 14,149,160），SHA-256 `F60533B82930FB23BDAE419AF795B749B95C078BF3D45F20CD57A56107EED227`；123 资源、11 JSON、4 种地标贴图通过导出校验，实际从 PCK 启动覆盖十二区、敌人、督军与黄忠节点。Windows EXE **119,863,832 字节**、启动退出 0；ZIP **48,615,713 字节**、完整性通过。日志 `.qa/map-identity-export-*.log`、`.qa/map-identity-windows-start.log`。本轮预览工具仍未发现可用浏览器，未把原生截图或资源校验写成网页实玩；线上版本一致性在推送后另行记录。
+Windows/Web 0.4.0 导出成功。PCK **10,695,176 字节**（前版 14,149,160），SHA-256 `F60533B82930FB23BDAE419AF795B749B95C078BF3D45F20CD57A56107EED227`；123 资源、11 JSON、4 种地标贴图通过导出校验，实际从 PCK 启动覆盖十二区、敌人、督军与黄忠节点。Windows EXE **119,863,832 字节**、启动退出 0；ZIP **48,615,713 字节**、完整性通过。日志 `.qa/map-identity-export-*.log`、`.qa/map-identity-windows-start.log`。本轮预览工具仍未发现可用浏览器，未把原生截图或资源校验写成网页实玩。
+
+地图提交 `a946f2e` 已推送至 `main`。16:23（UTC+8）重新下载 Pages PCK，字节数及 SHA-256 与本地完全一致，线上 HTML 同时声明新包大小。核验记录 `.qa/map-identity-live-verification.json`，入口 `https://cy642.github.io/longdan-game/godot-play/?v=a946f2e`。
 
 ## 2026-10-22：0.3.1 首玩引导、战斗状态与黄忠援射
 
