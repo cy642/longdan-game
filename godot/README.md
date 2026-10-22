@@ -1,8 +1,8 @@
 # 龙胆：逆命三国 · Godot 电脑版
 
-本轮 0.3.1（2026-10-22）补齐首玩提示、首次营火引导、技能不可用原因和敌人状态反馈，并加入北山接应战的玩家军令援射。二十组回归 **42,687 项采样/状态断言、0 失败**，实际图形、导出和发布验收记录见 [开发记录](../CLOUD-POLISH.md)；历史浏览器与性能数据不代表本轮成绩。
-0.3.0 的枪势循环、营火战法、杂兵防持续轻击压制、主动清路护车和第一章战报直接续入第二章均保留。角色固定比例、长坂暖土/汉水冷青的主题地表也继续使用。设计取舍、当前实现与后续目标见 [PLAYABILITY-PLAN.md](../docs/PLAYABILITY-PLAN.md)。
-地图打磨版：可编辑布局见 `data/map_details.json` 与 `data/chapter2.json`，双章巡游入口为 `../Map-Tour.cmd`，地图设计与测试说明见 [MAP-POLISH.md](../MAP-POLISH.md)。仓库正式构建沿用原有 Godot 存档目录；此前单独交付的本地预览包使用 `LongdanMapPolishPreview`，两者存档互不迁移。
+0.4.0（2026-10-22）按十二个区域的剧情与战术用途，分别处理道路宽度、地表材质、树种和建筑。二十一组回归 42,697 项断言通过，另有地图基线对照 1,107 项及十七张正式镜头复核；图形、性能、导出与发布结果见 [开发记录](../CLOUD-POLISH.md)。
+0.3.1 的首玩提示、营火引导、敌人状态反馈和黄忠援射，以及此前的枪势、战法和护车玩法继续保留。地图逐区构图、制作约束与重建方式见 [地图美术规范](../docs/MAP-ART-DIRECTION.md)；玩法设计见 [PLAYABILITY-PLAN.md](../docs/PLAYABILITY-PLAN.md)。
+可编辑布局见 `data/map_details.json` 与 `data/chapter2.json`，双章巡游入口为 `../Map-Tour.cmd`。正式构建沿用原有 Godot 存档目录；此前单独交付的本地地图预览包使用 `LongdanMapPolishPreview`。
 
 宣传副标题：**重生之我在三国当赵子龙**。Godot 4.7.2 / GDScript 的原生 2D 动作冒险，含第一章「长坂逆命」与第二章「汉水孤营」，各有六个区域。原来的 Canvas 网页版继续保留在仓库根目录；新增玩法开发以本目录为准。
 
@@ -121,12 +121,13 @@ godot --headless --path godot --script res://tests/chapter_progression_verify.gd
 godot --headless --path godot --script res://tests/first_minutes_verify.gd
 godot --headless --path godot --script res://tests/combat_clarity_verify.gd
 godot --headless --path godot --script res://tests/huangzhong_support_verify.gd
+godot --headless --path godot --script res://tests/scenery_occlusion_verify.gd
 New-Item -ItemType Directory -Force builds/windows, godot-play | Out-Null
 godot --headless --path godot --export-release "Windows Desktop"
 godot --headless --path godot --export-release "Web"
 ```
 
-Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与二十组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。0.3.1 新增 `first_minutes_verify`、`combat_clarity_verify`、`huangzhong_support_verify`，与上一轮枪势/战法/护车/双章衔接专项一起运行。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。检查输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程的环境变量。两个 `.cmd` 启动器也支持把引擎路径作为第一个参数，或使用 `GODOT_EXE` / PATH。
+Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与二十一组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。0.4.0 增加合法落脚下的 `scenery_occlusion_verify`；0.3.1 新增 `first_minutes_verify`、`combat_clarity_verify`、`huangzhong_support_verify`，与上一轮枪势/战法/护车/双章衔接专项一起运行。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。检查输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程的环境变量。两个 `.cmd` 启动器也支持把引擎路径作为第一个参数，或使用 `GODOT_EXE` / PATH。
 
 输出目录为仓库的 `builds/windows/` 与 `godot-play/`。`builds/`、`.godot/`、`.qa/`、日志和本机引擎不入库。`godot-play/` 是已跟踪的 Web 导出，修改 Godot 游戏后须重新导出并与源码一起提交。现有 GitHub Pages 从 `main` 分支的仓库根目录自动发布，Pages 流程不会替你运行测试或导出 Godot；根目录的 Canvas 入口继续保留，Godot 入口为 `/godot-play/`。
 
@@ -141,13 +142,13 @@ Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与二十组回归：
 ```powershell
 godot --path godot --script res://tests/hanshui_visual_verify.gd -- --capture
 godot --path godot --script res://tests/hero_pose_capture.gd
-godot --path godot --script res://tests/theme_preview.gd
+godot --path godot --script res://tests/map_identity_preview.gd -- --label=review-001
 godot --path godot --script res://tests/playability_preview.gd
 godot --path godot res://tests/hanshui_playtest.tscn -- --qa-stage=hs_camp
 godot --path godot --script res://tests/hanshui_performance.gd
 ```
 
-截图入口保存 `.qa/hanshui-visuals.png`，实际渲染新敌人动作与交互实体；`hero_pose_capture.gd` 输出八方向六状态联系表，`theme_preview.gd` 输出十二区真实游戏镜头 `.qa/theme-区域.png`，使用内存进度。开发试玩使用隔离测试进度打开指定汉水区域；性能入口采样 8 敌/3 随军、营门、退军河湾和督军二阶段，输出 `.qa/hanshui-performance.json`。人工检查要记录设备、分辨率、难度和耗时；不能用无界面检查冒充画面、声音或性能验收。
+截图入口保存 `.qa/hanshui-visuals.png`，实际渲染新敌人动作与交互实体；`hero_pose_capture.gd` 输出八方向六状态联系表。地图正常镜头优先使用 `map_identity_preview.gd`：它输出十二个区域和五个实战状态共十七张 1280 × 720、镜头倍率 1.15 的 `.qa/map-identity-标签-场景.png`，并写入同标签的 manifest。五个状态包含北山黄忠援射可用、孤营关门、乱石护车，以及夏侯恩与督军蓄势。预览采用内存进度，不读取或写入玩家存档；同名标签存在时拒绝覆盖，复拍须使用新标签。旧 `theme_preview.gd` 保留供历史截图复核，不作为 0.4.0 的主要巡图证据。开发试玩使用隔离测试进度打开指定汉水区域；性能入口采样 8 敌/3 随军、营门、退军河湾和督军二阶段，输出 `.qa/hanshui-performance.json`。人工检查要记录设备、分辨率、难度和耗时；无界面检查不能代替画面、声音或性能验收。
 
 关卡和参数同步工具为 `tools/sync_data.mjs`；原始图集元数据读取工具为 `tools/prepare_assets.py`（Pillow / NumPy）。提交内已包含可直接运行的图集与元数据，平时开发无需运行这些工具。
 
@@ -155,9 +156,9 @@ godot --path godot --script res://tests/hanshui_performance.gd
 
 ## 地图与性能
 
-第一章的暖土配色在 `terrain.gd` 的 `CHANGBAN_PALETTES`，瓦砾、山脊岩纹和行军脚印在 `map_details.gd`；第二章配色在 `chapter2.json` 的 `layout.palette`，湿石/粮辙/军营与河岸材质在 `hanshui_layout.gd`。景物沿用共享图集并按章着色，新增美术使用独立随机源，不改变原树木、岩石、路线与碰撞。`map_atmosphere.gd` 根据真实水域生成有限水光与芦苇，只在游玩时以 24 Hz 更新，静态细节全部烘焙。正常游戏镜头固定为 1.15，计策阶段不自动变焦。
+`terrain_materials.gd` 为十二个区域分别指定土色、路宽、植物笔触、树种及植被保留密度；`scenery_styles.gd` 画出竹林、柏树、柳树、风蚀树、枯树、灌丛和按区域变化的屋舍/军帐剪影。第一章的岩层、烧痕、残缺庙庭、井庭、粮辙与桥滩在 `map_details.gd`，第二章的林道、粮场、石隘、孤营、河岸与铁营地表在 `hanshui_layout.gd`。制作要求与十二关叙事依据见 [MAP-ART-DIRECTION.md](../docs/MAP-ART-DIRECTION.md)。`map_atmosphere.gd` 的有限水光与叶片在游玩时以 24 Hz 更新；正常镜头保持 1.15。
 
-静态草叶、路边碎石、树荫、屋基和河面已离线烘焙；树木、岩石、房屋共用一张 1920 × 1920 图集。运行时无需重画数千个细碎图形。图集裁掉透明边距并保留脚底锚点，碰撞与寻路仍使用原始地形。更改矢量地图绘制后，可用带图形渲染的 Godot 重建：
+十二个区域各有一张 1600 × 1100 的静态地表。树木、岩石、屋舍及军帐共用一张 47 帧、2048 × 1536 景物图集，替代旧的 33 帧、1920 × 1920 图集；脚底锚点保留。美术绘画与原有实体、交互和剧情坐标分离，树候选的原随机取样序列保持不变，视觉筛选只改变显示的植被。通路及旧存档格式沿用，仍须用下方的本地基线对照验证。修改可编辑源后，先以带图形渲染的 Godot 重建静态资源：
 
 ```powershell
 # 在仓库根目录运行。
@@ -166,6 +167,18 @@ godot --path godot --script res://tests/hanshui_layout_verify.gd -- --bake
 godot --headless --path godot --editor --import --quit
 godot --path godot --script res://tests/performance.gd -- --label=my-computer
 ```
+
+第一条为第一章地表和共享景物图集的烘焙，第二条为第二章地表与汉水场景物的烘焙；第三条导入更新后的贴图。不要只修补导出的 PNG。`.qa/` 是本机忽略目录，**基线不随 Git 提交**；在干净克隆中，准备下一次地图美术修改时，先在修改前运行下列第一、第二条，保留源状态与正常镜头截图；修改并重烘焙后再运行后两条作对照。基线文件已存在时脚本拒绝覆盖，若开始另一轮对比，应保留旧证据并另建独立本地工作目录。
+
+```powershell
+godot --headless --path godot --script res://tests/map_identity_verify.gd -- --write-baseline
+godot --path godot --script res://tests/map_identity_preview.gd -- --label=before
+# 完成可编辑源修改、双章重烘焙和导入后：
+godot --headless --path godot --script res://tests/map_identity_verify.gd
+godot --path godot --script res://tests/map_identity_preview.gd -- --label=after
+```
+
+`map_identity_verify.gd` 对照原坐标、物理形状、寻路网格、交互物、真实移动路径和贴图契约；它不能判断美术是否好看。`map_identity_preview.gd` 的十七张图需要人工逐张确认区域辨识、关键角色遮挡、任务提示与战斗预警。旧存档通行和性能、导出、线上画面仍需独立验收。
 
 性能检查使用 1280 × 720、关闭垂直同步的真实图形渲染，分别采样山道、荒村和北桥战斗。不会写入玩家存档；每台电脑应以自己的测试结果为准。Web 版将渲染倍率限制为最多 1.5，最长边最多 1920 像素，降低高分屏负担；窗口和全屏大小改变后保持鼠标位置对应。开发者可用 `?profile=1` 试玩，开战六秒后在浏览器控制台读取一次实际帧耗时报告，普通游玩不启用监测。
 

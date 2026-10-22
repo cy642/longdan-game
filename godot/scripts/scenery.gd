@@ -1,4 +1,5 @@
 extends Node2D
+const Styles=preload("res://scripts/scenery_styles.gd")
 ## Every static prop shares one atlas, retaining its original ground sort origin.
 static var baking=false
 static var atlas: Texture2D
@@ -8,9 +9,10 @@ var cached_sprite: Sprite2D
 
 static func frame_key(value: Dictionary) -> String:
 	if value.kind=="tree":
+		if value.has("species"): return str(value.species)+"_"+str(posmod(int(value.seed),4))
 		return "tree_"+str(posmod(int(value.seed),4) if value.variant<.32 else 4+posmod(int(value.seed),12))
 	if value.kind=="rock": return "rock_"+str(posmod(int(value.size),4))
-	return str(value.kind)+"_"+str(int(value.w))+"_"+str(int(value.h))
+	return str(value.get("style_id", "base"))+"_"+str(value.kind)+"_"+str(int(value.w))+"_"+str(int(value.h))
 
 func _ready() -> void:
 	if baking or data.kind=="oil": return
@@ -43,6 +45,8 @@ func _draw() -> void:
 		_: draw_building()
 
 func draw_tree() -> void:
+	if data.has("species"):
+		Styles.tree(self,str(data.species)); return
 	var s = data.size
 	var random = RandomNumberGenerator.new(); random.seed = int(data.seed)
 	oval(Vector2(18,7),s*.95,.28,Color(.08,.25,.21,.16))
@@ -83,6 +87,8 @@ func draw_rock() -> void:
 	draw_line(Vector2(r*.3,-r*.75),Vector2(r*.15,-2),Color("567769"),1,true)
 
 func draw_building() -> void:
+	if data.has("style_id"):
+		Styles.building(self); return
 	var w = float(data.w); var h = float(data.h)
 	oval(Vector2(18,h*.28),w*.67,.43,Color(.12,.25,.23,.17))
 	if data.kind == "tent":

@@ -4,6 +4,7 @@ const Scenery = preload("res://scripts/scenery.gd")
 const MapDetails = preload("res://scripts/map_details.gd")
 const MapAtmosphere = preload("res://scripts/map_atmosphere.gd")
 const HanshuiLayout = preload("res://scripts/hanshui_layout.gd")
+const Materials = preload("res://scripts/terrain_materials.gd")
 static var baking = false
 var world
 var definition: Dictionary
@@ -44,14 +45,21 @@ func build(data: Dictionary) -> void:
 		road_color=Color(CHANGBAN_PALETTES[world.stage][1])
 	if palette.has("ground"): ground_color=Color(palette.ground)
 	if palette.has("road"): road_color=Color(palette.road)
+	# Region materials are only paint; they never affect obstacle placement.
+	ground_color=Color(Materials.profile(world.stage).ground)
+	road_color=Color(Materials.profile(world.stage).road)
 	for h in data.huts:
-		var d = {"kind": h[4], "w":h[2], "h":h[3]}
+		var d = {"kind": h[4], "w":h[2], "h":h[3],"style_id":world.stage}
 		place_scenery(Vector2(h[0],h[1]),d)
 		add_rect(Rect2(h[0]-h[2]/2.0,h[1]-h[3]/2.0+15,h[2],h[3]-15))
 	for _i in range(int(layout.get("tree_attempts",170))):
 		var p = Vector2(random.randf_range(45,1555),random.randf_range(65,1040))
 		if road_distance(p) < 110 or near_interest(p,145) or in_arena(p,90) or MapDetails.near_clearing(p,definition,30) or HanshuiLayout.in_water(p,definition,45) or near_layout_solid(p,55) or (world.stage == "bridge" and p.y < 310): continue
 		var d = {"kind":"tree", "size":random.randf_range(25,44),"variant":random.randf(),"seed":random.randi()}
+		# Consume the original draws before choosing the visible planting. This
+		# preserves every existing rock collider and saved traversable position.
+		if not Materials.keep_tree(world.stage,p,int(d.seed)): continue
+		d["species"]=Materials.profile(world.stage).tree
 		trees.append({"pos":p,"size":d.size}); place_scenery(p,d)
 	for _i in range(int(layout.get("rock_attempts",26))):
 		var p = Vector2(random.randf_range(85,1515),random.randf_range(90,1010))
@@ -124,7 +132,9 @@ func place_scenery(p: Vector2, data: Dictionary):
 	var item = Scenery.new(); item.position = p; item.data = data; world.actors.add_child(item)
 	# Keep the shared atlas and original colliders; chapter lighting is a vertex
 	# tint, not an extra full-screen pass or a second texture for each prop.
-	if str(world.stage).begins_with("hs_"):
+	if data.has("species") or data.has("style_id"):
+		item.modulate=Color.WHITE
+	elif str(world.stage).begins_with("hs_"):
 		item.modulate=Color("b4cdd0") if data.kind=="tree" else Color("c6d4d6")
 	elif data.kind=="tree":
 		item.modulate=Color("d8bf94") if world.stage in ["mountain","fork"] else Color("c5b59d")
@@ -219,69 +229,12 @@ func _draw() -> void:
 		if world.stage=="bridge" and not world.state.flags.supplies: draw_blockade()
 		if is_instance_valid(gate_body): draw_closed_camp_gate()
 		return
-	draw_rect(Rect2(0,0,1600,1100),ground_color)
-	for pool in pools:
-		# Broad irregular patches read as soil/moss, rather than a uniform carpet
-		# of equally spaced V-shaped blades. All of this is baked offline.
-		for band in range(3):
-			var points=PackedVector2Array()
-			for vertex in range(18):
-				var angle=vertex*TAU/18.0
-				var radius=pool.r*(1.0-band*.13)*(1.0+sin(vertex*2.3+pool.pos.x*.03)*.16)
-				points.append(pool.pos+Vector2(cos(angle)*radius,sin(angle)*radius*.58))
-			var color=ground_color.lightened(.24) if pool.light>.54 else ground_color.darkened(.35)
-			color.a=.035
-			draw_colored_polygon(points,color)
+	Materials.ground(self,world.stage,grain,pools)
+	Materials.roads(self,world.stage,definition)
 	for tree in trees:
-		draw_set_transform(tree.pos,0,Vector2(1,.5))
-		draw_circle(Vector2.ZERO,tree.size*1.5,Color(.13,.31,.22,.07))
+		draw_set_transform(tree.pos+Vector2(10,6),0,Vector2(1,.38))
+		draw_circle(Vector2.ZERO,tree.size*.84,Color(.16,.22,.17,.10))
 	draw_set_transform(Vector2.ZERO)
-	for road in definition.roads:
-		var points = PackedVector2Array()
-		for p in road: points.append(Vector2(p[0],p[1]))
-		stroke(points,Color(ground_color.darkened(.45),.11),115)
-		stroke(points,Color(road_color.darkened(.40),.19),103)
-		stroke(points,road_color.darkened(.09),95)
-		stroke(points,road_color,86); stroke(points,Color(road_color.lightened(.22),.18),58)
-		stroke(points,Color(road_color.lightened(.32),.07),32)
-		for offset in [-17,17]:
-			var rut = PackedVector2Array()
-			for p in points: rut.append(p+Vector2(offset,4))
-			draw_polyline(rut,Color(road_color.darkened(.48),.22),2,true)
-	for g in grain:
-		var p = g.pos
-		if world.stage == "bridge" and p.y<310: continue
-		if g.distance<43:
-			draw_set_transform(p,0,Vector2(1,.46))
-			draw_circle(Vector2.ZERO,g.size*.3,Color(.42,.38,.26,.16))
-			draw_circle(Vector2(-.4,-.6),g.size*.18,Color(.88,.83,.65,.25))
-			draw_set_transform(Vector2.ZERO)
-			if g.light>.88: draw_line(p,p+Vector2(g.size*2,1),Color(.47,.41,.26,.13),1,true)
-		else:
-			var cluster=sin(p.x*.018+sin(p.y*.014)*2.0)*cos(p.y*.024+p.x*.004)
-			if g.light < .25+cluster*.22: continue
-			var c = Color(ground_color.darkened(.31),.46) if g.light>.5 else Color(ground_color.lightened(.27),.48)
-			if g.light>.8:
-				draw_set_transform(p,0,Vector2(1,.4)); draw_circle(Vector2.ZERO,g.size*.8,Color(ground_color.darkened(.4),.12)); draw_set_transform(Vector2.ZERO)
-			var lean=sin(p.x*.13)*2.0
-			draw_polyline(PackedVector2Array([p+Vector2(-2+lean,-g.size*.55),p,p+Vector2(2+lean,-g.size)]),c,1,true)
-			if g.flower: draw_line(p+Vector2(-1,-g.size),p+Vector2(2,-g.size-1),Color(ground_color.lightened(.45),.7),1.2,true)
-	for bank in banks:
-		draw_set_transform(bank.pos,0,Vector2(1,.48))
-		draw_circle(Vector2.ZERO,bank.r,Color(ground_color.darkened(.35),.24))
-		draw_circle(Vector2(-1,-1),bank.r*.76,Color(ground_color.lightened(.16),.42))
-		draw_set_transform(Vector2.ZERO)
-		if bank.color>.4:
-			for i in range(3): draw_line(bank.pos+Vector2(i*3-3,1),bank.pos+Vector2(i*3-4,-bank.r*(.7+i*.16)),Color(ground_color.darkened(.12),.58),1.3,true)
-	for tree in trees:
-		for i in range(4):
-			draw_set_transform(tree.pos+Vector2(12+i*4,8+i*2),0,Vector2(1,.43))
-			draw_circle(Vector2.ZERO,tree.size*(1.15-i*.1),Color(.09,.23,.18,.024))
-	draw_set_transform(Vector2.ZERO)
-	for tree in trees:
-		for i in range(11):
-			var angle=i*2.4+tree.pos.x*.2; var p=tree.pos+Vector2(cos(angle)*tree.size*.75,sin(angle)*tree.size*.25)
-			draw_colored_polygon(PackedVector2Array([p+Vector2(-3,0),p+Vector2(0,-2),p+Vector2(4,1),p+Vector2(0,2)]),Color(.72,.65,.35,.25) if i%3==0 else Color(.48,.6,.31,.23))
 	for h in definition.huts:
 		# Weathered foundations and moss connect structures to the ground.
 		for i in range(4): draw_rect(Rect2(h[0]-h[2]/2.0-7-i*3,h[1]-h[3]/2.0-5-i*2,h[2]+14+i*6,h[3]+10+i*4),Color(.17,.29,.21,.022))

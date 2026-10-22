@@ -58,8 +58,10 @@ func _draw() -> void:
 			if a.t >= d.windup and not second_bolt: continue
 			var progress = clampf(a.t/d.windup,0,1)
 			var locked = a.t>=d.windup*d.get("lock_fraction",.45)
-			var c = Color(.74,.25,.22,.12+progress*.12)
-			var edge = Color(1,.59,.4,.45+progress*.35)
+			var c = Color(.74,.21,.18,.16+progress*.12)
+			# Burnt-red edges retain contrast on both warm grain roads and grey
+			# rock. Pale orange disappeared into the new ochre freight surface.
+			var edge = Color(.86,.29,.18,.72+progress*.25)
 			var p = enemy.position; var r = d.range+16
 			if enemy.is_ranged():
 				p+=Vector2(0,-8)

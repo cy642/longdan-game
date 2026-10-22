@@ -32,17 +32,20 @@ func run() -> void:
 		print("BAKED_GROUND ",id," 1600x1100")
 	world.queue_free(); await process_frame
 	var items=[]
-	for i in range(16): items.append({"key":"tree_"+str(i),"data":{"kind":"tree","size":40,"seed":718+i*53,"variant":.1 if i<4 else .7}})
+	for species in ["weathered","bare","cypress","willow","bamboo","scrub"]:
+		for i in range(4): items.append({"key":species+"_"+str(i),"data":{"kind":"tree","size":40,"seed":i,"variant":.7,"species":species}})
 	for i in range(4): items.append({"key":"rock_"+str(i),"data":{"kind":"rock","size":22+i*.2}})
 	var definitions=JSON.parse_string(FileAccess.get_file_as_string("res://data/chapter1.json")).StageDefinition
+	definitions.merge(JSON.parse_string(FileAccess.get_file_as_string("res://data/chapter2.json")).StageDefinition)
 	var seen={}
-	for definition in definitions.values():
+	for region in definitions:
+		var definition=definitions[region]
 		for hut in definition.huts:
-			var data={"kind":hut[4],"w":hut[2],"h":hut[3]}; var key=Scenery.frame_key(data)
+			var data={"kind":hut[4],"w":hut[2],"h":hut[3],"style_id":region}; var key=Scenery.frame_key(data)
 			if not seen.has(key): items.append({"key":key,"data":data}); seen[key]=true
-	var cell=Vector2i(320,320); var columns=6; var rows=int(ceil(items.size()/float(columns)))
+	var cell=Vector2i(256,256); var columns=8; var rows=int(ceil(items.size()/float(columns)))
 	viewport.size=Vector2i(cell.x*columns,cell.y*rows)
-	var manifest={}; var anchor=Vector2(145,200)
+	var manifest={}; var anchor=Vector2(128,152)
 	for i in range(items.size()):
 		var p=Vector2(i%columns*cell.x,int(i/columns)*cell.y); var item=Scenery.new(); item.data=items[i].data
 		item.position=p+anchor; viewport.add_child(item)
@@ -53,6 +56,8 @@ func run() -> void:
 	for key in manifest:
 		var frame=manifest[key]; var rect=Rect2i(frame.region[0],frame.region[1],frame.region[2],frame.region[3])
 		var used=atlas.get_region(rect).get_used_rect()
+		if used.position.x<=0 or used.position.y<=0 or used.end.x>=cell.x or used.end.y>=cell.y:
+			push_error("Scenery atlas clipping: "+key); quit(1); return
 		if used.size.x>0 and used.size.y>0:
 			frame.region=[rect.position.x+used.position.x,rect.position.y+used.position.y,used.size.x,used.size.y]
 			frame.anchor=[anchor.x-used.position.x,anchor.y-used.position.y]

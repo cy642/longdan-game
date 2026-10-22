@@ -122,6 +122,7 @@ func _draw() -> void:
 	_war_ground()
 	for surface in details.get("surfaces", []): _surface(surface)
 	_worn_paths(details)
+	_story_ground()
 	_march_tracks()
 	for step in details.get("steps", []): _stairs(step)
 	match stage:
@@ -149,14 +150,16 @@ func _war_ground() -> void:
 	if stage in ["village","house","fork"]:
 		for hut in definition.huts:
 			var center=Vector2(hut[0],hut[1]+hut[3]*.52)
-			for band in range(4):
+			for band in range(2):
 				var edge=PackedVector2Array()
 				for vertex in range(20):
 					var angle=vertex*TAU/20
 					var radius=1.0+sin(vertex*2.4+center.x)*.12
 					edge.append(center+Vector2(cos(angle)*(hut[2]*.65+29-band*6),sin(angle)*(27-band*3))*radius)
-				draw_colored_polygon(edge,Color(.27,.23,.19,.055))
-			for i in range(23):
+				draw_colored_polygon(edge,Color(.27,.23,.19,.034))
+			var fragments = 10 if hut[4] == "ruin" else 4
+			if stage == "fork": fragments = 2
+			for i in range(fragments):
 				var p=center+Vector2(random.randf_range(-hut[2]*.68,hut[2]*.68),random.randf_range(-7,37))
 				if i%3==0:
 					draw_set_transform(p,random.randf_range(-.8,.8))
@@ -192,71 +195,172 @@ func _war_ground() -> void:
 				draw_set_transform(Vector2.ZERO)
 
 func _march_tracks() -> void:
-	if stage not in ["mountain","village","house","fork","bridge"]: return
+	if stage not in ["mountain","village","house","bridge"] or definition.roads.is_empty(): return
 	var random=RandomNumberGenerator.new(); random.seed=int(definition.seed)+752
-	for road in definition.roads:
-		for i in range(1,road.size()):
-			var a=Vector2(road[i-1][0],road[i-1][1]); var b=Vector2(road[i][0],road[i][1])
-			var forward=(b-a).normalized(); var side=forward.orthogonal()
-			var count=int(a.distance_to(b)/19)
-			for step in range(1,count):
-				if step%7 in [0,1]: continue
-				var p=a.lerp(b,float(step)/count)+side*(7 if step%2 else -7)
-				draw_set_transform(p,forward.angle())
-				# Small heel and sole impressions, not dotted route instructions.
-				draw_rect(Rect2(-3,-1.5,4,3),Color(.35,.28,.20,.12))
-				draw_rect(Rect2(2,-1.4,2,2.8),Color(.35,.28,.20,.10))
-				draw_set_transform(Vector2.ZERO)
-				if stage=="fork" and step%3==0:
-					var straw=p+side*random.randf_range(31,46)
-					draw_line(straw,straw+Vector2(9,-4),Color(.84,.71,.43,.45),1,true)
-					draw_line(straw+Vector2(3,0),straw+Vector2(6,-6),Color(.55,.44,.25,.3),1,true)
+	var road: Array = definition.roads[0]
+	for i in range(1,road.size()):
+		if stage == "village" and i > 3 or stage == "bridge" and i > 4: break
+		var a=Vector2(road[i-1][0],road[i-1][1]); var b=Vector2(road[i][0],road[i][1])
+		var forward=(b-a).normalized(); var side=forward.orthogonal()
+		var count=maxi(1,int(a.distance_to(b)/32))
+		for step in range(1,count):
+			if step%4 == 0 or random.randf() < .42: continue
+			var p=a.lerp(b,float(step)/count)+side*((7 if step%2 else -7)+random.randf_range(-4,4))
+			draw_set_transform(p,forward.angle())
+			draw_rect(Rect2(-3,-1.5,4,3),Color(.35,.28,.20,.13))
+			draw_rect(Rect2(2,-1.4,2,2.8),Color(.35,.28,.20,.10))
+			draw_set_transform(Vector2.ZERO)
 
 func _surface(surface: Dictionary) -> void:
 	var points = _points(surface.polygon)
-	var tone = {"stone":Color("a6a18d"),"flagstone":Color("9b9b8d"),"cobbles":Color("b0a58d"),"earth":Color("af9a74"),"gravel":Color("b5a580")}.get(surface.kind,Color("b2a475"))
-	var closed = points.duplicate(); closed.append(points[0])
-	draw_polyline(closed,Color(.25,.36,.26,.15),14,true)
+	if points.size() < 3: return
+	if stage == "temple" and surface.kind == "flagstone":
+		_temple_court_surface()
+		return
+	var colors = {
+		"mountain":{"gravel":"aaa186","stone":"a29f87"},
+		"village":{"earth":"a59579","cobbles":"aaa18b"},
+		"temple":{"flagstone":"989b8e","stone":"969d8c"},
+		"house":{"cobbles":"aaa38d","earth":"a69a7f"},
+		"fork":{"earth":"a99b79","gravel":"aaa083"},
+		"bridge":{"flagstone":"a4a68f","gravel":"a9a48b"}
+	}
+	var tone = Color(colors.get(stage,{}).get(surface.kind,"aaa18a"))
 	draw_colored_polygon(points,tone)
-	draw_polyline(closed,tone.lightened(.1),2,true)
 	var bounds = Rect2(points[0],Vector2.ZERO)
 	for p in points: bounds = bounds.expand(p)
-	var paving = surface.kind in ["stone","flagstone","cobbles"]
-	var tile_size = Vector2(46,29) if surface.kind == "flagstone" else Vector2(31,21)
-	if paving:
-		for row in range(int(bounds.position.y/tile_size.y)-1,int(bounds.end.y/tile_size.y)+1):
-			for column in range(int(bounds.position.x/tile_size.x)-1,int(bounds.end.x/tile_size.x)+1):
-				var p = Vector2(column*tile_size.x+(row%2)*tile_size.x*.5,row*tile_size.y)
-				var size = tile_size-Vector2(4,4)
-				if not _inside_tile(p,size,points): continue
-				var variation = posmod(column*17+row*31,11)
-				var color = tone.lightened(.015+variation*.008) if variation%3 else tone.darkened(.035)
-				var bevel = PackedVector2Array([p+Vector2(3,0),p+Vector2(size.x-2,0),p+Vector2(size.x,3),p+Vector2(size.x-1,size.y-2),p+Vector2(3,size.y),p+Vector2(0,size.y-3)])
-				draw_colored_polygon(bevel,color)
-				draw_line(p+Vector2(4,1),p+Vector2(size.x-4,1),Color(.83,.84,.68,.24),1,true)
-				draw_line(p+Vector2(3,size.y),p+Vector2(size.x-3,size.y),Color(.26,.38,.29,.15),1,true)
-				if variation == 4 or variation == 9:
-					draw_polyline(PackedVector2Array([p+Vector2(size.x*.4,1),p+Vector2(size.x*.51,size.y*.45),p+Vector2(size.x*.37,size.y-2)]),Color(.31,.40,.32,.26),1,true)
-				if variation == 6:
-					draw_line(p+Vector2(2,3),p+Vector2(2,size.y-3),Color(.32,.48,.33,.4),2,true)
+	var random = RandomNumberGenerator.new()
+	random.seed = int(definition.seed)*101 + int(bounds.position.x)*7 + int(bounds.position.y)
+	if surface.kind in ["flagstone","cobbles"]:
+		var size = Vector2(69,42) if surface.kind == "flagstone" else Vector2(38,27)
+		for row in range(int(bounds.position.y/size.y)-1,int(bounds.end.y/size.y)+1):
+			for column in range(int(bounds.position.x/size.x)-1,int(bounds.end.x/size.x)+1):
+				var p = Vector2(column*size.x+(row%2)*size.x*.46,row*size.y)
+				var hash_value = posmod(column*43+row*67+int(definition.seed),17)
+				if hash_value in [1,5,12] or not _inside_tile(p+Vector2(3,3),size-Vector2(6,6),points): continue
+				var top = 3+hash_value%4
+				var stone = PackedVector2Array([p+Vector2(top,3),p+Vector2(size.x-6,2+hash_value%3),p+Vector2(size.x-3,7),p+Vector2(size.x-5,size.y-6),p+Vector2(8,size.y-4),p+Vector2(3,size.y-8)])
+				var fill = tone.lightened(.018+float(hash_value%4)*.014) if hash_value%4 else tone.darkened(.038)
+				draw_colored_polygon(stone,fill)
+				if hash_value%3 == 0: draw_line(stone[0]+Vector2(5,3),stone[1]-Vector2(6,-3),Color(fill.lightened(.18),.27),1,true)
+				if hash_value in [4,9]: draw_polyline(PackedVector2Array([p+Vector2(12,5),p+Vector2(23,17),p+Vector2(19,24)]),Color(tone.darkened(.23),.20),1,true)
+	elif surface.kind == "stone":
+		for i in range(29):
+			var at = Vector2(random.randf_range(bounds.position.x,bounds.end.x),random.randf_range(bounds.position.y,bounds.end.y))
+			if not Geometry2D.is_point_in_polygon(at,points): continue
+			draw_line(at,at+Vector2(random.randf_range(13,35),-random.randf_range(2,8)),Color(tone.darkened(.23),.27),1.4,true)
+			draw_line(at+Vector2(2,-2),at+Vector2(17,-5),Color(tone.lightened(.20),.32),1,true)
 	else:
-		for y in range(int(bounds.position.y),int(bounds.end.y),13):
-			for x in range(int(bounds.position.x),int(bounds.end.x),19):
-				var p = Vector2(x+posmod(y*13+x,13),y+posmod(x*17+y,8))
-				if not Geometry2D.is_point_in_polygon(p,points): continue
-				var hash_value = posmod(x*31+y*17,23)
-				if hash_value < 11:
-					draw_line(p,p+Vector2(4+hash_value*.6,-1),tone.darkened(.12)*Color(1,1,1,.45),1,true)
-				else:
-					_poly([[p.x-2,p.y],[p.x,p.y-2],[p.x+4,p.y],[p.x+1,p.y+1]],tone.lightened(.10))
-	# Moss and chipped joints around the perimeter visually seat the plaza in grass.
+		for i in range(65):
+			var at = Vector2(random.randf_range(bounds.position.x,bounds.end.x),random.randf_range(bounds.position.y,bounds.end.y))
+			if not Geometry2D.is_point_in_polygon(at,points): continue
+			var radius = random.randf_range(3,10)
+			_oval(at,radius,.46,Color(tone.darkened(.14) if i%3 else tone.lightened(.17),.13))
+			if i%5 == 0: draw_line(at-Vector2(5,1),at+Vector2(8,-2),Color(tone.darkened(.24),.19),1,true)
+	# Uneven worn margins keep these walkable surfaces from reading as cut-out mats.
 	for i in range(points.size()):
 		var a = points[i]; var b = points[(i+1)%points.size()]
-		var count = maxi(1,int(a.distance_to(b)/23))
+		var count = maxi(1,int(a.distance_to(b)/18))
 		for n in range(count):
-			var p = a.lerp(b,(n+.35)/count)
-			var tangent = (b-a).normalized()
-			draw_line(p-tangent*5,p+tangent*4,Color(.35,.47,.31,.43),2,true)
+			var p = a.lerp(b,(n+.3)/count)
+			if n%3 == 0: _oval(p+Vector2(random.randf_range(-4,4),random.randf_range(-3,3)),random.randf_range(5,13),.42,Color(tone,.26))
+			if n%4 == 1: draw_line(p-Vector2(4,0),p+Vector2(6,-1),Color(tone.darkened(.25),.16),1,true)
+
+func _temple_court_surface() -> void:
+	# This is paint only. The original surface polygon in map_details.json still
+	# controls tree exclusion and the existing arena/landmark collision.
+	var visual_points = _points([
+		[805,315],[998,315],[1000,291],[1142,302],[1144,343],[1190,345],
+		[1199,489],[1171,495],[1174,587],[1120,593],[1117,650],
+		[981,655],[981,682],[788,677],[783,638],[707,635],
+		[712,525],[681,519],[684,436],[733,429],[737,355],[805,351]
+	])
+	draw_colored_polygon(visual_points,Color("a0a292",.39))
+	# Chipped foundations imply a former courtyard without outlining a fresh
+	# barrier or paving every step of the combat floor.
+	for seam in [
+		PackedVector2Array([Vector2(807,321),Vector2(965,320)]),
+		PackedVector2Array([Vector2(1148,350),Vector2(1187,354),Vector2(1191,430)]),
+		PackedVector2Array([Vector2(1180,543),Vector2(1176,582),Vector2(1122,599)]),
+		PackedVector2Array([Vector2(983,673),Vector2(847,669),Vector2(790,643)]),
+		PackedVector2Array([Vector2(715,603),Vector2(721,542)])
+	]: draw_polyline(seam,Color(.54,.59,.50,.26),2,true)
+	for intrusion in [
+		[[684,436],[764,436],[746,463],[706,479]],
+		[[713,609],[792,632],[827,675],[782,673],[707,638]],
+		[[1116,650],[1175,583],[1194,527],[1184,619],[1151,657]]
+	]: draw_colored_polygon(_points(intrusion),Color("858b7b",.30))
+	var fragments = [
+		[853,349,45,23,-.05],[908,354,58,26,.04],[1052,371,55,27,-.03],
+		[1163,397,25,44,.02],[1170,454,27,42,-.06],[1148,552,39,23,.05],
+		[1081,622,49,25,-.04],[1003,635,43,21,.04],[855,636,56,24,-.06],
+		[756,565,28,38,.05],[752,459,27,45,-.04],[817,391,32,22,.07]
+	]
+	for fragment in fragments:
+		var at = Vector2(fragment[0],fragment[1])
+		var size = Vector2(fragment[2],fragment[3])
+		draw_set_transform(at,fragment[4])
+		draw_rect(Rect2(Vector2(-size.x*.5,-size.y*.5),size),Color("adb0a0",.19))
+		draw_line(Vector2(-size.x*.43,-size.y*.40),Vector2(size.x*.31,-size.y*.42),Color(.80,.82,.70,.18),1,true)
+		draw_set_transform(Vector2.ZERO)
+
+func _story_ground() -> void:
+	match stage:
+		"mountain":
+			for seam in [
+				PackedVector2Array([Vector2(403,291),Vector2(460,306),Vector2(501,294),Vector2(560,315)]),
+				PackedVector2Array([Vector2(876,145),Vector2(933,159),Vector2(981,146)]),
+				PackedVector2Array([Vector2(601,739),Vector2(648,724),Vector2(690,743)])
+			]:
+				draw_polyline(seam,Color(.30,.31,.26,.24),2,true)
+				var rim = PackedVector2Array()
+				for point in seam: rim.append(point+Vector2(0,-3))
+				draw_polyline(rim,Color(.75,.72,.54,.25),1.5,true)
+		"village":
+			_scorch(Vector2(251,326),1.0)
+			_scorch(Vector2(1196,526),.72)
+			# Flat drag marks lead from the main lane into the existing rescue yard.
+			for offset in [-7,7]:
+				draw_polyline(PackedVector2Array([Vector2(433,567+offset),Vector2(385,508+offset),Vector2(341,456+offset)]),Color(.35,.31,.26,.17),2.2,true)
+			for at in [Vector2(286,492),Vector2(310,500),Vector2(367,473)]:
+				draw_line(at-Vector2(7,2),at+Vector2(10,-2),Color(.38,.32,.25,.24),2,true)
+		"temple":
+			for crack in [
+				PackedVector2Array([Vector2(686,409),Vector2(742,425),Vector2(782,417),Vector2(819,444)]),
+				PackedVector2Array([Vector2(1150,414),Vector2(1120,449),Vector2(1104,486)]),
+				PackedVector2Array([Vector2(1180,613),Vector2(1145,593),Vector2(1118,604)])
+			]:
+				draw_polyline(crack,Color(.31,.38,.33,.21),2,true)
+				for index in range(1,crack.size()-1):
+					var at = crack[index]
+					draw_line(at,at+Vector2(9,11),Color(.37,.48,.37,.17),1.4,true)
+		"house":
+			# Water, folded cloth and a worn threshold stay flat and traversable.
+			_oval(Vector2(1126,532),66,.24,Color(.37,.43,.35,.12))
+			draw_polyline(PackedVector2Array([Vector2(1007,550),Vector2(1052,557),Vector2(1100,548),Vector2(1146,561)]),Color(.42,.38,.29,.23),2,true)
+			draw_polyline(PackedVector2Array([Vector2(1007,562),Vector2(1052,569),Vector2(1097,560),Vector2(1143,573)]),Color(.42,.38,.29,.13),1.5,true)
+			for at in [Vector2(1019,518),Vector2(1181,509),Vector2(1215,552)]:
+				_oval(at,8,.38,Color(.52,.48,.34,.27))
+				draw_arc(at,6,PI*.15,PI*1.55,12,Color(.75,.71,.54,.32),1,true)
+		"fork":
+			for at in [Vector2(1205,861),Vector2(1255,885),Vector2(1372,875)]:
+				draw_line(at,at+Vector2(16,-4),Color(.62,.50,.29,.36),1.5,true)
+				draw_line(at+Vector2(2,3),at+Vector2(10,-6),Color(.74,.61,.36,.26),1,true)
+		"bridge":
+			# Evacuation traffic has rubbed down the bank, without painting a barrier.
+			_poly([[558,682],[675,589],[799,555],[923,465],[1015,400],[1101,428],[962,543],[820,623],[671,713]],Color(.55,.52,.41,.10))
+			for at in [Vector2(770,604),Vector2(834,552),Vector2(1010,397),Vector2(1106,368)]:
+				_oval(at,24,.28,Color(.46,.47,.36,.18))
+				draw_line(at-Vector2(12,1),at+Vector2(17,-2),Color(.72,.68,.52,.22),1,true)
+			draw_polyline(PackedVector2Array([Vector2(1016,321),Vector2(1060,316),Vector2(1104,302)]),Color(.57,.53,.39,.28),2,true)
+
+func _scorch(center: Vector2, scale: float) -> void:
+	draw_set_transform(center,0,Vector2.ONE*scale)
+	_poly([[-61,10],[-46,-15],[-23,-25],[7,-18],[44,-27],[66,-7],[57,17],[22,29],[-19,23]],Color(.28,.25,.22,.12))
+	_poly([[-43,13],[-26,-10],[3,-5],[26,-17],[45,1],[19,17],[-14,18]],Color(.27,.24,.22,.10))
+	for splinter in [[[-48,19],[-28,11]],[[-18,21],[6,13]],[[15,-14],[46,-25]]]:
+		draw_line(Vector2(splinter[0][0],splinter[0][1]),Vector2(splinter[1][0],splinter[1][1]),Color(.27,.25,.21,.31),2,true)
+	draw_set_transform(Vector2.ZERO)
 
 func _inside_tile(p: Vector2, size: Vector2, polygon: PackedVector2Array) -> bool:
 	for corner in [p,p+Vector2(size.x,0),p+size,p+Vector2(0,size.y)]:
@@ -320,22 +424,17 @@ func _stairs(step: Dictionary) -> void:
 
 func _mountain_shelves() -> void:
 	var shelves = [
-		[[60,175],[117,143],[201,159],[258,198],[246,251],[175,284],[91,263],[54,223]],
-		[[362,312],[419,268],[502,278],[578,317],[564,371],[482,402],[399,378]],
-		[[837,116],[895,85],[969,100],[1017,144],[993,189],[912,211],[849,170]]
+		{"face":[[60,175],[117,143],[201,159],[258,198],[246,251],[175,284],[91,263],[54,223]],"rim":[[65,177],[118,148],[200,164],[252,201]],"seam":[[82,223],[134,203],[183,215],[226,229]]},
+		{"face":[[362,312],[419,268],[502,278],[578,317],[564,371],[482,402],[399,378]],"rim":[[366,313],[421,273],[501,284],[572,320]],"seam":[[390,350],[447,334],[513,345],[557,357]]},
+		{"face":[[837,116],[895,85],[969,100],[1017,144],[993,189],[912,211],[849,170]],"rim":[[840,118],[897,91],[966,105],[1010,146]],"seam":[[856,159],[920,147],[974,159],[997,171]]}
 	]
 	for shelf in shelves:
-		var polygon = _points(shelf)
-		draw_colored_polygon(polygon,Color(.54,.48,.36,.54))
-		var center = Vector2.ZERO
-		for p in polygon: center += p
-		center /= polygon.size()
-		for band in range(4):
-			var line = PackedVector2Array()
-			for p in polygon: line.append(center+(p-center)*(1-band*.18))
-			line.append(line[0]); draw_polyline(line,Color(.78,.69,.50,.30),2,true)
-		for offset in [-27,18]:
-			draw_polyline(PackedVector2Array([center+Vector2(-47,offset),center+Vector2(-9,offset-7),center+Vector2(7,offset+4),center+Vector2(48,offset-3)]),Color(.34,.30,.23,.30),2,true)
+		draw_colored_polygon(_points(shelf.face),Color(.48,.45,.35,.35))
+		draw_polyline(_points(shelf.rim),Color(.78,.72,.55,.33),3,true)
+		draw_polyline(_points(shelf.seam),Color(.28,.29,.25,.25),2,true)
+		for index in range(1,shelf.seam.size()-1):
+			var at = Vector2(shelf.seam[index][0],shelf.seam[index][1])
+			draw_line(at,at+Vector2(8,7),Color(.29,.30,.25,.18),1.5,true)
 
 func _camp_platform() -> void:
 	# Open front edge and broad steps point toward the existing interactive fire.
@@ -348,19 +447,22 @@ func _camp_platform() -> void:
 		draw_line(Vector2(x,224),Vector2(x+8,257),Color(.31,.43,.32,.35),4,true)
 
 func _temple_inlay() -> void:
-	var center = Vector2(960,491)
-	for radius in [102,85]:
-		var shape = PackedVector2Array()
-		for i in range(9): shape.append(center+Vector2.from_angle(i*TAU/8+PI/8)*Vector2(radius,radius*.65))
-		draw_polyline(shape,Color(.34,.47,.38,.24),3,true)
-		draw_polyline(shape,Color(.82,.82,.66,.23),1,true)
-	for side in [-1,1]:
-		draw_polyline(PackedVector2Array([center+Vector2(side*64,0),center+Vector2(side*23,-23),center+Vector2(0,0),center+Vector2(side*23,23),center+Vector2(side*64,0)]),Color(.71,.72,.53,.34),3,true)
-	# Four old plinth outlines are engraved into the floor, entirely traversable.
-	for x in [755,1172]:
-		for y in [352,619]:
-			draw_rect(Rect2(x-21,y-12,42,24),Color(.34,.44,.34,.15),false,2)
-			draw_line(Vector2(x-18,y-7),Vector2(x+15,y-7),Color(.83,.82,.64,.3),2,true)
+	# Only broken remnants of the old ceremonial axis survive in the arena.
+	for trace in [
+		PackedVector2Array([Vector2(978,366),Vector2(980,405),Vector2(974,432)]),
+		PackedVector2Array([Vector2(967,463),Vector2(963,487)]),
+		PackedVector2Array([Vector2(960,544),Vector2(952,578),Vector2(948,604)])
+	]:
+		draw_polyline(trace,Color(.33,.44,.37,.18),3,true)
+		var highlight = PackedVector2Array()
+		for at in trace: highlight.append(at+Vector2(3,-2))
+		draw_polyline(highlight,Color(.78,.79,.63,.18),1,true)
+	for remnant in [
+		PackedVector2Array([Vector2(765,362),Vector2(793,359),Vector2(800,376)]),
+		PackedVector2Array([Vector2(1152,608),Vector2(1187,612),Vector2(1193,598)]),
+		PackedVector2Array([Vector2(705,605),Vector2(715,626)])
+	]:
+		draw_polyline(remnant,Color(.35,.45,.36,.20),2,true)
 
 func _well_court() -> void:
 	var p = Vector2(1070,472)
@@ -372,12 +474,16 @@ func _well_court() -> void:
 	draw_polyline(PackedVector2Array([p+Vector2(38,17),p+Vector2(74,44),p+Vector2(116,48)]),Color(.66,.77,.64,.6),1,true)
 
 func _camp_tracks() -> void:
-	for offset in [-15,15]:
-		var points = PackedVector2Array([Vector2(1192,783+offset),Vector2(1251,814+offset),Vector2(1326,832+offset)])
-		draw_polyline(points,Color(.38,.32,.20,.22),3,true)
-		for i in range(8):
-			var p = Vector2(1210+i*14,794+offset+i*4)
-			draw_line(p-Vector2(2,4),p+Vector2(2,4),Color(.42,.35,.22,.18),1,true)
+	var supply_route = PackedVector2Array([Vector2(864,706),Vector2(990,720),Vector2(1115,751),Vector2(1225,788),Vector2(1310,815)])
+	for side in [-1,1]:
+		var rut = PackedVector2Array()
+		for index in range(supply_route.size()):
+			var tangent = (supply_route[mini(index+1,supply_route.size()-1)]-supply_route[maxi(0,index-1)]).normalized()
+			rut.append(supply_route[index]+tangent.orthogonal()*side*16)
+		draw_polyline(rut,Color(.39,.34,.23,.20),3,true)
+		draw_polyline(rut,Color(.75,.65,.43,.14),1,true)
+	for at in [Vector2(1192,796),Vector2(1257,820),Vector2(1321,839)]:
+		draw_line(at-Vector2(5,7),at+Vector2(6,8),Color(.42,.35,.23,.20),1.5,true)
 	_woven_mat(Vector2(1300,879),Vector2(52,25),Color("a99a67"))
 
 func _woven_mat(center: Vector2, size: Vector2, color: Color) -> void:
@@ -441,6 +547,9 @@ func _gateway() -> void:
 		draw_line(Vector2(x-2,-10),Vector2(x-2,-87),Color("8d9170"),4,true)
 		_stone_block(Vector2(x,-69),Vector2(26,9),Color("9ea184"))
 		draw_line(Vector2(x,-68),Vector2(x-side*24,-82),Color("69745a"),6,true)
+	if stage == "bridge":
+		_bridge_pavilion(half,tone)
+		return
 	if broken:
 		_poly([[-half-20,-82],[-half-18,-94],[-5,-92],[-14,-83]],tone.darkened(.18))
 		_poly([[20,-88],[half+16,-97],[half+25,-81],[26,-80]],tone)
@@ -457,6 +566,21 @@ func _gateway() -> void:
 		_stone_block(Vector2(0,-64),Vector2(38,18),Color("a6a581"))
 		draw_line(Vector2(-12,-75),Vector2(11,-75),Color("536f5b"),2,true)
 		draw_line(Vector2(-6,-70),Vector2(7,-70),Color("536f5b"),2,true)
+
+func _bridge_pavilion(half: float, tone: Color) -> void:
+	# The existing two gatepost colliders carry this wider bridge roof.
+	draw_line(Vector2(-half-10,-82),Vector2(half+10,-82),Color("526657"),9,true)
+	draw_line(Vector2(-half-14,-89),Vector2(half+14,-89),Color("a3ab89"),3,true)
+	_poly([[-half-31,-88],[-half-8,-115],[-64,-119],[-28,-132],[29,-132],[64,-119],[half+8,-115],[half+31,-88],[0,-99]],tone.darkened(.20))
+	_poly([[-half-25,-93],[-half-5,-113],[-63,-116],[-29,-128],[28,-128],[63,-116],[half+5,-113],[half+25,-93],[0,-103]],tone)
+	for x in [-half+9,-half*.5,0,half*.5,half-9]:
+		draw_line(Vector2(x,-101-11*(1-absf(x)/half)),Vector2(x*.88,-117-11*(1-absf(x)/half)),Color(tone.lightened(.21),.5),1.6,true)
+	draw_polyline(PackedVector2Array([Vector2(-half-27,-90),Vector2(-60,-98),Vector2(0,-105),Vector2(60,-98),Vector2(half+27,-90)]),Color("394f47"),4,true)
+	_stone_block(Vector2(0,-70),Vector2(54,22),Color("a6a58b"))
+	draw_line(Vector2(-17,-82),Vector2(17,-82),Color("5c745e"),2,true)
+	for x in [-half-10,half+10]:
+		draw_line(Vector2(x,-86),Vector2(x,-37),Color("7a7559"),1.3,true)
+		_oval(Vector2(x,-33),4,.75,Color("c8ad73"))
 
 func _cairn() -> void:
 	_shadow(30)

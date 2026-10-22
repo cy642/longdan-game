@@ -209,7 +209,7 @@ func run() -> void:
 	var anchors_valid=true
 	for frame in Scenery.manifest.values():
 		if not Rect2(Vector2.ZERO,Vector2(frame.region[2],frame.region[3])).has_point(Vector2(frame.anchor[0],frame.anchor[1])): anchors_valid=false
-	expect(Scenery.manifest.size()==33 and anchors_valid,"all trimmed atlas frames retain their ground anchor")
+	expect(Scenery.manifest.size()==47 and anchors_valid,"47 region-specific atlas frames retain their ground anchor")
 
 	print("GODOT_VERIFY ",checks," checks; ",failures.size()," failures")
 	world.queue_free(); await process_frame; await process_frame

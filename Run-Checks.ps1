@@ -47,7 +47,7 @@ try {
     New-Item -ItemType Directory -Path $env:APPDATA,$env:LOCALAPPDATA,$env:TEMP -Force | Out-Null
     $godotProject = Join-Path $projectRoot 'godot'
     Invoke-GodotCheck -Arguments @('--headless','--path',$godotProject,'--editor','--import','--quit') -LogName 'import.log'
-    foreach ($suite in @('verify','hero_scale_verify','audio_verify','map_verify','map_view_verify','atmosphere_verify','theme_atmosphere_verify','enemy_animation_verify','hanshui_layout_verify','hanshui_world_layout_verify','hanshui_enemy_verify','hanshui_visual_verify','hanshui_flow_verify','combat_loop_verify','battle_art_verify','hanshui_pacing_verify','chapter_progression_verify','first_minutes_verify','combat_clarity_verify','huangzhong_support_verify')) {
+    foreach ($suite in @('verify','hero_scale_verify','audio_verify','map_verify','map_view_verify','atmosphere_verify','theme_atmosphere_verify','enemy_animation_verify','hanshui_layout_verify','hanshui_world_layout_verify','hanshui_enemy_verify','hanshui_visual_verify','hanshui_flow_verify','combat_loop_verify','battle_art_verify','hanshui_pacing_verify','chapter_progression_verify','first_minutes_verify','combat_clarity_verify','huangzhong_support_verify','scenery_occlusion_verify')) {
         Invoke-GodotCheck -Arguments @('--headless','--path',$godotProject,'--script',"res://tests/$suite.gd") -LogName "$suite.log"
     }
 } finally {
