@@ -10,6 +10,11 @@ const BOSS_MOVES = {
 		[{"name":"长枪横扫","windup":1.02,"active":.18,"recovery":1.4,"range":198.0,"arc":2.45,"damage":29}],
 		[{"name":"回身枪","windup":.9,"active":.17,"recovery":.25,"range":198.0,"arc":2.45,"damage":25}, {"name":"回马反刺","windup":.45,"active":.13,"recovery":1.4,"range":228.0,"arc":.45,"damage":30}],
 		[{"name":"迟势追枪","windup":1.18,"active":.15,"recovery":.27,"range":198.0,"arc":.45,"damage":25,"lunge":90}, {"name":"追枪 · 二","windup":.5,"active":.14,"recovery":.24,"range":208.0,"arc":.5,"damage":26}, {"name":"追枪 · 断势","windup":.68,"active":.18,"recovery":1.5,"range":230.0,"arc":.7,"damage":34}]],
+	"vanguard": [
+		[{"name":"长戟点阵","windup":.78,"active":.15,"recovery":1.10,"range":195.0,"arc":.30,"damage":25,"lock_fraction":.38,"style":"vanguard_thrust"}],
+		[{"name":"压阵冲锋","windup":1.00,"active":.30,"recovery":1.25,"range":110.0,"arc":.38,"damage":29,"lunge":150.0,"lock_fraction":.30,"style":"vanguard_charge"}],
+		[{"name":"迟势横扫","windup":1.15,"active":.20,"recovery":1.35,"range":200.0,"arc":1.55,"damage":31,"lock_fraction":.38,"style":"vanguard_sweep"}],
+		[{"name":"破阵回戟 · 突进","windup":.80,"active":.25,"recovery":.18,"range":110.0,"arc":.38,"damage":23,"lunge":132.0,"lock_fraction":.30,"style":"vanguard_charge"}, {"name":"破阵回戟 · 迟势回扫","windup":.70,"active":.20,"recovery":1.35,"range":205.0,"arc":1.60,"damage":30,"lock_fraction":.25,"style":"vanguard_return"}]],
 	"dujun": [
 		[{"name":"钩锁探身","windup":.95,"active":.15,"recovery":1.10,"range":192.0,"arc":.28,"damage":23,"pull":72.0,"style":"hook"}],
 		[{"name":"双轮重斧 · 起斩","windup":.75,"active":.16,"recovery":.12,"range":162.0,"arc":1.24,"damage":24,"style":"axe"}, {"name":"双轮重斧 · 迟势回斩","windup":.45,"active":.17,"recovery":1.30,"range":180.0,"arc":1.60,"damage":28,"style":"axe_return"}],
@@ -39,12 +44,12 @@ var poise_break_left = 0.0
 
 func configure(unit_kind: String, boss: String = "") -> void:
 	kind = unit_kind; boss_id = boss
-	max_hp = float({"sword":72,"spear":91,"archer":58,"shield":115,"elite":285,"scout":75,"crossbow":65,"ironshield":140,"boss":1450 if boss == "dujun" else 1350 if boss == "zhanghe" else 830}.get(kind,72))
+	max_hp = float({"sword":72,"spear":91,"archer":58,"shield":115,"elite":285,"scout":75,"crossbow":65,"ironshield":140,"boss":1450 if boss in ["dujun","vanguard"] else 1350 if boss == "zhanghe" else 830}.get(kind,72))
 	max_hp *= .84 if world.state.difficulty == "story" else 1
 	hp = max_hp; radius = 22 if kind == "boss" else 14
 	speed = 109 if kind == "boss" else 88 if is_ranged() else 118 if kind == "scout" else 87 if kind == "ironshield" else 104
-	stagger_max = 135 if boss == "dujun" else 125 if kind == "boss" else 90 if kind in ["elite","ironshield"] else 65
-	display_name = "夏侯恩" if boss == "xiahou" else "张郃" if boss == "zhanghe" else "铁面督军" if boss == "dujun" else "盾阵校尉" if kind == "elite" else "双刀斥候" if kind == "scout" else "汉水弩兵" if kind == "crossbow" else "铁甲盾兵" if kind == "ironshield" else ""
+	stagger_max = 140 if boss == "vanguard" else 135 if boss == "dujun" else 125 if kind == "boss" else 90 if kind in ["elite","ironshield"] else 65
+	display_name = "玄甲先锋" if boss == "vanguard" else "夏侯恩" if boss == "xiahou" else "张郃" if boss == "zhanghe" else "铁面督军" if boss == "dujun" else "盾阵校尉" if kind == "elite" else "双刀斥候" if kind == "scout" else "汉水弩兵" if kind == "crossbow" else "铁甲盾兵" if kind == "ironshield" else ""
 	cooldown = .6 + world.rng.randf() * .5
 
 func is_ranged() -> bool:
@@ -89,7 +94,7 @@ func start_action(target) -> void:
 	if kind == "boss":
 		if sequence.is_empty():
 			var pool = BOSS_MOVES[boss_id]
-			var count = 3 if boss_id in ["zhanghe","dujun"] and not phase2 else pool.size()
+			var count = 3 if boss_id in ["zhanghe","dujun","vanguard"] and not phase2 else pool.size()
 			sequence = pool[attack_count % count].duplicate(true); attack_count += 1
 		definition = sequence.pop_front()
 	elif kind == "scout":
@@ -131,6 +136,12 @@ func advance(dt: float) -> void:
 		world.fx.add("phase", position, 1.10, {"radius":112.0})
 		world.fx.floater(position,"铁面督军 · 断锁追斩",Color("f4c994"))
 		world.toast("铜环崩落！短冲后还有一记扫斧，等整套收完再反击。")
+		world.sound.play_cue("phase"); update_visual(); return
+	if boss_id == "vanguard" and not phase2 and hp <= max_hp * .5:
+		phase2 = true; phase_time = 1.20; action = {}; sequence = []; attack_count = 3; cooldown = .1
+		world.fx.add("phase", position, 1.20, {"radius":110.0})
+		world.fx.floater(position,"玄甲先锋 · 破阵回戟",Color("e8c6a0"))
+		world.toast("长戟压低！侧闪避开冲锋，迟势回扫收完再反击。")
 		world.sound.play_cue("phase"); update_visual(); return
 	var target = world.hero if kind == "boss" else world.nearest_friend(position, 560 if alerted else 410 if is_ranged() else 275,not is_ranged())
 	if world.rescue and group_id.begins_with("rescue"):
@@ -202,7 +213,7 @@ func advance_action(dt: float, target) -> void:
 							friend.knockback += (position-friend.position).normalized()*pull_distance*12
 	if a.t >= d.windup + d.active + d.recovery:
 		action = {}; cooldown = .01 if not sequence.is_empty() else .15 if kind == "boss" else .25
-		if not sequence.is_empty() and (kind == "scout" or boss_id == "dujun") and target and target.body_alive():
+		if not sequence.is_empty() and (kind == "scout" or boss_id in ["dujun","vanguard"]) and target and target.body_alive():
 			# Preserve short chains at 30/60/120 Hz without losing the time
 			# after a crossed boundary, or exposing a false counter window.
 			var overflow = a.t - d.windup - d.active - d.recovery

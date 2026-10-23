@@ -106,6 +106,9 @@ func _draw() -> void:
 				var key = info.get("key","")
 				var gold = key in ["sweep","thrust3"]
 				var c = Color(1,.69,.42,alpha) if enemy else Color(1,.86,.54,alpha) if gold else Color(.6,.95,1,alpha)
+				if enemy and str(info.get("style","")).begins_with("vanguard_"):
+					draw_vanguard_strike(p,direction,r,arc,t,alpha,str(info.style))
+					continue
 				if not enemy and info.get("empowered",false) and key in ["sweep","huilan"]:
 					# A hollow cyan/gold spear arc, not an opaque flash over enemy
 					# warnings. Five draw calls replace the old slash + rally ring.
@@ -149,6 +152,33 @@ func _draw() -> void:
 		var p = label.pos-Vector2(width/2,0)
 		draw_string_outline(font,p,label.text,HORIZONTAL_ALIGNMENT_LEFT,-1,15,3,Color(.08,.15,.15,alpha))
 		draw_string(font,p,label.text,HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color(label.color,alpha))
+
+func draw_vanguard_strike(p: Vector2,direction: float,radius: float,arc: float,t: float,alpha: float,style: String) -> void:
+	# Narrow steel edges and sparse red sparks identify the long halberd. The
+	# ground warning above still comes from the authoritative attack geometry.
+	var center=p+Vector2(0,-20)
+	var steel=Color(.86,.89,.79,alpha*.85)
+	var red=Color(.84,.39,.26,alpha*.65)
+	if style in ["vanguard_sweep","vanguard_return"]:
+		var sign=-1.0 if style=="vanguard_return" else 1.0
+		var head=direction+sign*lerpf(-arc,arc,clampf(t*1.6,0,1))
+		var tail=head-sign*minf(.65,arc)
+		draw_arc(center,radius*.82,minf(head,tail),maxf(head,tail),24,red,5 if not soft else 2,true)
+		draw_arc(center,radius*.89,minf(head,tail),maxf(head,tail),24,steel,2,true)
+		var ray=Vector2.from_angle(head)
+		draw_line(center+ray*radius*.75,center+ray*radius*.96,steel,2,true)
+	else:
+		var ray=Vector2.from_angle(direction)
+		var side=ray.orthogonal()
+		var end=center+ray*radius*(.58+.35*t)
+		draw_line(center+ray*25,end,red,6 if not soft else 2,true)
+		draw_line(center+ray*32,end,steel,2,true)
+		for sign in [-1,1]: draw_line(end-ray*17+side*sign*5,end,steel,1.4,true)
+		if style=="vanguard_charge":
+			# Local scuffs avoid painting a full charge through a collision wall.
+			for sign in [-1,1]:
+				var edge=p+side*sign*19
+				draw_line(edge-ray*(8+24*t),edge-ray*7,Color(.64,.58,.46,alpha*.4),3,true)
 
 func draw_enemy_status(enemy) -> void:
 	var p = enemy.position

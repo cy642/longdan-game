@@ -38,6 +38,55 @@ func input_key(key: Key) -> void:
 	event = InputEventKey.new(); event.keycode = key; event.pressed = false
 	world._input(event)
 
+func defeat_rescue_guards() -> void:
+	for enemy in world.enemies:
+		if enemy.body_alive() and enemy.group_id.begins_with("rescue"):
+			enemy.take_hit(10000,0,0,"player",0,true)
+
+func begin_rescue_check() -> void:
+	fresh_mountain(); world.choose_route("continue")
+	world.state.flags.healer=true; world.state.flags.temple=true; world.state.flags.sword=true
+	world.enter_stage("house",Vector2(1090,560),false); await settle()
+	for enemy in world.enemies:
+		if enemy.body_alive(): enemy.take_hit(10000,0,0,"player",0,true)
+	world.hero.position=at_object("adou"); world.interact(); world.choose_route("rescue")
+	expect(world.mode=="playing" and not world.rescue.is_empty() and world.rescue.wave==1,"actual well interaction starts the two-wave rescue")
+
+func rescue_finish_checks() -> void:
+	await begin_rescue_check()
+	world.advance_rescue(.2)
+	expect(not world.state.flags.mother and world.rescue.wave==1 and world.rescue_remaining()==3,"first live wave cannot be skipped by the faster rescue finish")
+	defeat_rescue_guards(); world.advance_rescue(1.49)
+	expect(world.rescue.wave==1 and not world.state.flags.mother,"first-wave pause never awards the rescue")
+	world.advance_rescue(.02)
+	expect(world.rescue.wave==2 and world.rescue_remaining()==3,"first-wave pause still produces the complete second wave")
+	defeat_rescue_guards(); world.advance_rescue(.6)
+	var progress=world.rescue.progress; var gap=world.rescue.gap
+	expect(progress<20 and not world.state.flags.mother,"fast clear retains a brief visible medical finish")
+	world.pause("pause"); world._physics_process(30)
+	expect(world.rescue.progress==progress and world.rescue.gap==gap and not world.state.flags.mother,"pause freezes the real rescue finish instead of awarding it")
+	world.resume(); world.advance_rescue(.59)
+	expect(not world.state.flags.mother,"rescue does not complete before the short finish delay")
+	world.advance_rescue(.02)
+	expect(world.mode=="dialog" and world.rescue.is_empty() and world.state.flags.mother and world.state.flags.house,"both actual waves plus the short finish rescue Mi Lady without waiting twenty seconds")
+	expect(world.state.checkpoint.encounter=="" and world.state.checkpoint.stage=="house","fast rescue writes the completed well checkpoint")
+	var history_count=world.state.history.size(); world.advance_rescue(30)
+	expect(world.state.history.size()==history_count,"completed rescue cannot award its history again")
+	# Failure is checked at the same final gap, not only at encounter start.
+	await begin_rescue_check()
+	defeat_rescue_guards(); world.advance_rescue(1.6)
+	defeat_rescue_guards(); world.advance_rescue(.6)
+	progress=world.rescue.progress; gap=world.rescue.gap
+	world.hero.invincible=0; world.hero.take_damage(10000,99101)
+	world._physics_process(30)
+	expect(world.mode=="defeat" and not world.state.flags.mother and world.rescue.progress==progress and world.rescue.gap==gap,"Zhao Yun's defeat cannot advance a pending rescue finish")
+	world.retry(); await settle()
+	expect(world.mode=="playing" and world.rescue.wave==1 and world.rescue_remaining()==3 and world.state.flags.healer and world.state.flags.adou,"retry after a late rescue failure keeps prior rescues and restarts both waves")
+	defeat_rescue_guards(); world.advance_rescue(1.6)
+	defeat_rescue_guards(); world.advance_rescue(.6)
+	world.rescue.healer.take_damage(10000); world.advance_rescue(1)
+	expect(world.mode=="defeat" and not world.state.flags.mother,"healer loss takes priority over elapsed final recovery time")
+
 func run() -> void:
 	world = Game.new(); world.state = MemoryCampaign.new(); world.test_mode = true
 	root.add_child(world); world.set_process(false); world.set_physics_process(false)
@@ -183,6 +232,7 @@ func run() -> void:
 	hero.consume_buffer(0)
 	expect(hero.qi == qi_before_buffer - 30, "a consumed buffer cannot charge again")
 
+	await rescue_finish_checks()
 	print("FIRST_MINUTES_VERIFY ", checks, " checks; ", failures.size(), " failures")
 	world.queue_free(); await process_frame
 	quit(0 if failures.is_empty() else 1)

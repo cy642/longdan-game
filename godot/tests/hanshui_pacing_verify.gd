@@ -92,12 +92,47 @@ func camp_objectives() -> void:
 	director.gate_state="PREPARE"; report=director.mission()
 	expect(report.title=="正面破围" and report.pos==Vector2(930,560),"allies lost remains a clear playable gate objective")
 
+func queued_retreat() -> void:
+	await gate_ready(true)
+	for group in ["gate_probe1","gate_probe2"]:
+		pump(1.3); kill_live(group); pump(.01)
+	expect(world.tactics.gate_state=="WITHDRAW" and not world.tactics.waiting.is_empty(),"second probe leaves an actual warned pursuit wave pending")
+
+func retreat_handoff() -> void:
+	await queued_retreat()
+	var director=world.tactics
+	# Stand in the warned arrival lane: spawn safety must not quietly burn
+	# the player's retreat/drum opportunity while no pursuer is present.
+	world.hero.position=Vector2(1320,460)
+	for tick in range(10): pump(1.0)
+	expect(not world.group_alive("gate_roster") and not director.waiting.is_empty(),"pursuers never appear on top of the player blocking their arrival")
+	expect(director.gate_state=="WITHDRAW" and is_zero_approx(director.retreat_time),"blocked pending wave does not consume withdrawal time or miss the gold window")
+	expect(world.state.tactics.get("roster",[]).size()==4,"pursuit identities are saved before the delayed wave spawns")
+	# The direct route is legal even before spawn. Leaving immediately must
+	# carry those same four pursuers into the river, never skip the fight.
+	world.hero.position=Vector2(1501,560); pump(.01)
+	expect(director.gate_state=="COUNTER_DIRECT" and world.state.tactics.get("volley_spent",false),"early direct pursuit resolves once despite pending spawn")
+	var expected=saved_roster_hp()
+	await use("hs_to_river")
+	expect(world.stage=="hs_river" and roster_hp().size()==4 and roster_hp()==expected,"immediate river transition preserves all four unspawned pursuit identities and health")
+	expect(not world.tactics.roster_clear(),"pending pursuit cannot silently bypass the river fight")
+	# If the player stays in camp instead, delayed arrivals inherit the
+	# resolved command and fight normally rather than staying in retreat AI.
+	await queued_retreat(); director=world.tactics
+	world.hero.position=Vector2(1501,560); pump(.01)
+	world.hero.position=Vector2(820,500); pump(1.3)
+	expect(world.group_alive("gate_roster") and roster_hp().size()==4,"resolved delayed pursuit still materializes exactly one camp wave")
+	for enemy in world.enemies:
+		if enemy.has_meta("roster_id"):
+			expect(not enemy.get_meta("withdrawing",false),"late-spawned pursuer obeys resolved counter order: "+str(enemy.get_meta("roster_id")))
+	expect(Campaign.valid(world.state.snapshot()),"pending pursuit uses the existing valid save contract")
+
 func run() -> void:
 	save_fingerprints=fingerprints()
 	world=MemoryWorld.new(); world.test_mode=true; world.state=MemoryCampaign.new()
 	root.add_child(world); world.set_physics_process(false); world.set_process(false)
 	await settle(); world.ui.hide_overlay()
-	await convoy_pacing(); await camp_objectives()
+	await convoy_pacing(); await camp_objectives(); await retreat_handoff()
 	expect(fingerprints()==save_fingerprints,"pacing checks never rewrite player saves")
 	print("HANSHUI_PACING_VERIFY ",checks," checks; ",failures.size()," failures; maximum live enemies ",maximum_living)
 	world.queue_free(); await process_frame; await process_frame

@@ -14,6 +14,7 @@ var retreat_time=0.0
 var best_left=4.0
 var fire_clock=0.0
 var fire_targets: Array=[]
+var roster_maximums: Dictionary={}
 var cart_follow_radius=520.0
 var cart_danger_radius=160.0
 var gate_state: String:
@@ -87,12 +88,19 @@ func spawn_pending(dt: float) -> void:
 				return
 	spawned[row.id]=true; waiting.pop_front()
 	for i in range(row.units.size()):
-		var u=row.units[i]; var enemy=world.spawn_enemy(u[0],Vector2(u[1],u[2]),row.id)
+		var u=row.units[i]
+		var roster_item: Dictionary={}
+		if row.id=="gate_roster":
+			for item in world.state.tactics.get("roster",[]):
+				if item.id=="pursuer_"+str(i): roster_item=item; break
+			if not roster_item.is_empty() and roster_item.hp<=0: continue
+		var enemy=world.spawn_enemy(u[0],Vector2(u[1],u[2]),row.id)
 		enemy.cooldown=maxf(enemy.cooldown,.8); enemy.stun=.6
 		if str(row.id).begins_with("gate_"): enemy.alerted=true
 		if row.id=="gate_roster":
 			enemy.set_meta("roster_id","pursuer_"+str(i))
-			enemy.set_meta("withdrawing",true); enemy.set_meta("retreat_target",Vector2(1480,460+i*52))
+			if not roster_item.is_empty(): enemy.hp=minf(enemy.max_hp,roster_item.hp)
+			enemy.set_meta("withdrawing",not world.state.tactics.get("volley_spent",false)); enemy.set_meta("retreat_target",Vector2(1480,460+i*52))
 
 func next_main(immediate: bool=false) -> void:
 	if world.stage=="hs_river" and not roster_clear(): return
@@ -244,12 +252,14 @@ func advance_gate(dt: float) -> void:
 			for enemy in world.enemies:
 				if enemy.body_alive() and hide_area().has_point(enemy.position): world.state.tactics.deception_ok=false
 	elif gate_state=="WITHDRAW":
-		retreat_time+=dt
 		var arrived=true; var found=false
 		for enemy in world.enemies:
 			if not enemy.body_alive() or not enemy.has_meta("roster_id"): continue
 			found=true
 			if enemy.position.x<1430: arrived=false
+		# Warning/spawn safety can pause a queued wave while Zhao Yun stands
+		# in its lane. Only visible retreating soldiers consume retreat time.
+		if found: retreat_time+=dt
 		if found and arrived:
 			gate_state="BEST_WINDOW"; best_left=4.0; world.toast("战机已至！金色鼓台亮起，按 E 擂鼓反击。")
 		elif retreat_time>7: gate_state="LATE_WINDOW"; world.toast("敌阵已散，仍可擂鼓或直接追击。")
@@ -264,7 +274,21 @@ func advance_gate(dt: float) -> void:
 				resolve_counter("DIRECT"); break
 
 func create_roster() -> void:
-	request_group("gate_roster",[["ironshield",1320,460],["scout",1320,640],["crossbow",1410,480],["crossbow",1410,620]])
+	var units=[["ironshield",1320,460],["scout",1320,640],["crossbow",1410,480],["crossbow",1410,620]]
+	if world.state.tactics.get("roster",[]).is_empty():
+		var roster: Array=[]
+		for i in range(units.size()):
+			roster.append({"id":"pursuer_"+str(i),"kind":units[i][0],"hp":roster_max_hp(units[i][0])})
+		world.state.tactics.roster=roster
+	request_group("gate_roster",units)
+
+func roster_max_hp(kind: String) -> float:
+	if not roster_maximums.has(kind):
+		# Configure without entering the scene tree, using the same enemy
+		# balance/difficulty source as actual spawns; never duplicate HP tables.
+		var unit=world.Enemy.instantiate(); unit.world=world; unit.configure(kind)
+		roster_maximums[kind]=unit.max_hp; unit.free()
+	return float(roster_maximums[kind])
 
 func restore_roster(withdrawing: bool=false) -> void:
 	var i=0
@@ -279,9 +303,17 @@ func restore_roster(withdrawing: bool=false) -> void:
 
 func capture_roster() -> void:
 	if world.stage not in ["hs_camp","hs_river"]: return
-	var roster: Array=[]
+	# Keep identities not yet materialized by the safe-spawn queue. Without
+	# this merge an immediate camp-to-river transition could erase pursuers.
+	var roster: Array=world.state.tactics.get("roster",[]).duplicate(true)
 	for enemy in world.enemies:
-		if enemy.has_meta("roster_id"): roster.append({"id":enemy.get_meta("roster_id"),"kind":enemy.kind,"hp":maxf(0,enemy.hp)})
+		if not enemy.has_meta("roster_id"): continue
+		var entry={"id":enemy.get_meta("roster_id"),"kind":enemy.kind,"hp":maxf(0,enemy.hp)}
+		var index=-1
+		for i in range(roster.size()):
+			if roster[i].id==entry.id: index=i; break
+		if index>=0: roster[index]=entry
+		else: roster.append(entry)
 	if not roster.is_empty(): world.state.tactics.roster=roster
 
 func roster_clear() -> bool:
@@ -299,13 +331,19 @@ func drum() -> bool:
 
 func resolve_counter(result: String) -> void:
 	if world.state.tactics.get("volley_spent",false): return
+	capture_roster()
 	gate_state="COUNTER_"+result; world.state.tactics.volley_spent=true
 	world.state.flags.deception=result=="BEST"; world.state.flags.volley=result!="DIRECT"
+	if result!="DIRECT":
+		for item in world.state.tactics.get("roster",[]):
+			if item.hp>0: item.hp=minf(item.hp,maxf(roster_max_hp(item.kind)*.22,item.hp-(35 if result=="BEST" else 18)))
 	for enemy in world.enemies:
 		if not enemy.body_alive() or not enemy.has_meta("roster_id"): continue
 		enemy.set_meta("withdrawing",false)
 		if result!="DIRECT":
-			enemy.hp=minf(enemy.hp,maxf(enemy.max_hp*.22,enemy.hp-(35 if result=="BEST" else 18))); enemy.stagger+=45 if result=="BEST" else 20; enemy.stun=.8
+			for item in world.state.tactics.get("roster",[]):
+				if item.id==enemy.get_meta("roster_id"): enemy.hp=minf(enemy.hp,item.hp); break
+			enemy.stagger+=45 if result=="BEST" else 20; enemy.stun=.8
 			world.fx.add("impact",enemy.position,.4,{"radius":42.0,"gold":true})
 	world.sound.play_cue("drum" if result!="DIRECT" else "phase")
 	world.fx.add("rally",Vector2(820,500),1.0,{"radius":180.0}); world.command="charge"

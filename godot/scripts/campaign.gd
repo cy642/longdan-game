@@ -4,7 +4,9 @@ const FLAGS = ["mountain", "civilians", "healer", "temple", "sword", "adou", "ho
 const SAVE_PATH = "user://longdan-godot-v2.json"
 const LEGACY_PATH = "user://longdan-godot-v1.json"
 const HANSHUI_FLAGS = ["huangzhong", "wounded", "beacon", "cart", "dujun", "deception", "volley", "huilan"]
-const CHAPTER_STAGES = {1:["mountain", "village", "temple", "house", "fork", "bridge"], 2:["hs_forest", "hs_grain", "hs_return", "hs_camp", "hs_river", "hs_final"]}
+const JIGU_FLAGS = ["jg_banner","jg_dispatch","jg_front","jg_rear","jg_rearguard","jg_supplies","jg_bridge_cut","jg_bridge_held","jg_last_guard","jg_boss","jg_supply_claimed"]
+const CHAPTER_STAGES = {1:["mountain", "village", "temple", "house", "fork", "bridge"], 2:["hs_forest", "hs_grain", "hs_return", "hs_camp", "hs_river", "hs_final"], 3:["jg_fog","jg_signal","jg_pass","jg_rearguard","jg_bridge","jg_final"]}
+const CHAPTER_NAMES = {1:"长坂逆命",2:"汉水孤营",3:"箕谷断后"}
 const BATTLE_ARTS = {
 	"assault":{"name":"连锋","detail":"第三枪命中积 2 格枪势。适合打满三式，再用强化横扫破阵。"},
 	"counter":{"name":"游龙","detail":"精准闪避积 2 格枪势，回马枪命中回 12 气力。适合闪避反击。"}
@@ -40,11 +42,13 @@ func reset(level: String = "normal", chapter_id: int = 1) -> void:
 	for key in FLAGS:
 		flags[key] = false
 	for key in HANSHUI_FLAGS: flags[key] = false
-	if chapter == 2: flags.sword = true; flags.temple = true
+	for key in JIGU_FLAGS: flags[key] = false
+	if chapter >= 2: flags.sword = true; flags.temple = true
 	tactics = {}
 	cleared = []; seen = []; history = []
 	checkpoint = {"stage": "mountain", "x": 190.0, "y": 910.0, "encounter": ""}
 	if chapter == 2: checkpoint = {"stage":"hs_forest", "x":200.0, "y":900.0, "encounter":""}
+	if chapter == 3: checkpoint = {"stage":"jg_fog", "x":200.0, "y":900.0, "encounter":""}
 	route = "bridge"; time = 0.0; kills = 0; precision_count = 0; complete = false
 
 func record(message: String) -> void:
@@ -61,13 +65,13 @@ func snapshot() -> Dictionary:
 	return data
 
 func switch_chapter(chapter_id: int, level: String = "normal", fresh: bool = false) -> void:
-	var carried_art=battle_art if chapter==1 and complete and chapter_id==2 else ""
+	var carried_art=battle_art if complete and chapter_id==chapter+1 else ""
 	chapters[str(chapter)] = run_snapshot()
 	var saved: Dictionary = chapters.get(str(chapter_id),{}).duplicate(true)
 	reset(level,chapter_id)
 	if not fresh and not saved.is_empty(): restore_run(saved)
 	elif saved.is_empty(): battle_art=carried_art
-	if chapter_id==2 and rewards.huilan and (fresh or saved.is_empty()): tactics.huilan_equipped=true
+	if chapter_id>=2 and rewards.huilan and (fresh or saved.is_empty()): tactics.huilan_equipped=true
 
 func battle_art_name() -> String:
 	return BATTLE_ARTS[battle_art].name if BATTLE_ARTS.has(battle_art) else "基础枪法"
@@ -82,10 +86,10 @@ static func valid(data: Variant) -> bool:
 	if not (schema is int or schema is float) or not is_finite(float(schema)) or float(schema)!=int(schema) or int(schema) not in [1,2]: return false
 	if not valid_run(data, int(data.get("chapter",1))): return false
 	if data.version == 2:
-		if not data.get("chapters") is Dictionary or data.chapters.size()>2: return false
+		if not data.get("chapters") is Dictionary or data.chapters.size()>3: return false
 		if not data.get("rewards",{"huilan":false}) is Dictionary or not data.get("rewards",{"huilan":false}).get("huilan") is bool: return false
 		for key in data.chapters:
-			if key not in ["1","2"] or not valid_run(data.chapters[key],int(key)): return false
+			if key not in ["1","2","3"] or not valid_run(data.chapters[key],int(key)): return false
 	return true
 
 static func valid_run(data: Variant, chapter_id: int) -> bool:
@@ -104,7 +108,7 @@ static func valid_run(data: Variant, chapter_id: int) -> bool:
 		var value = cp.get(axis)
 		if not (value is float or value is int) or not is_finite(float(value)) or value < 0 or value > (1600 if axis == "x" else 1100):
 			return false
-	if not cp.get("encounter", "") in (["", "xiahou", "zhanghe", "rescue"] if chapter_id == 1 else ["", "dujun"]):
+	if not cp.get("encounter", "") in ({1:["", "xiahou", "zhanghe", "rescue"],2:["", "dujun"],3:["", "vanguard"]}[chapter_id]):
 		return false
 	var f = data.get("flags")
 	if not f is Dictionary:
@@ -119,6 +123,16 @@ static func valid_run(data: Variant, chapter_id: int) -> bool:
 			if not f.get(key) is bool: return false
 		if not f.sword or not f.temple or f.huilan and not (f.dujun and f.deception): return false
 		if not valid_tactics(data.get("tactics",{})): return false
+	if chapter_id == 3:
+		for key in JIGU_FLAGS:
+			if not f.get(key) is bool: return false
+		if not f.sword or not f.temple or not valid_tactics(data.get("tactics",{})): return false
+		if f.jg_rear and not f.jg_front or f.jg_rearguard and not f.jg_rear: return false
+		if f.jg_bridge_cut and f.jg_bridge_held: return false
+		if (f.jg_bridge_cut or f.jg_bridge_held) and not f.jg_rearguard: return false
+		if f.jg_last_guard and not f.jg_bridge_held: return false
+		if f.jg_boss and not (f.jg_bridge_cut or f.jg_bridge_held and f.jg_last_guard): return false
+		if f.jg_supply_claimed and not f.jg_supplies: return false
 	for key in ["cleared", "seen", "history"]:
 		if not data.get(key) is Array or data[key].size() > 100:
 			return false
@@ -129,7 +143,7 @@ static func valid_run(data: Variant, chapter_id: int) -> bool:
 		var value = data.get(key)
 		if not (value is float or value is int) or not is_finite(float(value)) or value < 0 or value > 10000000:
 			return false
-	if not data.get("complete") is bool or (data.complete and not (f.boss and f.adou if chapter_id == 1 else f.dujun)):
+	if not data.get("complete") is bool or (data.complete and not (f.boss and f.adou if chapter_id == 1 else f.dujun if chapter_id == 2 else f.jg_boss)):
 		return false
 	return true
 
@@ -200,6 +214,9 @@ func read_save() -> Dictionary:
 	return data if valid(data) else {}
 
 func build_report() -> Dictionary:
+	if chapter == 3:
+		var changes=int(flags.jg_dispatch)+int(flags.jg_supplies)+int(flags.jg_last_guard)
+		return {"chapter":3,"title":"箕谷断后 · 末队同归" if flags.jg_last_guard else "箕谷断后 · 断桥截敌","text":"两队撤军已越过栈道，石门后的军旗重新收拢。\n\n"+("赵云留下危桥，亲自接回最后的军士。" if flags.jg_last_guard else "绳索断开，谷中的追兵被留在对岸。")+"\n玄甲先锋退去，赵云转身看向归队的将士：这一程，撤退也要走得有章法。\n\n"+("军报已带回。" if flags.jg_dispatch else "崖台还有未能带回的军报。")+("辎重药械也随军归来。" if flags.jg_supplies else "偏坡的辎重留在了谷中。"),"changes":changes,"kills":kills,"precision":precision_count,"time":time,"hints":([] if flags.jg_dispatch else ["崖台西侧：取回失落军报，削弱石门弩阵。"])+([] if flags.jg_supplies else ["石门偏坡：接应辎重兵，在谷口营火领取补给。"])+([] if flags.jg_last_guard else ["另一条路线：留桥接应，击退追兵后接回末队。"])}
 	if chapter == 2:
 		var changes = int(flags.wounded)+int(flags.beacon)+int(flags.deception)
 		return {"chapter":2,"title":"汉水孤营 · 空营震敌" if flags.deception else "汉水孤营 · 正面破围", "text":"黄忠与撤军已归营，汉水追兵退去。\n\n"+("赵云放下鼓槌：退与进，都要握在我们手里。" if flags.deception else "赵云收枪：计策未尽，手中这杆枪仍可开路。")+"\n\n"+("张著和伤兵在营中向你行礼。" if flags.wounded else "营外还有未能接回的伤兵。")+("火箭辎重已毁，粮车平安进营。" if flags.beacon else "河湾仍留着曹军火箭的灼痕。"),"changes":changes,"kills":kills,"precision":precision_count,"time":time,"hints":([] if flags.wounded else ["乱石归途西侧：回救张著与伤兵。"])+([] if flags.beacon else ["北山粮道东岗：摧毁火箭辎重。"])+([] if flags.deception else ["孤营藏兵后开门，在金色鼓台战机擂鼓。"])}

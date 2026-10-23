@@ -1,0 +1,1959 @@
+{
+  "chapter": "jigu",
+  "name": "箕谷断后",
+  "W": 1600,
+  "H": 1100,
+  "order": [
+    "jg_fog",
+    "jg_signal",
+    "jg_pass",
+    "jg_rearguard",
+    "jg_bridge",
+    "jg_final"
+  ],
+  "StageDefinition": {
+    "jg_fog": {
+      "name": "雾锁箕谷",
+      "chapter": "一 · 退令入谷",
+      "seed": 22801,
+      "mood": "forest",
+      "spawn": [
+        220,
+        900
+      ],
+      "roads": [
+        [
+          [
+            180,
+            940
+          ],
+          [
+            420,
+            810
+          ],
+          [
+            680,
+            680
+          ],
+          [
+            1000,
+            470
+          ],
+          [
+            1380,
+            180
+          ]
+        ],
+        [
+          [
+            680,
+            680
+          ],
+          [
+            760,
+            390
+          ],
+          [
+            1050,
+            310
+          ]
+        ]
+      ],
+      "huts": [],
+      "props": [],
+      "objects": [
+        {
+          "id": "jg_fog_camp",
+          "kind": "camp",
+          "x": 280,
+          "y": 900,
+          "label": "箕谷整备点"
+        },
+        {
+          "id": "jg_fog_dispatch",
+          "kind": "hint",
+          "x": 400,
+          "y": 790,
+          "label": "撤军令 · 由你断后"
+        },
+        {
+          "id": "jg_to_signal",
+          "kind": "exit",
+          "x": 1390,
+          "y": 180,
+          "label": "登上崖台",
+          "to": "jg_signal",
+          "group": "jg_f2"
+        }
+      ],
+      "groups": [
+        {
+          "id": "jg_f1",
+          "units": [
+            [
+              "scout",
+              620,
+              760
+            ],
+            [
+              "spear",
+              720,
+              650
+            ]
+          ]
+        },
+        {
+          "id": "jg_f2",
+          "units": [
+            [
+              "ironshield",
+              1110,
+              390
+            ],
+            [
+              "crossbow",
+              1250,
+              265
+            ],
+            [
+              "sword",
+              1230,
+              420
+            ]
+          ]
+        }
+      ],
+      "main_groups": [
+        "jg_f1",
+        "jg_f2"
+      ],
+      "optional_groups": [],
+      "tutorial": "北伐军已下撤令。沿枯松下的石路追上前军；石壁能挡弩箭，先切近再出枪。",
+      "layout": {
+        "palette": {
+          "ground": "8a8e86",
+          "road": "b0a991"
+        },
+        "tree_attempts": 80,
+        "rock_attempts": 12,
+        "clearings": [
+          [
+            220,
+            910,
+            175,
+            120
+          ],
+          [
+            670,
+            700,
+            195,
+            150
+          ],
+          [
+            1200,
+            330,
+            245,
+            200
+          ],
+          [
+            400,
+            790,
+            100,
+            100
+          ]
+        ],
+        "solids": [
+          {
+            "rect": [
+              410,
+              340,
+              240,
+              120
+            ]
+          },
+          {
+            "rect": [
+              900,
+              720,
+              200,
+              120
+            ]
+          },
+          {
+            "rect": [
+              20,
+              30,
+              220,
+              440
+            ]
+          },
+          {
+            "rect": [
+              1360,
+              650,
+              220,
+              420
+            ]
+          }
+        ],
+        "decor": [
+          {
+            "kind": "rockwall",
+            "rect": [
+              410,
+              340,
+              240,
+              120
+            ]
+          },
+          {
+            "kind": "rockwall",
+            "rect": [
+              900,
+              720,
+              200,
+              120
+            ]
+          }
+        ],
+        "surfaces": [
+          {
+            "kind": "stone",
+            "polygon": [
+              [
+                320,
+                835
+              ],
+              [
+                535,
+                690
+              ],
+              [
+                715,
+                584
+              ],
+              [
+                850,
+                656
+              ],
+              [
+                760,
+                810
+              ],
+              [
+                545,
+                919
+              ],
+              [
+                390,
+                936
+              ]
+            ],
+            "tone": "a3a292"
+          }
+        ],
+        "landmarks": [],
+        "water": [],
+        "motif": "jigu_mist",
+        "cliffs": [
+          [
+            20,
+            30,
+            220,
+            440
+          ],
+          [
+            1360,
+            650,
+            220,
+            420
+          ]
+        ],
+        "jigu_props": [
+          {
+            "kind": "fallen_banner",
+            "position": [
+              322,
+              660
+            ]
+          }
+        ],
+        "mist_bands": [
+          [
+            65,
+            110,
+            130,
+            320
+          ],
+          [
+            1410,
+            700,
+            110,
+            260
+          ]
+        ]
+      }
+    },
+    "jg_signal": {
+      "name": "崖台军报",
+      "chapter": "二 · 夺旗破弩",
+      "seed": 22802,
+      "mood": "forest",
+      "spawn": [
+        220,
+        900
+      ],
+      "roads": [
+        [
+          [
+            180,
+            940
+          ],
+          [
+            480,
+            820
+          ],
+          [
+            580,
+            650
+          ],
+          [
+            980,
+            400
+          ],
+          [
+            1180,
+            310
+          ],
+          [
+            1390,
+            200
+          ]
+        ],
+        [
+          [
+            480,
+            820
+          ],
+          [
+            310,
+            660
+          ],
+          [
+            310,
+            430
+          ],
+          [
+            520,
+            350
+          ],
+          [
+            850,
+            340
+          ],
+          [
+            980,
+            400
+          ]
+        ],
+        [
+          [
+            980,
+            400
+          ],
+          [
+            1080,
+            560
+          ],
+          [
+            1390,
+            535
+          ]
+        ]
+      ],
+      "huts": [],
+      "props": [],
+      "objects": [
+        {
+          "id": "jg_signal_camp",
+          "kind": "camp",
+          "x": 280,
+          "y": 920,
+          "label": "崖台落脚点"
+        },
+        {
+          "id": "jg_banner",
+          "kind": "jigu",
+          "x": 1180,
+          "y": 310,
+          "label": "夺下号旗 · 停止箭阵",
+          "task": "jg_banner",
+          "group": "jg_s2"
+        },
+        {
+          "id": "jg_dispatch",
+          "kind": "jigu",
+          "x": 310,
+          "y": 430,
+          "label": "取回失落军报",
+          "task": "jg_dispatch",
+          "group": "jg_dispatch_guard"
+        },
+        {
+          "id": "jg_to_pass",
+          "kind": "exit",
+          "x": 1390,
+          "y": 200,
+          "label": "沿栈道撤军",
+          "to": "jg_pass",
+          "need": "jg_banner"
+        },
+        {
+          "id": "jg_back_fog",
+          "kind": "exit",
+          "x": 150,
+          "y": 965,
+          "label": "返回雾谷",
+          "to": "jg_fog"
+        }
+      ],
+      "groups": [
+        {
+          "id": "jg_s1",
+          "units": [
+            [
+              "scout",
+              575,
+              710
+            ],
+            [
+              "sword",
+              535,
+              590
+            ]
+          ]
+        },
+        {
+          "id": "jg_s2",
+          "units": [
+            [
+              "ironshield",
+              1070,
+              395
+            ],
+            [
+              "crossbow",
+              1270,
+              335
+            ],
+            [
+              "spear",
+              1170,
+              460
+            ]
+          ]
+        },
+        {
+          "id": "jg_dispatch_guard",
+          "units": [
+            [
+              "spear",
+              260,
+              355
+            ],
+            [
+              "crossbow",
+              390,
+              390
+            ]
+          ],
+          "optional": true
+        }
+      ],
+      "main_groups": [
+        "jg_s1",
+        "jg_s2"
+      ],
+      "optional_groups": [
+        "jg_dispatch_guard"
+      ],
+      "tutorial": "敌方号旗调动弩阵。绕岩壁切上旗台，击退守军后 E 夺旗；西侧散旗旁还有一封遗落军报。",
+      "layout": {
+        "palette": {
+          "ground": "8a8e86",
+          "road": "b0a991"
+        },
+        "tree_attempts": 80,
+        "rock_attempts": 12,
+        "clearings": [
+          [
+            220,
+            920,
+            160,
+            120
+          ],
+          [
+            560,
+            670,
+            170,
+            160
+          ],
+          [
+            1180,
+            360,
+            245,
+            205
+          ],
+          [
+            310,
+            430,
+            170,
+            160
+          ]
+        ],
+        "solids": [
+          {
+            "rect": [
+              650,
+              470,
+              240,
+              120
+            ]
+          },
+          {
+            "rect": [
+              1160,
+              660,
+              200,
+              120
+            ]
+          },
+          {
+            "rect": [
+              20,
+              30,
+              200,
+              260
+            ]
+          },
+          {
+            "rect": [
+              700,
+              30,
+              880,
+              140
+            ]
+          }
+        ],
+        "decor": [
+          {
+            "kind": "rockwall",
+            "rect": [
+              650,
+              470,
+              240,
+              120
+            ]
+          },
+          {
+            "kind": "rockwall",
+            "rect": [
+              1160,
+              660,
+              200,
+              120
+            ]
+          }
+        ],
+        "surfaces": [
+          {
+            "kind": "stone",
+            "polygon": [
+              [
+                880,
+                450
+              ],
+              [
+                955,
+                278
+              ],
+              [
+                1120,
+                205
+              ],
+              [
+                1355,
+                220
+              ],
+              [
+                1440,
+                350
+              ],
+              [
+                1380,
+                495
+              ],
+              [
+                1135,
+                548
+              ]
+            ],
+            "tone": "ada58d"
+          },
+          {
+            "kind": "stone",
+            "polygon": [
+              [
+                210,
+                320
+              ],
+              [
+                380,
+                300
+              ],
+              [
+                470,
+                415
+              ],
+              [
+                403,
+                540
+              ],
+              [
+                200,
+                520
+              ]
+            ],
+            "tone": "95968b"
+          }
+        ],
+        "landmarks": [],
+        "water": [],
+        "motif": "jigu_signal",
+        "cliffs": [
+          [
+            20,
+            30,
+            200,
+            260
+          ],
+          [
+            700,
+            30,
+            880,
+            140
+          ]
+        ],
+        "jigu_props": [
+          {
+            "kind": "signal_platform",
+            "position": [
+              1180,
+              310
+            ]
+          },
+          {
+            "kind": "fallen_banner",
+            "position": [
+              340,
+              475
+            ]
+          }
+        ]
+      },
+      "tactics": {
+        "arrow_interval": 7.0,
+        "arrow_warning": 1.2,
+        "arrow_damage": 12,
+        "arrow_stop_flag": "jg_banner",
+        "arrow_origins": [
+          [
+            1395,
+            360
+          ],
+          [
+            1395,
+            470
+          ]
+        ]
+      }
+    },
+    "jg_pass": {
+      "name": "断崖栈道",
+      "chapter": "三 · 分队撤军",
+      "seed": 22803,
+      "mood": "forest",
+      "spawn": [
+        220,
+        900
+      ],
+      "roads": [
+        [
+          [
+            180,
+            940
+          ],
+          [
+            450,
+            850
+          ],
+          [
+            620,
+            760
+          ],
+          [
+            620,
+            560
+          ],
+          [
+            1120,
+            560
+          ],
+          [
+            1120,
+            390
+          ],
+          [
+            1400,
+            390
+          ]
+        ],
+        [
+          [
+            1120,
+            560
+          ],
+          [
+            1410,
+            600
+          ]
+        ]
+      ],
+      "huts": [],
+      "props": [],
+      "objects": [
+        {
+          "id": "jg_pass_camp",
+          "kind": "camp",
+          "x": 280,
+          "y": 920,
+          "label": "栈道整备点"
+        },
+        {
+          "id": "jg_front",
+          "kind": "jigu",
+          "x": 620,
+          "y": 760,
+          "label": "第一队 · E 发令撤军",
+          "task": "jg_front",
+          "group": "jg_p1"
+        },
+        {
+          "id": "jg_rear",
+          "kind": "jigu",
+          "x": 1120,
+          "y": 390,
+          "label": "第二队 · E 发令撤军",
+          "task": "jg_rear",
+          "group": "jg_p2",
+          "need": "jg_front"
+        },
+        {
+          "id": "jg_to_rearguard",
+          "kind": "exit",
+          "x": 1400,
+          "y": 390,
+          "label": "前往石门",
+          "to": "jg_rearguard",
+          "need": "jg_rear"
+        },
+        {
+          "id": "jg_back_signal",
+          "kind": "exit",
+          "x": 150,
+          "y": 965,
+          "label": "返回崖台",
+          "to": "jg_signal"
+        }
+      ],
+      "groups": [
+        {
+          "id": "jg_p1",
+          "units": [
+            [
+              "scout",
+              545,
+              700
+            ],
+            [
+              "spear",
+              660,
+              645
+            ],
+            [
+              "crossbow",
+              620,
+              535
+            ]
+          ]
+        },
+        {
+          "id": "jg_p2",
+          "units": [
+            [
+              "ironshield",
+              1080,
+              485
+            ],
+            [
+              "crossbow",
+              1320,
+              405
+            ],
+            [
+              "sword",
+              1215,
+              560
+            ]
+          ],
+          "need": "jg_front"
+        }
+      ],
+      "main_groups": [
+        "jg_p1",
+        "jg_p2"
+      ],
+      "optional_groups": [],
+      "tutorial": "先清前队旗旁的追兵，再 E 发令。两队分段撤军，桥面保持移动；抵达第二面旗后再发后队撤令。",
+      "layout": {
+        "palette": {
+          "ground": "8a8e86",
+          "road": "b0a991"
+        },
+        "tree_attempts": 80,
+        "rock_attempts": 12,
+        "clearings": [
+          [
+            220,
+            910,
+            170,
+            120
+          ],
+          [
+            620,
+            760,
+            140,
+            110
+          ],
+          [
+            600,
+            555,
+            115,
+            100
+          ],
+          [
+            1120,
+            510,
+            170,
+            150
+          ],
+          [
+            1120,
+            390,
+            150,
+            120
+          ],
+          [
+            1400,
+            390,
+            120,
+            100
+          ]
+        ],
+        "solids": [
+          {
+            "rect": [
+              760,
+              30,
+              240,
+              410
+            ]
+          },
+          {
+            "rect": [
+              760,
+              680,
+              240,
+              390
+            ]
+          },
+          {
+            "rect": [
+              1160,
+              710,
+              240,
+              120
+            ]
+          },
+          {
+            "rect": [
+              20,
+              30,
+              380,
+              280
+            ]
+          }
+        ],
+        "decor": [
+          {
+            "kind": "rockwall",
+            "rect": [
+              1160,
+              710,
+              240,
+              120
+            ]
+          }
+        ],
+        "surfaces": [
+          {
+            "kind": "stone",
+            "polygon": [
+              [
+                1010,
+                320
+              ],
+              [
+                1350,
+                310
+              ],
+              [
+                1500,
+                375
+              ],
+              [
+                1480,
+                620
+              ],
+              [
+                1180,
+                670
+              ],
+              [
+                1005,
+                605
+              ]
+            ],
+            "tone": "9b9c94"
+          }
+        ],
+        "landmarks": [],
+        "water": [],
+        "motif": "jigu_trestle",
+        "chasms": [
+          [
+            760,
+            30,
+            240,
+            410
+          ],
+          [
+            760,
+            680,
+            240,
+            390
+          ]
+        ],
+        "cliffs": [
+          [
+            20,
+            30,
+            380,
+            280
+          ]
+        ],
+        "bridges": [
+          [
+            700,
+            440,
+            360,
+            240
+          ]
+        ],
+        "jigu_props": [
+          {
+            "kind": "rope_posts",
+            "rect": [
+              700,
+              440,
+              360,
+              240
+            ]
+          }
+        ]
+      }
+    },
+    "jg_rearguard": {
+      "name": "石门拒敌",
+      "chapter": "四 · 回身断后",
+      "seed": 22804,
+      "mood": "forest",
+      "spawn": [
+        220,
+        900
+      ],
+      "roads": [
+        [
+          [
+            180,
+            940
+          ],
+          [
+            430,
+            810
+          ],
+          [
+            620,
+            570
+          ],
+          [
+            960,
+            520
+          ],
+          [
+            1130,
+            360
+          ],
+          [
+            1400,
+            210
+          ]
+        ],
+        [
+          [
+            430,
+            810
+          ],
+          [
+            300,
+            610
+          ],
+          [
+            360,
+            340
+          ],
+          [
+            520,
+            240
+          ],
+          [
+            970,
+            240
+          ],
+          [
+            1130,
+            360
+          ]
+        ]
+      ],
+      "huts": [],
+      "props": [],
+      "objects": [
+        {
+          "id": "jg_rearguard_camp",
+          "kind": "camp",
+          "x": 290,
+          "y": 920,
+          "label": "石门后整备"
+        },
+        {
+          "id": "jg_rearguard",
+          "kind": "jigu",
+          "x": 1050,
+          "y": 370,
+          "label": "追兵已退 · E 收拢后军",
+          "task": "jg_rearguard",
+          "group": "jg_r2"
+        },
+        {
+          "id": "jg_supplies",
+          "kind": "jigu",
+          "x": 360,
+          "y": 340,
+          "label": "接回辎重兵与药械",
+          "task": "jg_supplies",
+          "group": "jg_supply_guard"
+        },
+        {
+          "id": "jg_to_bridge",
+          "kind": "exit",
+          "x": 1400,
+          "y": 210,
+          "label": "前往断索危桥",
+          "to": "jg_bridge",
+          "need": "jg_rearguard"
+        },
+        {
+          "id": "jg_back_pass",
+          "kind": "exit",
+          "x": 150,
+          "y": 965,
+          "label": "返回栈道",
+          "to": "jg_pass"
+        }
+      ],
+      "groups": [
+        {
+          "id": "jg_r1",
+          "units": [
+            [
+              "ironshield",
+              650,
+              560
+            ],
+            [
+              "scout",
+              800,
+              515
+            ],
+            [
+              "crossbow",
+              1000,
+              485
+            ]
+          ]
+        },
+        {
+          "id": "jg_r2",
+          "units": [
+            [
+              "spear",
+              1150,
+              420
+            ],
+            [
+              "scout",
+              1250,
+              330
+            ],
+            [
+              "crossbow",
+              1400,
+              320
+            ]
+          ],
+          "reduce_if": "jg_dispatch",
+          "reduce_kind": "crossbow"
+        },
+        {
+          "id": "jg_supply_guard",
+          "units": [
+            [
+              "sword",
+              300,
+              310
+            ],
+            [
+              "crossbow",
+              470,
+              355
+            ]
+          ],
+          "optional": true
+        }
+      ],
+      "main_groups": [
+        "jg_r1",
+        "jg_r2"
+      ],
+      "optional_groups": [
+        "jg_supply_guard"
+      ],
+      "tutorial": "石门两侧都有绕行坡。击退两波追兵，再到后军旗 E 收军；西侧偏坡的辎重兵还在求援。",
+      "layout": {
+        "palette": {
+          "ground": "8a8e86",
+          "road": "b0a991"
+        },
+        "tree_attempts": 80,
+        "rock_attempts": 12,
+        "clearings": [
+          [
+            220,
+            910,
+            170,
+            120
+          ],
+          [
+            730,
+            550,
+            255,
+            145
+          ],
+          [
+            1190,
+            370,
+            250,
+            165
+          ],
+          [
+            360,
+            340,
+            185,
+            135
+          ],
+          [
+            520,
+            240,
+            130,
+            105
+          ],
+          [
+            970,
+            240,
+            130,
+            110
+          ]
+        ],
+        "solids": [
+          {
+            "rect": [
+              655,
+              290,
+              240,
+              120
+            ]
+          },
+          {
+            "rect": [
+              655,
+              650,
+              240,
+              120
+            ]
+          },
+          {
+            "rect": [
+              1150,
+              680,
+              200,
+              120
+            ]
+          },
+          {
+            "rect": [
+              20,
+              30,
+              220,
+              180
+            ]
+          }
+        ],
+        "decor": [
+          {
+            "kind": "rockwall",
+            "rect": [
+              655,
+              290,
+              240,
+              120
+            ]
+          },
+          {
+            "kind": "rockwall",
+            "rect": [
+              655,
+              650,
+              240,
+              120
+            ]
+          },
+          {
+            "kind": "rockwall",
+            "rect": [
+              1150,
+              680,
+              200,
+              120
+            ]
+          }
+        ],
+        "surfaces": [
+          {
+            "kind": "flagstone",
+            "polygon": [
+              [
+                500,
+                460
+              ],
+              [
+                885,
+                430
+              ],
+              [
+                1040,
+                470
+              ],
+              [
+                1060,
+                610
+              ],
+              [
+                895,
+                635
+              ],
+              [
+                500,
+                635
+              ]
+            ],
+            "tone": "9d9a8b"
+          },
+          {
+            "kind": "stone",
+            "polygon": [
+              [
+                225,
+                235
+              ],
+              [
+                390,
+                210
+              ],
+              [
+                530,
+                300
+              ],
+              [
+                530,
+                425
+              ],
+              [
+                355,
+                470
+              ],
+              [
+                230,
+                400
+              ]
+            ],
+            "tone": "a19b86"
+          }
+        ],
+        "landmarks": [],
+        "water": [],
+        "motif": "jigu_stonegate",
+        "cliffs": [
+          [
+            20,
+            30,
+            220,
+            180
+          ]
+        ],
+        "jigu_props": [
+          {
+            "kind": "gate_pillars",
+            "position": [
+              780,
+              540
+            ]
+          },
+          {
+            "kind": "supply_awning",
+            "position": [
+              250,
+              400
+            ]
+          }
+        ]
+      }
+    },
+    "jg_bridge": {
+      "name": "断索危桥",
+      "chapter": "五 · 一桥两命",
+      "seed": 22805,
+      "mood": "forest",
+      "spawn": [
+        220,
+        900
+      ],
+      "roads": [
+        [
+          [
+            180,
+            940
+          ],
+          [
+            330,
+            780
+          ],
+          [
+            420,
+            570
+          ],
+          [
+            800,
+            570
+          ],
+          [
+            1180,
+            570
+          ],
+          [
+            1270,
+            390
+          ],
+          [
+            1400,
+            240
+          ]
+        ]
+      ],
+      "huts": [],
+      "props": [],
+      "objects": [
+        {
+          "id": "jg_bridge_camp",
+          "kind": "camp",
+          "x": 280,
+          "y": 920,
+          "label": "危桥整备点"
+        },
+        {
+          "id": "jg_bridge_choice",
+          "kind": "jigu",
+          "x": 1200,
+          "y": 490,
+          "label": "断索危桥 · 决定退路",
+          "task": "bridge_choice",
+          "group": "jg_b1",
+          "need": "jg_rearguard"
+        },
+        {
+          "id": "jg_last_guard",
+          "kind": "jigu",
+          "x": 1245,
+          "y": 650,
+          "label": "留桥接回应到末队",
+          "task": "jg_last_guard",
+          "group": "jg_bridge_extra",
+          "need": "jg_bridge_held"
+        },
+        {
+          "id": "jg_to_final",
+          "kind": "exit",
+          "x": 1400,
+          "y": 240,
+          "label": "前往谷口决战",
+          "to": "jg_final",
+          "need": "bridge_resolved"
+        },
+        {
+          "id": "jg_back_rearguard",
+          "kind": "exit",
+          "x": 150,
+          "y": 965,
+          "label": "返回石门",
+          "to": "jg_rearguard"
+        }
+      ],
+      "groups": [
+        {
+          "id": "jg_b1",
+          "units": [
+            [
+              "ironshield",
+              635,
+              570
+            ],
+            [
+              "crossbow",
+              980,
+              565
+            ]
+          ]
+        },
+        {
+          "id": "jg_bridge_extra",
+          "units": [
+            [
+              "scout",
+              405,
+              610
+            ],
+            [
+              "spear",
+              415,
+              530
+            ]
+          ],
+          "need": "jg_bridge_held",
+          "manual": true
+        }
+      ],
+      "main_groups": [
+        "jg_b1"
+      ],
+      "optional_groups": [],
+      "tutorial": "越过危桥，清掉桥头守军，再 E 选择退路。断索可减轻追兵，留桥须亲自击退最后一队并接应末军。",
+      "layout": {
+        "palette": {
+          "ground": "8a8e86",
+          "road": "b0a991"
+        },
+        "tree_attempts": 80,
+        "rock_attempts": 12,
+        "clearings": [
+          [
+            220,
+            910,
+            170,
+            120
+          ],
+          [
+            410,
+            570,
+            105,
+            130
+          ],
+          [
+            800,
+            570,
+            300,
+            105
+          ],
+          [
+            1215,
+            560,
+            150,
+            130
+          ],
+          [
+            1400,
+            240,
+            120,
+            100
+          ]
+        ],
+        "solids": [
+          {
+            "rect": [
+              500,
+              30,
+              600,
+              430
+            ]
+          },
+          {
+            "rect": [
+              500,
+              680,
+              600,
+              390
+            ]
+          },
+          {
+            "rect": [
+              120,
+              350,
+              200,
+              120
+            ]
+          },
+          {
+            "rect": [
+              1250,
+              760,
+              240,
+              120
+            ]
+          }
+        ],
+        "decor": [
+          {
+            "kind": "rockwall",
+            "rect": [
+              120,
+              350,
+              200,
+              120
+            ]
+          },
+          {
+            "kind": "rockwall",
+            "rect": [
+              1250,
+              760,
+              240,
+              120
+            ]
+          }
+        ],
+        "surfaces": [
+          {
+            "kind": "stone",
+            "polygon": [
+              [
+                1120,
+                360
+              ],
+              [
+                1280,
+                265
+              ],
+              [
+                1490,
+                230
+              ],
+              [
+                1520,
+                640
+              ],
+              [
+                1375,
+                735
+              ],
+              [
+                1130,
+                710
+              ]
+            ],
+            "tone": "a3a091"
+          }
+        ],
+        "landmarks": [],
+        "water": [],
+        "motif": "jigu_ropebridge",
+        "chasms": [
+          [
+            500,
+            30,
+            600,
+            430
+          ],
+          [
+            500,
+            680,
+            600,
+            390
+          ]
+        ],
+        "bridges": [
+          [
+            460,
+            460,
+            680,
+            220
+          ]
+        ],
+        "cliffs": [],
+        "jigu_props": [
+          {
+            "kind": "rope_posts",
+            "rect": [
+              460,
+              460,
+              680,
+              220
+            ]
+          }
+        ]
+      }
+    },
+    "jg_final": {
+      "name": "谷口决战",
+      "chapter": "六 · 玄甲追风",
+      "seed": 22806,
+      "mood": "forest",
+      "spawn": [
+        220,
+        900
+      ],
+      "roads": [
+        [
+          [
+            180,
+            940
+          ],
+          [
+            420,
+            825
+          ],
+          [
+            630,
+            700
+          ],
+          [
+            940,
+            520
+          ],
+          [
+            1220,
+            350
+          ],
+          [
+            1400,
+            190
+          ]
+        ],
+        [
+          [
+            630,
+            700
+          ],
+          [
+            780,
+            840
+          ],
+          [
+            1150,
+            810
+          ],
+          [
+            1360,
+            650
+          ]
+        ]
+      ],
+      "huts": [],
+      "props": [],
+      "objects": [
+        {
+          "id": "jg_final_camp",
+          "kind": "camp",
+          "x": 290,
+          "y": 900,
+          "label": "决战前整备"
+        },
+        {
+          "id": "jg_vanguard",
+          "kind": "boss",
+          "x": 630,
+          "y": 700,
+          "label": "玄甲先锋 · 入阵决战",
+          "boss": "vanguard",
+          "group": "jg_v1"
+        },
+        {
+          "id": "jg_finish",
+          "kind": "finish",
+          "x": 1400,
+          "y": 190,
+          "label": "收军 · 箕谷战报",
+          "need": "jg_boss"
+        },
+        {
+          "id": "jg_back_bridge",
+          "kind": "exit",
+          "x": 150,
+          "y": 965,
+          "label": "返回危桥",
+          "to": "jg_bridge"
+        }
+      ],
+      "groups": [
+        {
+          "id": "jg_v1",
+          "units": [
+            [
+              "sword",
+              510,
+              805
+            ],
+            [
+              "spear",
+              590,
+              755
+            ],
+            [
+              "crossbow",
+              775,
+              800
+            ]
+          ],
+          "reduce_if": "jg_bridge_cut",
+          "reduce_kind": "crossbow"
+        }
+      ],
+      "main_groups": [
+        "jg_v1"
+      ],
+      "optional_groups": [],
+      "tutorial": "谷口已在眼前。先到营火整备，击退前哨再 E 挑战玄甲先锋；等他的整套追斩收势再还击。",
+      "layout": {
+        "palette": {
+          "ground": "8a8e86",
+          "road": "b0a991"
+        },
+        "tree_attempts": 80,
+        "rock_attempts": 12,
+        "clearings": [
+          [
+            220,
+            910,
+            170,
+            120
+          ],
+          [
+            590,
+            790,
+            210,
+            150
+          ],
+          [
+            1000,
+            460,
+            390,
+            295
+          ],
+          [
+            1400,
+            190,
+            110,
+            100
+          ]
+        ],
+        "solids": [
+          {
+            "rect": [
+              365,
+              380,
+              200,
+              120
+            ]
+          },
+          {
+            "rect": [
+              1270,
+              845,
+              240,
+              120
+            ]
+          },
+          {
+            "rect": [
+              20,
+              30,
+              280,
+              210
+            ]
+          }
+        ],
+        "decor": [
+          {
+            "kind": "rockwall",
+            "rect": [
+              365,
+              380,
+              200,
+              120
+            ]
+          },
+          {
+            "kind": "rockwall",
+            "rect": [
+              1270,
+              845,
+              240,
+              120
+            ]
+          }
+        ],
+        "surfaces": [
+          {
+            "kind": "stone",
+            "polygon": [
+              [
+                650,
+                265
+              ],
+              [
+                810,
+                175
+              ],
+              [
+                1200,
+                170
+              ],
+              [
+                1390,
+                280
+              ],
+              [
+                1435,
+                505
+              ],
+              [
+                1320,
+                725
+              ],
+              [
+                1100,
+                800
+              ],
+              [
+                790,
+                775
+              ],
+              [
+                620,
+                620
+              ],
+              [
+                580,
+                410
+              ]
+            ],
+            "tone": "aba693"
+          }
+        ],
+        "landmarks": [],
+        "water": [],
+        "motif": "jigu_windcourt",
+        "cliffs": [
+          [
+            20,
+            30,
+            280,
+            210
+          ]
+        ],
+        "jigu_props": [
+          {
+            "kind": "war_banner",
+            "position": [
+              570,
+              320
+            ]
+          },
+          {
+            "kind": "war_banner",
+            "position": [
+              1465,
+              635
+            ]
+          },
+          {
+            "kind": "tent",
+            "position": [
+              260,
+              600
+            ],
+            "size": [
+              130,
+              90
+            ]
+          }
+        ]
+      },
+      "arena": {
+        "x": 1000,
+        "y": 460,
+        "rx": 360,
+        "ry": 265
+      },
+      "boss": "vanguard"
+    }
+  }
+}

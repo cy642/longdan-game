@@ -706,7 +706,7 @@ func advance_rescue(dt: float) -> void:
 		rescue.gap+=dt
 		if rescue.wave==1 and rescue.gap>1.5:
 			rescue.wave=2; rescue.gap=0; spawn_rescue_wave(); toast("第二波追兵来了，护住井畔！")
-		elif rescue.wave==2 and rescue.progress>=20:
+		elif rescue.wave==2 and (rescue.progress>=20 or rescue.gap>=1.2):
 			state.flags.mother=true; state.flags.house=true; state.flags.motherDecision=true; rescue={}
 			state.checkpoint={"stage":"house","x":1090.0,"y":540.0,"encounter":""}
 			state.record("你护住井畔医者，糜夫人被救上担架，记忆中的诀别被改写。")

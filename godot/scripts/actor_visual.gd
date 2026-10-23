@@ -90,6 +90,22 @@ class EnemyEquipment extends Node2D:
 				stroke([[14,-22],[25,-21]],Color("2d4140"),1.0)
 				draw_circle(Vector2(20,-20),4.4,Color("b49a65"))
 				draw_circle(Vector2(20,-20),2.5,Color("566861"))
+			"vanguard":
+				# Keep the source spear shaft rigid. A crescent cheek joins its tip,
+				# making one long halberd rather than adding a second floating weapon.
+				polygon([[-20,-61],[-13,-64],[-9,-59],[-8,-51],[-12,-46],[-17,-47],[-12,-51],[-13,-57],[-20,-58]],Color("c4ccbd"))
+				polygon([[-17,-60],[-13,-61],[-11,-57],[-11,-51],[-14,-49],[-14,-55]],Color("536566"))
+				stroke([[-13,-64],[-9,-59],[-8,-51],[-12,-46],[-17,-47]],Color("ece3bd"),.9)
+				stroke([[-23,-47],[-18,-48]],Color("b69c67"),2.2)
+				polygon([[-20,-47],[-14,-46],[-12,-38],[-16,-40],[-17,-35],[-20,-43]],Color("813e3b"))
+				# Dark iron shoulders and a narrow red sash remain visible in guard.
+				polygon([[-11,-27],[-4,-30],[3,-26],[-1,-20],[-10,-22]],Color("303c42"))
+				polygon([[6,-29],[15,-27],[20,-21],[14,-19],[7,-23]],Color("303c42"))
+				stroke([[-10,-26],[-4,-28],[1,-25]],Color("99a6a1"),.9)
+				stroke([[9,-27],[15,-25],[18,-22]],Color("99a6a1"),.9)
+				polygon([[-5,-22],[8,-23],[13,-18],[8,-11],[-5,-12]],Color("38444b"))
+				for y in [-20,-17,-14]: stroke([[-3,y],[8,y-1]],Color("737c77"),.8)
+				stroke([[-6,-12],[8,-13]],Color("a65e50"),2.0)
 			"dujun":
 				# Black lamellar plates, an iron half-mask and three copper rings are
 				# persistent visual identifiers, including while the boss is idle.
@@ -200,7 +216,7 @@ func update_pose() -> void:
 			"archer": index = 3
 			"shield", "ironshield": key = "chapter"; index = 0
 			"elite": key = "chapter"; index = 1
-			"boss": key = "chapter"; index = 2 if actor.boss_id == "zhanghe" else 7
+			"boss": key = "chapter"; index = 2 if actor.boss_id in ["zhanghe","vanguard"] else 7
 			"ally": key = "chapter"; index = 5 + (int(actor.walk_distance / 32) % 2 if actor.moving else 0)
 			"healer": key = "chapter"; index = 3
 			"mother": key = "chapter"; index = 4
@@ -232,7 +248,7 @@ func _draw() -> void:
 func sample_enemy_action(a: Dictionary) -> Dictionary:
 	var d = a.def
 	if actor.kind == "crossbow": return sample_crossbow_action(a)
-	var spear = actor.kind == "spear" or actor.boss_id == "zhanghe"
+	var spear = actor.kind == "spear" or actor.boss_id in ["zhanghe","vanguard"]
 	var archer = actor.kind in ["archer", "crossbow"]
 	var shield = actor.kind in ["shield", "elite", "ironshield"]
 	var sweep = float(d.get("arc", 0)) > 1.5
@@ -267,6 +283,20 @@ func sample_enemy_action(a: Dictionary) -> Dictionary:
 		elif d.get("style", "") == "slam":
 			loaded.arm = .50; loaded.crouch = 2.5
 			strike.arm = -.70; strike.crouch = 6.0; follow.crouch = 5.0
+	if actor.boss_id == "vanguard":
+		var style = d.get("style","")
+		loaded.merge({"lean":.10,"crouch":2.5,"arm":.13,"reach":3.4},true)
+		strike.merge({"lean":-.18,"crouch":1.6,"arm":-.32,"reach":-6.5},true)
+		follow.merge({"lean":-.10,"crouch":2.2,"arm":-.27,"reach":-4.0},true)
+		if style == "vanguard_charge":
+			loaded.merge({"lean":-.03,"crouch":4.2,"arm":-.15,"reach":1.3},true)
+			strike.merge({"lean":-.24,"crouch":3.2,"arm":-.24,"reach":-7.0},true)
+			follow.merge({"lean":-.15,"crouch":3.0,"arm":-.22,"reach":-4.6},true)
+		elif style in ["vanguard_sweep","vanguard_return"]:
+			var turn = -1.0 if style == "vanguard_return" else 1.0
+			loaded.merge({"lean":.14*turn,"crouch":3.5,"arm":.43*turn,"reach":2.0},true)
+			strike.merge({"lean":-.19*turn,"crouch":2.2,"arm":-.54*turn,"reach":-5.0},true)
+			follow.merge({"lean":-.11*turn,"crouch":2.6,"arm":-.39*turn,"reach":-3.5},true)
 	# A small elevation adjustment follows the same locked direction as the hitbox.
 	var elevation = sin(a.dir) * .12
 	loaded.arm += elevation
@@ -422,14 +452,15 @@ func build_enemy_rig(key: String, index: int) -> void:
 	rig.uv = rig_data.uv
 	rig.polygons = rig_data.polygons
 	add_child(rig)
-	var equipment_kind = "dujun" if actor.boss_id == "dujun" else str(actor.kind)
-	if equipment_kind in ["scout", "crossbow", "ironshield", "dujun"]:
+	var equipment_kind = actor.boss_id if actor.boss_id in ["dujun","vanguard"] else str(actor.kind)
+	if equipment_kind in ["scout", "crossbow", "ironshield", "dujun", "vanguard"]:
 		enemy_equipment = EnemyEquipment.new()
-		enemy_equipment.name = "HanshuiEquipment"
+		enemy_equipment.name = "VanguardEquipment" if equipment_kind == "vanguard" else "HanshuiEquipment"
 		enemy_equipment.unit_kind = equipment_kind
 		rig.add_child(enemy_equipment)
 		if equipment_kind in ["ironshield", "dujun"]:
 			rig.self_modulate = Color("b6c2c0") if equipment_kind == "ironshield" else Color("98aaa9")
+		elif equipment_kind == "vanguard": rig.self_modulate = Color("b5b8bb")
 
 func enemy_head_bounds() -> Rect2:
 	# These source-space rectangles protect the painted face and helmet as one
@@ -443,15 +474,15 @@ func enemy_head_bounds() -> Rect2:
 		"archer": return Rect2(.26, .05, .63, .56)
 		"shield", "ironshield": return Rect2(.18, .10, .57, .41)
 		"elite": return Rect2(.18, .05, .41, .54)
-		"boss": return Rect2(.20, .12, .49, .48) if actor.boss_id == "zhanghe" else Rect2(.19, .07, .56, .52)
+		"boss": return Rect2(.20, .12, .49, .48) if actor.boss_id in ["zhanghe","vanguard"] else Rect2(.19, .07, .56, .52)
 	return Rect2(.15, .1, .7, .5)
 
 func enemy_weapon_region(n: Vector2) -> bool:
 	# The source spear crosses the painted face/arm. Rotating that strip alone
 	# stretches the helmet or bends the shaft. Keep its silhouette rigid with
 	# the upper body, including the portion extending below the belt.
-	if actor.kind == "spear" or actor.boss_id == "zhanghe":
-		var shaft_x = .03 + n.y * .31 if actor.boss_id == "zhanghe" else .045 + n.y * .49
+	if actor.kind == "spear" or actor.boss_id in ["zhanghe","vanguard"]:
+		var shaft_x = .03 + n.y * .31 if actor.boss_id in ["zhanghe","vanguard"] else .045 + n.y * .49
 		return absf(n.x - shaft_x) < .14
 	if actor.kind == "archer": return n.x < .40 and n.y < .80
 	if actor.kind == "crossbow": return false
