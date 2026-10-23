@@ -10,6 +10,8 @@
 
 本地浏览器实测首页跳转、加载页仅显示“开始游戏”、无旧版链接，点击后进入 Godot 标题且控制台无 warn/error；未开始或覆盖已有存档。截图 `.qa/godot-only-start-local.jpg`、`.qa/godot-only-loaded-local.jpg`。两份迁移文档的五个完整提示词块与迁移前一致，相对文档链接校验通过。
 
+清理提交 `d65f004` 已推送。2026-10-23 20:16（UTC+8）确认 Pages 首页与 Godot 加载页均为新文案，旧 `legacy.html` 返回 404；真实浏览器亦显示“开始游戏”且没有旧版入口。首次检查仍返回发布前页面的记录保留，新记录为 `.qa/godot-only-live-121601.json`，实际发布截图 `.qa/godot-only-start-live.jpg`。
+
 ## 2026-10-23：0.5.0 建筑与地形材质
 
 从 `027a5cb` 继续，开发前确认本地与远端一致。本轮沿用十二个区域的构图、战斗与剧情位置，把主要建筑、植被、岩石和地表接入与 Q 版赵云更一致的插画素材。实际画面见 [六区实机概览](docs/images/map-materials-0.5.0.jpg)，素材出处与完整重建顺序见 [环境资产说明](docs/PAINTED-ENVIRONMENT.md)。
