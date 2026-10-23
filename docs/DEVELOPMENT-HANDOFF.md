@@ -1,6 +1,6 @@
 # 开发交接 · 三章收尾与 0.6.0 验收
 
-更新：2026-10-23。用户重启电脑后已恢复开发，原暂停快照已推进为三章实现。本页说明当前代码、固定合同与验收入口；最终发布证据由主线程填入下方表格，并以 [开发记录](../CLOUD-POLISH.md) 为正式结论。未填写的验证项不能视为通过。
+更新：2026-10-23。用户重启电脑后已恢复开发，第三章已完成实现、验收和发布，功能提交 `93f1db6`。本页说明当前代码、固定合同与验收入口；详细证据及验证范围见 [开发记录](../CLOUD-POLISH.md)。
 
 ## 目标与版本边界
 
@@ -74,8 +74,8 @@ JiguDirector 复用 world.tactics 插槽，提供 setup/spawn_pending/advance/ch
 | Windows 导出与 ZIP | EXE146,155,632字节，启动退出0；builds/Longdan-Godot-Windows.zip 为74,647,215字节、ZIP完整性通过，含三章说明。 |
 | Web 导出与 PCK | 36,986,980字节；150资源/14JSON/18地表校验、实际PCK十八区smoke与资产187/0。SHA-256和日志见CLOUD-POLISH。 |
 | 真实浏览器键鼠检查 | 三章选择、开场、移动、Q耗气、暂停恢复、军图正常，warn/error0；.qa/jigu-web-check.json。短测不等于人工通关。 |
-| Git 与 GitHub Pages | 待填写功能/验证提交、推送结果、线上入口和 PCK 字节数/哈希比对。 |
+| Git 与 GitHub Pages | 功能93f1db6已推送main，Pages部署成功；21:45:39线上PCK大小及SHA-256与本地一致，.qa/jigu-live-20261023-134520.json；实际浏览器加载并选第三章，无warn/error。 |
 
-恢复后若仍有未完工作，先读本表和最新日志，继续剩余检查、修复与发布，不重复生成已经完成的素材。修改地图后重烘焙，新增中文后重建字体；修改 Web 加载页后重新导出。最终同步 README、Godot README、设计实现对照和 CLOUD-POLISH，再提交已验证的源文件与 Web 导出。
+本轮已收尾。后续继续开发时先读本表与最新 Git 状态，不重复生成已完成素材。新增中文需重建字体，修改地图需重烘焙，改游戏或网页加载页需重新导出并核对实际包。尚未进行三章完整人工通关、目标时长实测和跨设备长时稳定性验收；不能把自动回归或短样本代替这些体验工作。
 
 工具：引擎 D:/gpt/.tools/godot-4.7.2/Godot_v4.7.2-stable_win64_console.exe；Python C:/Users/36799/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe。字体依赖目录 .qa/font-deps。完整回归由 Run-Checks.ps1 使用隔离测试存档；后台图形进程使用 Hidden，任一时刻只运行一个 GPU 任务。
