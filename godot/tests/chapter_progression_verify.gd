@@ -137,7 +137,7 @@ func verify_existing(completed: bool) -> void:
 	expect(world.state.chapter_record(1)==first_run,"handoff preserves completed first chapter")
 	if completed:
 		expect(world.mode=="ending" and world.state.complete,"completed second chapter opens its report")
-		expect(world.ui.first_choice.text.begins_with("回到标题"),"last chapter has no spurious next chapter")
+		expect(world.ui.first_choice.text=="继续征程 · 箕谷断后","completed Hanshui offers the now-playable third chapter")
 		expect(world.state.rewards.huilan,"permanent reward survives existing completed handoff")
 		expect(not world.state.tactics.get("huilan_equipped",true),"handoff preserves player's explicitly disabled Huilan variant")
 	else:

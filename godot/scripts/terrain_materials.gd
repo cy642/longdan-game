@@ -14,7 +14,13 @@ const PROFILES = {
 	"hs_return":{"ground":"8f9690","road":"a6a797","width":84.0,"plant":"shale","tree":"scrub","keep":.26},
 	"hs_camp":{"ground":"9b9780","road":"ada289","width":108.0,"plant":"yard","tree":"scrub","keep":.12},
 	"hs_river":{"ground":"87958b","road":"9f9e88","width":88.0,"plant":"bank","tree":"willow","keep":.20},
-	"hs_final":{"ground":"777f79","road":"96958a","width":108.0,"plant":"yard","tree":"bare","keep":.10}
+	"hs_final":{"ground":"777f79","road":"96958a","width":108.0,"plant":"yard","tree":"bare","keep":.10},
+	"jg_fog":{"ground":"7d8985","road":"aaa995","width":92.0,"plant":"shale","tree":"weathered","keep":.42},
+	"jg_signal":{"ground":"979785","road":"b5aa8c","width":98.0,"plant":"dry","tree":"bare","keep":.22},
+	"jg_pass":{"ground":"838e89","road":"b2ad96","width":112.0,"plant":"shale","tree":"weathered","keep":.17},
+	"jg_rearguard":{"ground":"8e9183","road":"b0a58b","width":112.0,"plant":"yard","tree":"bare","keep":.19},
+	"jg_bridge":{"ground":"87958f","road":"b7ad94","width":112.0,"plant":"shale","tree":"weathered","keep":.15},
+	"jg_final":{"ground":"989885","road":"b6ad94","width":106.0,"plant":"dry","tree":"bare","keep":.10}
 }
 
 static func profile(stage: String) -> Dictionary:
@@ -40,6 +46,7 @@ static func ground(canvas: Node2D,stage: String,grain: Array,pools: Array) -> vo
 	# Broad ground stays quieter than actor silhouettes and local authored
 	# surfaces. Strong grass/leaf detail belongs to clumps, not every pixel.
 	var strength={"temple":.28,"hs_forest":.28,"hs_return":.36,"village":.34,"house":.34,"hs_camp":.34,"hs_final":.34}.get(stage,.40)
+	if stage.begins_with("jg_"): strength=.34
 	if Painted.paint(canvas,PackedVector2Array([Vector2.ZERO,Vector2(1600,0),Vector2(1600,1100),Vector2(0,1100)]),Painted.ground_kind(stage),base,stage,0.0,strength): return
 	canvas.draw_rect(Rect2(0,0,1600,1100),base)
 	# Broad quiet masses; fine marks accumulate in believable strips, not an

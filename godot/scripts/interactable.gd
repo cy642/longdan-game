@@ -29,6 +29,14 @@ func _ready() -> void:
 	elif data.id=="adou": person("chapter",4,Vector2(44,-4),63)
 	elif data.kind=="huangzhong": person("chapter",3,Vector2(2,-3),74)
 	elif data.kind=="wounded": person("chapter",5,Vector2(0,4),57)
+	elif data.kind=="jigu":
+		if data.get("task","") in ["jg_front","jg_rear","jg_last_guard"]:
+			person("chapter",5,Vector2(-26,2),52); person("chapter",6,Vector2(26,10),52)
+		elif data.get("task","")=="jg_supplies":
+			var frame=JSON.parse_string(FileAccess.get_file_as_string("res://assets/props/grain_rack.json"))
+			var sprite=Sprite2D.new(); sprite.texture=load(frame.image); sprite.centered=false
+			sprite.scale=Vector2.ONE*.35; sprite.position=-Vector2(frame.anchor_px[0],frame.anchor_px[1])*.35
+			add_child(sprite)
 
 func person(key: String,index: int,p: Vector2,height: float) -> void:
 	var sprite=Sprite2D.new(); sprite.texture=Visual.frames[key][index]; sprite.centered=false
@@ -45,6 +53,9 @@ func _process(dt: float) -> void:
 		for sprite in people: sprite.visible=not world.state.flags.civilians
 	elif data.id=="adou":
 		for sprite in people: sprite.visible=not world.state.flags.mother
+	elif data.kind=="jigu":
+		for sprite in people:
+			sprite.modulate.a=move_toward(sprite.modulate.a,0.0 if world.state.flags.get(data.get("task",""),false) else 1.0,dt*1.6)
 	redraw_clock-=dt
 	if redraw_clock>0: return
 	redraw_clock=1.0/30.0
@@ -103,6 +114,7 @@ func _draw() -> void:
 	if data.is_empty(): return
 	_draw_focus()
 	match data.kind:
+		"jigu": _draw_jigu()
 		"camp":
 			oval(Vector2(1,6),26,.45,Color(.18,.25,.2,.25))
 			for i in range(8): oval(Vector2.from_angle(i*TAU/8)*Vector2(22,9),5,.7,Color("828b6d"))
@@ -118,6 +130,7 @@ func _draw() -> void:
 			draw_line(Vector2(-8,0),Vector2(8,0),color,2,true)
 			draw_polyline(PackedVector2Array([Vector2(2,-5),Vector2(9,0),Vector2(2,5)]),color,2,true)
 		"boss":
+			if data.id=="jg_vanguard" and world.state.flags.get("jg_boss",false): return
 			if data.id=="xiahouGate" and world.state.flags.temple or data.id=="zhangheGate" and world.state.flags.boss: return
 			if data.id=="hs_dujun" and world.state.flags.get("dujun",false): return
 			for x in [-30,30]:
@@ -216,8 +229,41 @@ func _draw() -> void:
 	elif data.kind=="huangzhong" and world.state.flags.get("huangzhong",false): label="黄忠 · 已接应"
 	elif data.kind=="wounded" and world.state.flags.get("wounded",false): label="张著与伤兵 · 已获救"
 	elif data.kind=="beacon" and world.state.flags.get("beacon",false): label="火箭辎重 · 已焚毁"
+	elif data.kind=="jigu":
+		var task=str(data.get("task",""))
+		if world.state.flags.get(task,false): label={"jg_banner":"号旗已夺 · 箭阵已停","jg_dispatch":"军报已收回","jg_front":"前队已撤","jg_rear":"后队已撤","jg_rearguard":"后军已收拢","jg_supplies":"辎重已归队","jg_last_guard":"末队已接回"}.get(task,"已完成")
+		elif task=="bridge_choice":
+			if world.state.flags.jg_bridge_cut: label="断索截敌 · 退路已定"
+			elif world.state.flags.jg_bridge_held: label="留桥接应 · 等待末队"
 	if font:
 		var width=font.get_string_size(label,HORIZONTAL_ALIGNMENT_LEFT,-1,12).x
 		var p=Vector2(-width/2,30 if data.kind!="rescue" else 72)
 		draw_string_outline(font,p,label,HORIZONTAL_ALIGNMENT_LEFT,-1,12,3,Color(.15,.26,.2,.8))
 		draw_string(font,p,label,HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("f0e3b2"))
+
+func _draw_jigu() -> void:
+	var task=str(data.get("task","")); var done=world.state.flags.get(task,false)
+	if task=="jg_supplies": return # Cached illustrated supply rack owns its silhouette.
+	if task=="jg_dispatch":
+		oval(Vector2(0,7),24,.36,Color(.1,.16,.19,.22))
+		for i in range(3):
+			var p=Vector2(-14+i*12,1-i*3)
+			draw_line(p-Vector2(0,13),p+Vector2(5,9),Color("79624b"),9,true)
+			draw_line(p-Vector2(0,11),p+Vector2(5,7),Color("c6b88c").darkened(.2 if done else 0),6,true)
+			draw_line(p-Vector2(4,0),p+Vector2(7,-2),Color("8f4d3a"),2,true)
+		return
+	var mast=Vector2(-13,4); var top=Vector2(-13,-74)
+	oval(Vector2(1,9),23,.37,Color(.08,.15,.2,.25))
+	draw_line(mast,top,Color("574e46"),5,true); draw_line(mast+Vector2(-1,-2),top+Vector2(-1,1),Color("b69a72"),1.5,true)
+	var enemy_flag=task=="jg_banner" and not done
+	var color=Color("944d40") if enemy_flag else Color("508b85")
+	var sway=sin(clock*1.9+position.x*.01)*3
+	var cloth=PackedVector2Array([top+Vector2(2,3),top+Vector2(40,9+sway),top+Vector2(34,25+sway),top+Vector2(41,38+sway),top+Vector2(2,33)])
+	draw_colored_polygon(cloth,color); draw_polyline(PackedVector2Array([cloth[0],cloth[1],cloth[2],cloth[3]]),color.lightened(.3),1.3,true)
+	draw_polyline(PackedVector2Array([top+Vector2(13,12),top+Vector2(26,19),top+Vector2(13,25)]),Color("e6d4a6"),2,true)
+	if task=="bridge_choice":
+		for side in [-1,1]:
+			var p=Vector2(side*23,10)
+			draw_line(p,p-Vector2(0,34),Color("76553c"),8,true)
+			for y in range(3): draw_line(p+Vector2(-5,-11-y*4),p+Vector2(5,-12-y*4),Color("b9a579"),1.5,true)
+		if not world.state.flags.jg_bridge_cut: draw_line(Vector2(-23,-14),Vector2(23,-11),Color("b9a579"),3,true)

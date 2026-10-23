@@ -9,3 +9,4 @@ longdan-offline.html
 godot/.godot/
 builds/
 godot-play/*.zip
+__pycache__/

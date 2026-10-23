@@ -159,10 +159,10 @@ func show_menu() -> void:
 	portrait.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	dock(portrait,Control.PRESET_CENTER_RIGHT,Rect2(-480,-246,355,492)); overlay.add_child(portrait)
 	v.custom_minimum_size.x=640
-	label("LONGDAN  /  CHANGBAN & HANSHUI",v,13,"94bcb4")
+	label("LONGDAN  /  CHANGBAN · HANSHUI · JIGU",v,13,"94bcb4")
 	label("龙胆：逆命三国",v,42,"f0e1bc")
 	label("重生之我在三国当赵子龙",v,18,"b4c8b4")
-	var chapter_select=OptionButton.new(); chapter_select.add_item("第一章 · 长坂逆命"); chapter_select.add_item("第二章 · 汉水孤营")
+	var chapter_select=OptionButton.new(); chapter_select.add_item("第一章 · 长坂逆命"); chapter_select.add_item("第二章 · 汉水孤营"); chapter_select.add_item("第三章 · 箕谷断后")
 	chapter_select.custom_minimum_size=Vector2(490,42); v.add_child(chapter_select)
 	var saved=world.state.read_save()
 	chapter_select.selected=int(saved.get("chapter",1))-1
@@ -177,11 +177,11 @@ func show_menu() -> void:
 		var record=saved if int(saved.get("chapter",1))==id else saved.get("chapters",{}).get(str(id),{})
 		continue_button.disabled=record.is_empty()
 		continue_button.text="查看该章战报" if record.get("complete",false) else "继续所选章节"
-		intro.text="重走长坂，夺剑救主。\n三条可选命运，两场敌将决战。" if id==1 else "接应黄忠，藏兵开门，擂鼓反击。\n可独立进入，青釭可用；两章分别保存。"
+		intro.text={1:"重走长坂，夺剑救主。\n三条可选命运，两场敌将决战。",2:"接应黄忠，藏兵开门，擂鼓反击。\n可独立进入，青釭可用；各章分别保存。",3:"夺旗停箭，分段撤军，断桥或留桥。\n可独立进入，青釭可用；箕谷剧情为游戏演绎。"}[id]
 		first_choice=begin if record.is_empty() else continue_button
 	chapter_select.item_selected.connect(update_selection); update_selection.call()
 	label("WASD 移动  ·  J / 左键出枪  ·  空格闪避  ·  Q 破阵",v,13,"a5b8a8")
-	label("F11 全屏    |    电脑键鼠 · 双章节独立进度",v,12,"7e9d96")
+	label("F11 全屏    |    电脑键鼠 · 三章节独立进度",v,12,"7e9d96")
 	# Leave the portrait its own space inside the large panel.
 	v.custom_minimum_size.x=580; v.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN
 	parent.add_theme_stylebox_override("panel",box("122c30","526c62"))
@@ -196,7 +196,7 @@ func confirm_start(difficulty: String, chapter_id: int=0) -> void:
 	var previous=world.mode
 	var v=overlay_base()
 	label("开始新的征程？",v,27,"efdeb3")
-	paragraph("将重开所选章节的进度与战报。另一章的记录会保留。",v)
+	paragraph("将重开所选章节的进度与战报。其他章节的记录会保留。",v)
 	first_choice=button("取消，保留当前进度",v,func():
 		if previous=="menu": show_menu()
 		elif previous=="ending": show_report(world.state.build_report())
@@ -231,7 +231,7 @@ func show_pause(kind: String) -> void:
 		var effects=CheckButton.new(); effects.text="柔和特效 · 减少震屏和顿帧"; effects.button_pressed=world.fx.soft; effects.toggled.connect(func(value): world.fx.soft=value); v.add_child(effects)
 		var footsteps=CheckButton.new(); footsteps.text="脚步声 · 轻声落脚"; footsteps.button_pressed=world.sound.footsteps_enabled; footsteps.toggled.connect(func(value): world.sound.footsteps_enabled=value); v.add_child(footsteps)
 		var mute=CheckButton.new(); mute.text="静音"; mute.button_pressed=world.sound.muted; mute.toggled.connect(func(value): world.sound.muted=value); v.add_child(mute)
-		if world.state.chapter==2 and world.state.rewards.huilan:
+		if world.state.chapter>=2 and world.state.rewards.huilan:
 			var variant=CheckButton.new(); variant.text="Q 招式 · 龙胆·回澜"; variant.button_pressed=world.state.tactics.get("huilan_equipped",false)
 			variant.toggled.connect(func(value): world.state.tactics.huilan_equipped=value; world.save_progress()); v.add_child(variant)
 	first_choice=button("继续前行",v,func(): world.resume())
@@ -252,7 +252,9 @@ func show_camp() -> void:
 		var choice_id: String=id
 		var choice=button(("✓ " if world.state.battle_art==id else "")+art.name+" · "+("连击破阵" if id=="assault" else "闪避反击")+"\n"+art.detail,v,func(): world.choose_battle_art(choice_id))
 		if world.state.battle_art=="" and id=="assault": first_choice=choice
-	label("战法可在营火免费更换；首次衔接汉水会承接当前选择。",v,13,"abbfa9")
+	label("战法可在营火免费更换；首次续入下一章会承接当前选择。",v,13,"abbfa9")
+	if world.state.chapter==3 and world.stage=="jg_final" and world.state.flags.jg_supply_claimed:
+		label("辎重药械已发放：首次领取增加一份行军药。",v,13,"d8c48d")
 	label("营火进度已保存" if world.state.durable else "仅本次有效 · 存档写入失败",v,13,"abbfa9" if world.state.durable else "e8b69a")
 	var leave=button("保持当前战法 · 继续前行",v,func(): world.resume())
 	if first_choice==null: first_choice=leave
@@ -264,25 +266,27 @@ func show_defeat(title: String,text: String) -> void:
 	first_choice=button("重新握枪",v,func(): world.retry()); button("回到标题",v,func(): world.title_screen()); focus_choice()
 
 func show_report(report: Dictionary) -> void:
-	var second=int(report.get("chapter",1))==2
-	var v=overlay_base(); label("第二章 · 汉水战报" if second else "第一章 · 长坂战报",v,13,"adc1ae"); label(report.title,v,28,"efd7a6"); paragraph(report.text,v)
+	var chapter_id=int(report.get("chapter",1)); var second=chapter_id==2; var third=chapter_id==3
+	var v=overlay_base(); label({1:"第一章 · 长坂战报",2:"第二章 · 汉水战报",3:"第三章 · 箕谷战报"}[chapter_id],v,13,"adc1ae"); label(report.title,v,28,"efd7a6"); paragraph(report.text,v)
 	v.get_parent().follow_focus=true
 	label("改写命运  "+str(report.changes)+" / 3     击退  "+str(report.kills)+"     精准闪避  "+str(report.precision),v,17,"b4d1bc")
 	var row=HBoxContainer.new(); v.add_child(row)
 	var entries=[[world.state.flags.wounded,"伤兵归营"],[world.state.flags.beacon,"火箭辎重已毁"],[world.state.flags.deception,"空营震敌"]] if second else [[world.state.flags.civilians,"百姓获救"],[world.state.flags.mother,"糜夫人存活"],[world.state.flags.supplies,"粮道截断"]]
+	if third: entries=[[world.state.flags.jg_dispatch,"军报带回"],[world.state.flags.jg_supplies,"辎重归队"],[world.state.flags.jg_last_guard,"末队同归"]]
 	for entry in entries:
 		label(("✓ " if entry[0] else "○ ")+entry[1]+"   ",row,15,"d8c48d" if entry[0] else "819b91")
 	if not report.hints.is_empty(): paragraph("另一种命运：\n"+"\n".join(report.hints),v)
-	if second and world.state.flags.huilan: label("新式已得：龙胆·回澜，重玩第二章后在暂停页切换。",v,15,"d8c48d")
-	if not second:
-		var next=world.state.chapter_record(2)
-		var handoff="下一程：接应黄忠、护粮回营、设伏反击。"
+	if second and world.state.flags.huilan: label("新式已得：龙胆·回澜，在第二、三章暂停页切换。",v,15,"d8c48d")
+	if not third:
+		var next_id=chapter_id+1; var next_name=world.state.CHAPTER_NAMES[next_id]
+		var next=world.state.chapter_record(next_id)
+		var handoff="下一程：接应黄忠、护粮回营、设伏反击。" if chapter_id==1 else "下一程：箕谷夺旗、分段撤军、桥头抉择。"
 		if not next.is_empty():
-			handoff="汉水已有进度，将从最近的营火继续。" if not next.complete else "汉水已完成，将打开第二章战报；重玩需要另行选择。"
+			handoff=next_name+"已有进度，将从最近的检查点继续。" if not next.complete else next_name+"已完成，将打开该章战报；重玩需要另行选择。"
 		label(handoff,v,14,"b4d1bc")
-		first_choice=button("继续征程 · 汉水孤营",v,func(): world.continue_journey())
+		first_choice=button("继续征程 · "+next_name,v,func(): world.continue_journey())
 	var title_button=button("回到标题 · 战报已保存" if world.state.durable else "回到标题 · 战报仅本次有效",v,func(): world.title_screen())
-	if second: first_choice=title_button
+	if third: first_choice=title_button
 	button("重玩这一章",v,func(): confirm_start(world.state.difficulty)); focus_choice()
 
 func toast(text: String) -> void:
@@ -313,7 +317,7 @@ func refresh(dt: float) -> void:
 	skills.heal.text="F\n行军药 × "+str(hero.potions)
 	skills.dash.text="空格 / K\n"+("需 16 气力" if hero.qi<16 else "闪避 %.1fs"%hero.dash_cd if hero.dash_cd>.1 else "闪避")
 	skills.attack.text="J / 左键\n"+("回马枪" if hero.counter_left>0 else "龙枪三式")
-	skills.sweep.text="Q / 右键\n"+("需 30 气力" if hero.qi<30 else "横扫 "+("%.1f"%hero.sweep_cd)+"s" if hero.sweep_cd>.1 else "龙胆破阵" if hero.spear_spirit==3 else "龙胆·回澜" if world.state.chapter==2 and world.state.rewards.huilan and world.state.tactics.get("huilan_equipped",false) else "横扫破阵")
+	skills.sweep.text="Q / 右键\n"+("需 30 气力" if hero.qi<30 else "横扫 "+("%.1f"%hero.sweep_cd)+"s" if hero.sweep_cd>.1 else "龙胆破阵" if hero.spear_spirit==3 else "龙胆·回澜" if world.state.chapter>=2 and world.state.rewards.huilan and world.state.tactics.get("huilan_equipped",false) else "横扫破阵")
 	skills.sword.text="R\n"+("青釭已就绪" if hero.rage>=100 else "战意 "+str(int(hero.rage))+"%") if world.state.flags.sword else "R\n夺剑后解锁"
 	for key in ["dash","sweep","sword","heal"]:
 		var reason=hero.unavailable_reason(key)
@@ -336,7 +340,11 @@ func refresh(dt: float) -> void:
 		if support_panel.visible: support_text.text=support.text
 	boss_panel.visible=world.active_boss!=""
 	if boss_panel.visible and world.boss:
-		var boss=world.boss; boss_title.text=boss.display_name+" · "+("断锁追斩" if boss.phase2 else "钩斧压阵") if boss.boss_id=="dujun" else boss.display_name+" · "+("枪势再起" if boss.phase2 else "青釭守将" if boss.boss_id=="xiahou" else "北桥断后")
+		var boss=world.boss
+		var boss_subtitle="枪势再起" if boss.phase2 else "青釭守将" if boss.boss_id=="xiahou" else "北桥断后"
+		if boss.boss_id=="dujun": boss_subtitle="断锁追斩" if boss.phase2 else "钩斧压阵"
+		elif boss.boss_id=="vanguard": boss_subtitle="冲锋回戟" if boss.phase2 else "谷口断后"
+		boss_title.text=boss.display_name+" · "+boss_subtitle
 		boss_bar.value=boss.hp/boss.max_hp*100; boss_poise.value=boss.stagger/boss.stagger_max*100
 	rescue_bar.visible=not world.rescue.is_empty(); rescue_text.visible=rescue_bar.visible
 	if rescue_bar.visible:

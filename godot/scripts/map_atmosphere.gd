@@ -10,6 +10,7 @@ var leaves: Array = []
 var ripples: Array = []
 var reeds: Array = []
 var drift: Array = []
+var drizzle: Array = []
 var theme = "changban_dust"
 var leaf_color = Color("b4a568")
 var reed_color = Color(.35,.46,.31,.70)
@@ -18,13 +19,16 @@ var water_color = Color(.64,.80,.70,.17)
 func configure(game, region: String, tree_positions: Array, seed_value: int) -> void:
 	world = game
 	stage_id = region
-	leaves.clear(); ripples.clear(); reeds.clear(); drift.clear()
+	leaves.clear(); ripples.clear(); reeds.clear(); drift.clear(); drizzle.clear()
 	clock = 0.0; redraw_left = 0.0
 	theme = "hanshui_mist" if region.begins_with("hs_") else "changban_dust"
+	if region.begins_with("jg_"): theme="jigu_wind"
 	var hanshui = theme == "hanshui_mist"
+	var jigu = theme == "jigu_wind"
 	leaf_color = Color("8baaa1") if hanshui else Color("b4a568")
 	reed_color = Color(.36,.52,.47,.76) if hanshui else Color(.35,.46,.31,.70)
 	water_color = Color(.64,.82,.83,.26) if hanshui else Color(.64,.80,.70,.17)
+	if jigu: leaf_color=Color("a0a394")
 	var random = RandomNumberGenerator.new()
 	random.seed = seed_value + 10391
 	# Keep foliage at the edges of existing trees, away from main combat space.
@@ -54,6 +58,14 @@ func configure(game, region: String, tree_positions: Array, seed_value: int) -> 
 		if tree_positions.size()>0 and i<mini(tree_positions.size(),6):
 			origin=tree_positions[i].pos+Vector2(-35,18)
 		drift.append({"origin":origin,"phase":random.randf(),"speed":random.randf_range(.025,.045),"width":random.randf_range(24,46) if hanshui else random.randf_range(2,5)})
+	if jigu:
+		# Cold valley wind has long local mist threads and a few fine rain
+		# strokes. No fullscreen overlay; combat telegraphs remain above this.
+		for mote in drift:
+			mote.width=random.randf_range(35,75); mote.speed*=.7
+		if region in ["jg_fog","jg_pass","jg_bridge"]:
+			for i in range(24):
+				drizzle.append({"origin":Vector2(random.randf_range(40,1560),random.randf_range(40,1060)),"phase":random.randf(),"length":random.randf_range(5,10)})
 	queue_redraw()
 
 func _configure_hanshui_water(random: RandomNumberGenerator) -> void:
@@ -95,7 +107,7 @@ func river_position(ripple: Dictionary, at_time: float) -> Vector2:
 
 func drift_position(mote: Dictionary, at_time: float) -> Vector2:
 	var t = fposmod(mote.phase+at_time*mote.speed,1.0)
-	return mote.origin+Vector2(t*88.0,sin(t*PI)*5.0 if theme=="hanshui_mist" else -t*42.0)
+	return mote.origin+Vector2(t*88.0,sin(t*PI)*5.0 if theme in ["hanshui_mist","jigu_wind"] else -t*42.0)
 
 func visible_bounds() -> Rect2:
 	if not is_instance_valid(world) or not is_instance_valid(world.camera): return Rect2(0,0,1600,1100)
@@ -140,7 +152,14 @@ func _draw() -> void:
 		if span<.35: continue
 		drift_lines.append(p); drift_lines.append(p+Vector2(span,-.9 if theme=="hanshui_mist" else -span*.35))
 	if not drift_lines.is_empty():
-		draw_multiline(drift_lines,Color(.71,.85,.84,.16) if theme=="hanshui_mist" else Color(.67,.55,.37,.34),2.2 if theme=="hanshui_mist" else 1.2,true)
+		var mist=theme in ["hanshui_mist","jigu_wind"]
+		draw_multiline(drift_lines,Color(.74,.80,.79,.13) if theme=="jigu_wind" else Color(.71,.85,.84,.16) if mist else Color(.67,.55,.37,.34),2.2 if mist else 1.2,true)
+	var rain_lines=PackedVector2Array()
+	for drop in drizzle:
+		var p: Vector2=drop.origin+Vector2(-fposmod(clock*17+drop.phase*70,70),fposmod(clock*85+drop.phase*180,180)-90)
+		if not bounds.has_point(p): continue
+		rain_lines.append(p); rain_lines.append(p+Vector2(-2,drop.length))
+	if not rain_lines.is_empty(): draw_multiline(rain_lines,Color(.76,.83,.85,.13),.85,true)
 	for leaf in leaves:
 		var p = leaf_position(leaf,clock)
 		if not bounds.has_point(p): continue

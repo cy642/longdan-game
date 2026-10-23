@@ -4,6 +4,7 @@ const Scenery = preload("res://scripts/scenery.gd")
 const MapDetails = preload("res://scripts/map_details.gd")
 const MapAtmosphere = preload("res://scripts/map_atmosphere.gd")
 const HanshuiLayout = preload("res://scripts/hanshui_layout.gd")
+const JiguLayout = preload("res://scripts/jigu_layout.gd")
 const Materials = preload("res://scripts/terrain_materials.gd")
 static var baking = false
 var world
@@ -106,12 +107,17 @@ func build(data: Dictionary) -> void:
 		var details=MapDetails.new()
 		details.stage=world.stage; details.definition=definition; details.layer="ground"
 		add_child(details)
-		if data.has("layout"):
+		if data.has("layout") and not world.stage.begins_with("jg_"):
 			var chapter_ground=HanshuiLayout.new()
+			chapter_ground.definition=definition; chapter_ground.stage=world.stage
+			add_child(chapter_ground)
+		elif world.stage.begins_with("jg_"):
+			var chapter_ground=JiguLayout.new()
 			chapter_ground.definition=definition; chapter_ground.stage=world.stage
 			add_child(chapter_ground)
 	MapDetails.attach_landmarks(world.actors,definition,world.stage)
 	if data.has("layout"): HanshuiLayout.attach_landmarks(world.actors,definition,world.stage)
+	if world.stage.begins_with("jg_"): JiguLayout.attach_landmarks(world.actors,definition,world.stage)
 	if not baking:
 		var atmosphere = MapAtmosphere.new()
 		atmosphere.name = "MapAtmosphere"

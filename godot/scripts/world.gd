@@ -65,6 +65,10 @@ func _ready() -> void:
 	for id in regions: regions[id]=HanshuiLayout.apply_layout(regions[id],id)
 	chapter_definitions[2]=regions
 	if second.has("AttackDefinition"): attacks.merge(second.AttackDefinition)
+	var third=JSON.parse_string(FileAccess.get_file_as_string("res://data/chapter3.json"))
+	var jigu: Dictionary=third.StageDefinition
+	for id in jigu: jigu[id]=HanshuiLayout.apply_layout(jigu[id],id)
+	chapter_definitions[3]=jigu
 	attacks.huilan=attacks.sweep.duplicate()
 	attacks.huilan.merge({"name":"龙胆·回澜","damage":33,"stagger":65,"range":170.0,"arc":2.85},true)
 	setup_input()
@@ -235,8 +239,11 @@ func start_game(difficulty: String = "normal", chapter_id: int = 1) -> void:
 	state.switch_chapter(chapter_id,difficulty,true)
 	load_chapter(chapter_id)
 	hero.max_hp=240 if difficulty=="story" else 200; hero.reset_combat()
-	var start="mountain" if chapter_id==1 else "hs_forest"
+	var start=Campaign.CHAPTER_STAGES[chapter_id][0]
 	mode="playing"; enter_stage(start); ui.hide_overlay()
+	if chapter_id==3:
+		dialog("箕谷 · 退令入谷","汉水之后多年，北伐军接到撤退军令。\n\n赵云留在谷中，先断敌军号旗，再让两队将士分段撤走。\n\n这一回，带走多少人、留下哪条路，都由你亲手决定。",[{"text":"入谷断后","detail":"剧情演绎 · 先清斥候，前往崖台夺旗。","route":"continue"}],"赵云 · 军令")
+		return
 	if chapter_id==2:
 		dialog("建安二十四年 · 汉水","长坂的烽烟已远，北山粮道又传来军情。\n\n黄忠劫粮逾期未归。赵云披甲出营，三名随军跟上。\n\n记忆告诉你，这一战不只靠枪。接回黄忠，把退路布成自己的局。",[{"text":"沿汉水出营","detail":"青釭可用，先清斥候，再接应黄忠。","route":"continue"}],"赵云 · 军令")
 		return
@@ -262,28 +269,33 @@ func resume_chapter_checkpoint(persist: bool=false) -> void:
 	if state.complete:
 		mode="ending"; ui.show_report(state.build_report()); return
 	if cp.encounter=="rescue" and not state.flags.mother: start_rescue()
+	elif cp.encounter=="vanguard" and not state.flags.jg_boss: begin_boss("vanguard")
 	elif cp.encounter=="dujun" and not state.flags.dujun or cp.encounter=="xiahou" and not state.flags.temple or cp.encounter=="zhanghe" and not state.flags.boss: begin_boss(cp.encounter)
 	toast("已从最近营火或入口继续，完成的命运选择都还在。")
 
 func continue_journey() -> bool:
 	# The report is the campaign hand-off. Never route it through "new game":
 	# an existing Hanshui checkpoint or completed report must survive.
-	if mode!="ending" or state.chapter!=1 or not state.complete: return false
+	if mode!="ending" or state.chapter not in [1,2] or not state.complete: return false
 	hero.buffer={}; clear_input(); save_progress()
-	if not state.chapter_record(2).is_empty():
-		state.switch_chapter(2,state.difficulty,false)
+	var next_chapter=state.chapter+1
+	if not state.chapter_record(next_chapter).is_empty():
+		state.switch_chapter(next_chapter,state.difficulty,false)
 		resume_chapter_checkpoint(true)
+		return true
+	if state.chapter==2:
+		dialog("汉水之后 · 箕谷断后","汉水军旗已经归营，征程仍未结束。\n\n多年后的箕谷，撤退的军令传入山中。赵云握枪回身：先收拢人马，再谈进退。\n\n夺取号旗、分段撤军，在危桥前决定最后一队的去留。",[{"text":"继续征程 · 箕谷断后","detail":"保留汉水战报，承接难度、战法及已解锁回澜。剧情为游戏演绎。","route":"journey:jigu"}],"军情 · 箕谷退令")
 		return true
 	var legacy="你带回的不止阿斗，还有本该留在长坂的人。" if state.flags.mother else "你护住阿斗，也将长坂未尽的承诺记在心里。"
 	dialog("长坂之后 · 再赴汉水","建安十三年，长坂。\n"+legacy+"\n\n十一年后，建安二十四年。汉水营外战马嘶鸣，黄忠劫粮迟迟未归。\n\n这次，你要带兵出营，将追兵引入自己布下的局。",[{"text":"继续征程 · 汉水孤营","detail":"接应黄忠，护住粮车。长坂战报与所选难度均保留。","route":"journey:hanshui"}],"军情 · 黄忠逾期未归")
 	return true
 
 func enter_next_chapter() -> bool:
-	if mode!="dialog" or state.chapter!=1 or not state.complete: return false
+	if mode!="dialog" or state.chapter not in [1,2] or not state.complete: return false
 	var difficulty=state.difficulty
-	state.switch_chapter(2,difficulty,false)
+	state.switch_chapter(state.chapter+1,difficulty,false)
 	resume_chapter_checkpoint(true)
-	toast("第二章 · 汉水孤营。接回黄忠，把退路布成自己的局。")
+	toast("第二章 · 汉水孤营。接回黄忠，把退路布成自己的局。" if state.chapter==2 else "第三章 · 箕谷断后。先夺号旗，让将士分段撤出山谷。")
 	return true
 
 func enter_stage(id: String, spawn: Vector2 = Vector2.INF, checkpoint: bool = true) -> void:
@@ -321,6 +333,9 @@ func enter_stage(id: String, spawn: Vector2 = Vector2.INF, checkpoint: bool = tr
 	fx.entries=[]; fx.labels=[]; hit_stop=0; shake=0
 	if state.chapter==2:
 		tactics=TacticDirector.new(); tactics.name="TacticDirector"; add_child(tactics); tactics.setup(self)
+		tactics.spawn_pending(0)
+	elif state.chapter==3:
+		tactics=load("res://scripts/jigu_director.gd").new(); tactics.name="JiguDirector"; add_child(tactics); tactics.setup(self)
 		tactics.spawn_pending(0)
 	camera.position=hero.position; camera.reset_smoothing()
 	if checkpoint:
@@ -436,7 +451,7 @@ func advance_loot(dt: float) -> void:
 	loot=remaining
 
 func squad_active() -> bool:
-	return active_boss=="" and (state.chapter==2 or not rescue.is_empty() or stage=="bridge" and not state.flags.boss)
+	return active_boss=="" and (state.chapter>=2 or not rescue.is_empty() or stage=="bridge" and not state.flags.boss)
 
 func set_command(order: String) -> void:
 	command=order
@@ -473,6 +488,12 @@ func nearest_object() -> Dictionary:
 	if mode!="playing" or active_boss!="" or not rescue.is_empty(): return {}
 	var best=100.0; var target: Dictionary={}
 	for object in definition.objects:
+		if state.chapter==3:
+			var task=str(object.get("task",""))
+			if task!="" and state.flags.get(task,false): continue
+			if task=="bridge_choice" and (state.flags.jg_bridge_cut or state.flags.jg_bridge_held): continue
+			if object.kind=="boss" and state.flags.jg_boss: continue
+			if task=="jg_last_guard" and not state.flags.jg_bridge_held: continue
 		if state.chapter==2:
 			var done={"hs_huangzhong":"huangzhong","hs_zhangzhu":"wounded","hs_beacon":"beacon","hs_dujun":"dujun"}.get(object.id,"")
 			if not done.is_empty() and state.flags.get(done,false): continue
@@ -493,6 +514,10 @@ func camp_threatened(object: Dictionary) -> bool:
 	return false
 
 func object_blocked(object: Dictionary) -> bool:
+	if state.chapter==3:
+		if camp_threatened(object): return true
+		if object.get("kind","")=="exit" and str(object.get("id","")).begins_with("jg_back") and (state.flags.jg_bridge_cut or state.flags.jg_bridge_held): return true
+		return tactics.object_blocked(object) if is_instance_valid(tactics) else true
 	if state.chapter==2: return hanshui_object_blocked(object)
 	if camp_threatened(object): return true
 	if object.has("need") and not state.flags[object.need]: return true
@@ -505,6 +530,10 @@ func object_blocked(object: Dictionary) -> bool:
 
 func interaction_text(object: Dictionary) -> String:
 	if object.is_empty(): return ""
+	if state.chapter==3:
+		if object.get("kind","")=="camp": return "先击退附近敌军，再休整。" if camp_threatened(object) else "营火整备 · 补药 / 选战法"
+		if str(object.get("id","")).begins_with("jg_back") and (state.flags.jg_bridge_cut or state.flags.jg_bridge_held): return "退路已定 · 前往谷口收军"
+		return tactics.interaction_text(object) if is_instance_valid(tactics) else "整队中"
 	if state.chapter==2:
 		if object_blocked(object): return "先完成当前目标 · 跟随金色指引"
 		if object.kind=="camp": return "营火整备 · 补药 / 选战法"
@@ -566,14 +595,36 @@ func interact_hanshui(object: Dictionary) -> bool:
 		_: return false
 	save_progress(); return true
 
+func interact_jigu(object: Dictionary) -> bool:
+	if object_blocked(object): toast(interaction_text(object)); return false
+	match object.kind:
+		"jigu": return tactics.interact_object(object)
+		"boss": prepare_boss("vanguard"); return true
+		"finish": return finish()
+		"hint":
+			dialog("箕谷军令","敌军号旗指挥崖台箭阵，夺旗后可以分段撤军。\n\n栈道两面军旗各按 E 发一次撤令。军报能削弱石门弩阵，辎重能在谷口多补一份药。",[{"text":"领命前行","detail":"1 集合，2 守点，3 冲阵；赵云亲自清路。","route":"continue"}],"随军"); return true
+		"exit":
+			var spawn=Vector2.INF
+			if object.has("spawn_to"): spawn=Vector2(object.spawn_to[0],object.spawn_to[1])
+			elif str(object.id).begins_with("jg_back"):
+				for entry in definitions[object.to].objects:
+					if entry.get("to")==stage and not str(entry.id).begins_with("jg_back"):
+						spawn=Vector2(entry.x-55,entry.y+70); break
+			pending_stage={"id":object.to,"pos":spawn}; return true
+	return false
+
 func interact() -> bool:
 	var object=nearest_object()
 	if object.is_empty(): return false
+	if state.chapter==3 and object.kind!="camp": return interact_jigu(object)
 	if state.chapter==2 and object.kind!="camp": return interact_hanshui(object)
 	if object.kind=="camp":
 		if object_blocked(object):
 			toast("先击退附近敌军，再休整。"); return false
-		hero.hp=hero.max_hp; hero.qi=100; hero.potions=3; hero.action={}; hero.buffer={}
+		# Rest refills the normal three doses without deleting an unspent
+		# fourth dose earned from a one-time supply reward.
+		hero.hp=hero.max_hp; hero.qi=100; hero.potions=clampi(hero.potions,3,4); hero.action={}; hero.buffer={}
+		if state.chapter==3 and stage=="jg_final": tactics.claim_supplies()
 		for ally in allies: ally.hp=ally.max_hp
 		var visit="camp:"+stage
 		if not state.seen.has(visit): state.seen.append(visit)
@@ -623,9 +674,11 @@ func dialog(title: String, text: String, choices: Array, speaker: String) -> voi
 
 func choose_route(route: String) -> void:
 	if mode!="dialog": return
-	if route=="journey:hanshui":
+	if route=="journey:hanshui" and state.chapter==1 or route=="journey:jigu" and state.chapter==2:
 		enter_next_chapter(); return
 	mode="playing"; ui.hide_overlay(); clear_input()
+	if route in ["jigu:cut","jigu:hold"] and state.chapter==3:
+		tactics.choose_bridge(route=="jigu:cut"); return
 	if route=="commit": state.flags.committed=true; pending_stage={"id":"bridge"}
 	elif route=="rescue": start_rescue()
 	elif route=="findHealer": state.route="healer"; toast("原路回破庙，从侧门回荒村；救出医者后再来井畔。")
@@ -640,6 +693,9 @@ func prepare_boss(id: String) -> void:
 	state.checkpoint={"stage":stage,"x":hero.position.x,"y":hero.position.y,"encounter":id}
 	if state.seen.has(id): begin_boss(id); return
 	state.seen.append(id)
+	if id=="vanguard":
+		dialog("谷口 · 这一枪压住归路","玄甲先锋将长戟横在谷口：你若独自留下，还能护住几队人？\n\n赵云：能走的，都已经在路上。\n\n直线冲锋锁向后侧闪，横扫有迟势；半血后先冲再回戟，等整套收招再进。",[{"text":"独挑玄甲先锋","detail":"长戟点刺、锁向冲锋、迟势横扫。","route":"bossStart:vanguard"}],"玄甲先锋")
+		save_progress(); return
 	if id=="dujun":
 		dialog("铁营 · 此路由我作主","督军钩斧落地，铜环作响。\n\n铁面督军：空开寨门，莫非还想骗过我？\n赵云：既已追来，便由我送你回去。\n\n钩锁锁定后侧闪，重斧有迟势回斩，半血会断锁变招。",[{"text":"迎战督军","detail":"支路可在战后回头；看清整套再反击。","route":"bossStart:dujun"}],"铁面督军")
 		save_progress(); return
@@ -656,11 +712,16 @@ func begin_boss(id: String) -> void:
 	for i in range(allies.size()):
 		allies[i].position=Vector2(1270+(i-1)*22,165+i*20) if id=="zhanghe" else Vector2(400+i*26,850)
 	for i in range(civilians.size()): civilians[i].position=Vector2(1270+(20 if i%2 else -20),260-i*28)
-	toast("夏侯恩 · 等第二剑收招再反击。" if id=="xiahou" else "铁面督军 · 钩锁后侧闪，双轮重斧等回斩。" if id=="dujun" else "张郃 · 三连突后才有长破绽。"); save_progress()
+	toast("夏侯恩 · 等第二剑收招再反击。" if id=="xiahou" else "铁面督军 · 钩锁后侧闪，双轮重斧等回斩。" if id=="dujun" else "玄甲先锋 · 侧闪直冲，等迟势回戟收完再还击。" if id=="vanguard" else "张郃 · 三连突后才有长破绽。"); save_progress()
 
 func boss_defeated(enemy) -> void:
 	active_boss=""; arrows=[]; hero.action={}; hero.invincible=1
 	for ally in allies: ally.hp=ally.max_hp
+	if enemy.boss_id=="vanguard":
+		state.flags.jg_boss=true; state.checkpoint={"stage":"jg_final","x":1110.0,"y":500.0,"encounter":""}
+		state.record("玄甲先锋败退，箕谷撤军越过谷口。")
+		dialog("箕谷收军 · 长枪仍在","玄甲先锋收戟退下，山谷里终于只剩军旗的声音。\n\n"+("最后一队将士也已越过危桥。" if state.flags.jg_last_guard else "断索将追兵留在身后的深谷。")+"\n\n赵云回身：整队，我们一道回去。",[{"text":"前往收军旗","detail":"靠近出口军旗按 E，结算箕谷战报。","route":"continue"}],"赵云")
+		sound.play_cue("victory"); save_progress(); return
 	if enemy.boss_id=="dujun":
 		state.flags.dujun=true; state.checkpoint={"stage":"hs_final","x":1110.0,"y":360.0,"encounter":""}
 		state.record("铁面督军败退，赵云守住汉水营地。")
@@ -721,10 +782,13 @@ func retry() -> void:
 	var cp=state.checkpoint.duplicate(); hero.reset_combat(); mode="playing"
 	enter_stage(cp.stage,Vector2(cp.x,cp.y),false); state.checkpoint=cp; ui.hide_overlay()
 	if cp.encounter=="rescue": start_rescue()
-	elif cp.encounter in ["xiahou","zhanghe","dujun"]: begin_boss(cp.encounter)
+	elif cp.encounter in ["xiahou","zhanghe","dujun","vanguard"]: begin_boss(cp.encounter)
 	toast("重新握枪，已完成的救援和夺剑仍在。"); save_progress()
 
 func finish() -> bool:
+	if state.chapter==3:
+		if mode!="playing" or stage!="jg_final" or not state.flags.jg_boss or state.complete: return false
+		state.complete=true; mode="ending"; hero.buffer={}; clear_input(); save_progress(); ui.show_report(state.build_report()); sound.play_cue("victory"); return true
 	if state.chapter==2:
 		if mode!="playing" or stage!="hs_final" or not state.flags.dujun or state.complete: return false
 		state.flags.huilan=state.flags.deception; state.complete=true

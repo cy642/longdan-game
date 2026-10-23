@@ -43,6 +43,9 @@ func select_region(index: int) -> void:
 	if chapter==2:
 		world.state.flags.adou=false
 		world.state.tactics={"gate":"COUNTER_DIRECT","volley_spent":true,"roster":[]}
+	elif chapter==3:
+		world.state.flags.jg_bridge_held=false
+		world.state.flags.jg_last_guard=false
 	for id in regions:
 		for group in world.definitions[id].groups:
 			world.state.cleared.append(id+":"+str(group.id))
@@ -64,7 +67,7 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key=event.physical_keycode if event.physical_keycode else event.keycode
 		if key==KEY_TAB:
-			chapter=2 if chapter==1 else 1
+			chapter=chapter%Campaign.CHAPTER_STAGES.size()+1
 			regions=Campaign.CHAPTER_STAGES[chapter].duplicate()
 			select_region(0)
 			get_viewport().set_input_as_handled()

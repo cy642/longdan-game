@@ -111,7 +111,7 @@ func perform(kind_name: String, move: Vector2, aim: float) -> bool:
 		if sweep_cd > 0: return false
 		if qi < 30: return false
 		facing = attack_direction(aim); qi -= 30; sweep_cd = 3.4
-		if world.state.chapter==2 and world.state.rewards.huilan and world.state.tactics.get("huilan_equipped",false): key="huilan"
+		if world.state.chapter>=2 and world.state.rewards.huilan and world.state.tactics.get("huilan_equipped",false): key="huilan"
 	elif key == "sword":
 		if not world.state.flags.sword: return false
 		if rage < 100: return false

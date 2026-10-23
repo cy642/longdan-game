@@ -7,6 +7,7 @@ const Campaign = preload("res://scripts/campaign.gd")
 const Terrain = preload("res://scripts/terrain.gd")
 const Scenery = preload("res://scripts/scenery.gd")
 const Hanshui = preload("res://scripts/hanshui_layout.gd")
+const Jigu = preload("res://scripts/jigu_layout.gd")
 const Details = preload("res://scripts/map_details.gd")
 const PaintedProps = preload("res://scripts/painted_props.gd")
 const PaintedGround = preload("res://scripts/painted_ground.gd")
@@ -31,6 +32,9 @@ var seen_markers: Dictionary = {}
 var regions = 0
 var cached_scenery = 0
 var cached_hanshui = 0
+var cached_jigu = 0
+var seen_jigu: Dictionary = {}
+var jigu_manifest: Dictionary = {}
 
 func _initialize() -> void: call_deferred("run")
 func expect(value: bool, message: String) -> void:
@@ -85,7 +89,7 @@ func verify_runtime_manifests() -> void:
 	expect(actual_keys==expected_keys,"painted marker manifest contains the four authored frames")
 	for key in MARKERS:
 		expect(valid_frame(marker_manifest.get(key),marker_atlas),"painted marker region and finite ground anchor are valid: "+key)
-	for pair in [["res://assets/maps/scenery.png","res://assets/maps/scenery.json"],["res://assets/maps/hanshui_props.png","res://assets/maps/hanshui_props.json"]]:
+	for pair in [["res://assets/maps/scenery.png","res://assets/maps/scenery.json"],["res://assets/maps/hanshui_props.png","res://assets/maps/hanshui_props.json"],["res://assets/maps/jigu_props.png","res://assets/maps/jigu_props.json"]]:
 		var texture = load(pair[0]) as Texture2D
 		var manifest = read_manifest(pair[1])
 		expect(texture!=null and not manifest.is_empty(),"shared runtime atlas loads: "+pair[0])
@@ -93,6 +97,7 @@ func verify_runtime_manifests() -> void:
 		for key in manifest:
 			if not valid_frame(manifest[key],texture): bad.append(key)
 		expect(bad.is_empty(),"shared atlas frames remain inside the image with finite anchors: "+str(bad))
+	jigu_manifest = read_manifest("res://assets/maps/jigu_props.json")
 func verify_region(stage: String, chapter: int) -> void:
 	world.load_chapter(chapter); world.state.reset("normal",chapter)
 	world.mode = "playing"; world.hero.reset_combat()
@@ -102,8 +107,8 @@ func verify_region(stage: String, chapter: int) -> void:
 	var ground: Texture2D = world.terrain.ground_texture
 	expect(ground!=null and ground.get_size()==Vector2(1600,1100),stage+": full-size baked ground loads")
 	expect(world.terrain.grain.is_empty() and world.terrain.pools.is_empty(),stage+": runtime avoids procedural ground reconstruction")
-	var scenery_found = 0; var hanshui_found = 0
-	var scenery_errors: Array = []; var hanshui_errors: Array = []; var detail_errors: Array = []
+	var scenery_found = 0; var hanshui_found = 0; var jigu_found = 0
+	var scenery_errors: Array = []; var hanshui_errors: Array = []; var detail_errors: Array = []; var jigu_errors: Array = []
 	for node in world.actors.get_children():
 		if node.get_script()==Scenery:
 			if node.data.kind=="oil": continue # Dynamic interactive prop keeps its own draw path.
@@ -116,6 +121,28 @@ func verify_region(stage: String, chapter: int) -> void:
 			hanshui_found += 1
 			var key = Hanshui.frame_key(node.item)
 			if not atlas_sprite_valid(node.rendered_prop,Hanshui.prop_atlas,Hanshui.prop_frames.get(key,{})): hanshui_errors.append(key)
+		elif node.get_script()==Jigu and node.layer=="landmark":
+			jigu_found += 1
+			var key = Jigu.frame_key(node.item); seen_jigu[key] = true
+			var expected_position: Vector2
+			if node.item.has("rect"):
+				var r: Array = node.item.rect; expected_position = Vector2(r[0]+r[2]*.5,r[1]+r[3])
+			else: expected_position = Vector2(node.item.position[0],node.item.position[1])
+			if node.position!=expected_position: jigu_errors.append(key+": logical ground/sort origin")
+			if not json_equal(Jigu.prop_frames.get(key,{}),jigu_manifest.get(key,{})): jigu_errors.append(key+": runtime frame metadata")
+			if not atlas_sprite_valid(node.rendered_prop,Jigu.prop_atlas,jigu_manifest.get(key,{})): jigu_errors.append(key+": cached region or foot anchor")
+			var watches_bridge = stage=="jg_bridge" and node.item.kind=="rope_posts"
+			if node.is_processing()!=watches_bridge: jigu_errors.append(key+": unexpected process policy")
+			if watches_bridge:
+				var original_position: Vector2 = node.position
+				var original_sprite = node.rendered_prop
+				world.state.flags.jg_bridge_cut = true; await process_frame; await process_frame
+				var variant = node.item.duplicate(); variant.cut = true
+				var cut_key = Jigu.frame_key(variant); seen_jigu[cut_key] = true
+				expect(node.cut_variant and atlas_sprite_valid(node.rendered_prop,Jigu.prop_atlas,jigu_manifest.get(cut_key,{})),stage+": live cut decision switches to its exported atlas frame")
+				expect(node.position==original_position and node.rendered_prop==original_sprite,stage+": cut art preserves the ground anchor and reuses the existing sprite")
+				world.state.flags.jg_bridge_cut = false; await process_frame; await process_frame
+				expect(not node.cut_variant and atlas_sprite_valid(node.rendered_prop,Jigu.prop_atlas,jigu_manifest.get(key,{})),stage+": retained bridge state restores the intact cached frame")
 		elif node.get_script()==Details and node.layer=="landmark":
 			var kind = str(node.landmark.kind)
 			var expected_position = Vector2(node.landmark.position[0],node.landmark.position[1])
@@ -140,11 +167,12 @@ func verify_region(stage: String, chapter: int) -> void:
 	var expected_scenery = world.definition.huts.size()+world.terrain.trees.size()+world.terrain.rocks.size()
 	expect(scenery_found==expected_scenery and scenery_errors.is_empty(),stage+": authored trees, rocks and houses all use cached frames "+str(scenery_errors))
 	expect(hanshui_found==world.definition.get("layout",{}).get("decor",[]).size() and hanshui_errors.is_empty(),stage+": Hanshui decorations all use cached frames "+str(hanshui_errors))
+	expect(jigu_found==world.definition.get("layout",{}).get("jigu_props",[]).size() and jigu_errors.is_empty(),stage+": Jigu props all use cached frames and authored foot anchors "+str(jigu_errors))
 	expect(detail_errors.is_empty(),stage+": old landmarks and painted markers keep their runtime contracts "+str(detail_errors))
-	cached_scenery += scenery_found; cached_hanshui += hanshui_found
+	cached_scenery += scenery_found; cached_hanshui += hanshui_found; cached_jigu += jigu_found
 	expect(not PaintedProps.loaded and not PaintedGround.checked,stage+": no bake-only painted source loader was called")
 func run() -> void:
-	expect(not Terrain.baking and not Scenery.baking and not Hanshui.baking,"suite starts in normal runtime mode")
+	expect(not Terrain.baking and not Scenery.baking and not Hanshui.baking and not Jigu.baking,"suite starts in normal runtime mode")
 	expect(not PaintedProps.loaded and not PaintedGround.checked,"bake-only source loaders start untouched")
 	verify_runtime_manifests()
 	world = Game.new(); world.test_mode = true; world.state = MemoryCampaign.new()
@@ -154,8 +182,10 @@ func run() -> void:
 		for stage in Campaign.CHAPTER_STAGES[chapter]: await verify_region(stage,chapter)
 	for kind in OLD_LANDMARKS: expect(seen_landmarks.has(kind),"production maps exercised legacy landmark "+kind)
 	for key in MARKERS: expect(seen_markers.has(key),"production maps exercised painted marker "+key)
+	for key in jigu_manifest: expect(seen_jigu.has(key),"production maps exercised Jigu atlas frame "+key)
+	expect(regions==18 and cached_jigu>0 and not Jigu.baking,"all eighteen regions and Jigu runtime cache were exercised without enabling a bake")
 	expect(not PaintedProps.loaded and PaintedProps.frames.is_empty() and PaintedProps.sheets.is_empty() and PaintedProps.textures.is_empty(),"runtime leaves all painted-prop source caches empty")
 	expect(not PaintedGround.checked and PaintedGround.tiles.is_empty(),"runtime leaves painted-ground source tiles unloaded")
-	print("PAINTED_ASSETS_VERIFY ",checks," checks; ",failures.size()," failures; regions=",regions," cached_scenery=",cached_scenery," cached_hanshui=",cached_hanshui," source_loaders_untouched=",not PaintedProps.loaded and not PaintedGround.checked)
+	print("PAINTED_ASSETS_VERIFY ",checks," checks; ",failures.size()," failures; regions=",regions," cached_scenery=",cached_scenery," cached_hanshui=",cached_hanshui," cached_jigu=",cached_jigu," source_loaders_untouched=",not PaintedProps.loaded and not PaintedGround.checked)
 	world.queue_free(); await process_frame
 	quit(0 if failures.is_empty() else 1)

@@ -2,6 +2,8 @@ extends SceneTree
 ## Execute this script by absolute path with --main-pack to test exported assets.
 const Game = preload("res://scripts/world.gd")
 const Campaign = preload("res://scripts/campaign.gd")
+const JiguDirector = preload("res://scripts/jigu_director.gd")
+const JiguLayout = preload("res://scripts/jigu_layout.gd")
 class MemoryCampaign extends Campaign:
 	func read_save() -> Dictionary: return {}
 	func save() -> bool: return true
@@ -22,7 +24,7 @@ func run() -> void:
 			if item.kind in ["altar","stela","grain_rack","lantern"]:
 				var node = world.actors.get_node("Landmark_"+item.id)
 				if node.rendered_prop == null:
-					push_error("Missing exported Blender prop: "+item.id); quit(1); return
+					push_error("Missing exported cached landmark: "+item.id); quit(1); return
 				modeled += 1
 		for enemy in world.enemies:
 			enemy.update_visual()
@@ -43,5 +45,25 @@ func run() -> void:
 	world.begin_boss("dujun")
 	if world.boss.display_name!="铁面督军":
 		push_error("Missing exported final boss"); quit(1); return
-	print("EXPORT_SMOKE_OK regions=12 modeled_landmarks=",modeled," chapter1_articulated_enemies=",enemies," chapter2_new_enemies=3 boss=dujun huangzhong_support=ready")
+	world.state.reset("normal",3); world.load_chapter(3)
+	var jigu_props = 0
+	for stage in ["jg_fog","jg_signal","jg_pass","jg_rearguard","jg_bridge","jg_final"]:
+		world.mode="playing"; world.enter_stage(stage,Vector2.INF,false); await process_frame
+		if not is_instance_valid(world.tactics) or world.tactics.get_script()!=JiguDirector or world.terrain.ground_texture==null or world.terrain.ground_texture.get_size()!=Vector2(1600,1100):
+			push_error("Missing exported third-chapter director/ground: "+stage); quit(1); return
+		if world.terrain.get_node_or_null("MapAtmosphere")==null or world.tactics.support_status().visible or world.tactics.cart!=null:
+			push_error("Invalid exported third-chapter atmosphere/compatibility: "+stage); quit(1); return
+		var region_props = 0
+		for node in world.actors.get_children():
+			if node.get_script()!=JiguLayout or node.layer!="landmark": continue
+			if node.rendered_prop==null or not node.rendered_prop.texture is AtlasTexture:
+				push_error("Missing exported Jigu atlas prop: "+str(node.item.kind)); quit(1); return
+			region_props+=1
+		if region_props!=world.definition.get("layout",{}).get("jigu_props",[]).size():
+			push_error("Missing exported authored Jigu props: "+stage); quit(1); return
+		jigu_props+=region_props
+	world.begin_boss("vanguard"); world.boss.update_visual()
+	if world.boss.display_name!="玄甲先锋" or world.boss.boss_id!="vanguard" or world.boss.visual.rig==null:
+		push_error("Missing exported Jigu vanguard boss/rig"); quit(1); return
+	print("EXPORT_SMOKE_OK regions=18 modeled_landmarks=",modeled," chapter1_articulated_enemies=",enemies," chapter2_new_enemies=3 bosses=dujun,vanguard huangzhong_support=ready jigu_props=",jigu_props)
 	world.queue_free(); await process_frame; quit()

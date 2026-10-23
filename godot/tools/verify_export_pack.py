@@ -20,6 +20,11 @@ import sys
 
 PROP_NAMES = ("altar", "stela", "grain_rack", "lantern")
 FORBIDDEN = {"art_source", "tests", "tools"}
+GROUND_REGIONS = (
+    "mountain", "village", "temple", "house", "fork", "bridge",
+    "hs_forest", "hs_grain", "hs_return", "hs_camp", "hs_river", "hs_final",
+    "jg_fog", "jg_signal", "jg_pass", "jg_rearguard", "jg_bridge", "jg_final",
+)
 
 
 def read_pack(path):
@@ -68,6 +73,29 @@ def read_pack(path):
     return entries, f"{major}.{minor}.{patch}"
 
 
+def require_texture(entries, image, errors):
+    """An import file alone is not a usable texture; require its actual payload."""
+    if image in entries:
+        if not entries[image][0].startswith(b"\x89PNG\r\n\x1a\n"):
+            errors.append(f"Missing or invalid direct PNG texture payload: {image}")
+        return
+    imported = entries.get(image + ".import")
+    if imported is None:
+        errors.append(f"Missing texture/import remap: {image}")
+        return
+    try:
+        text = imported[0].decode("utf-8")
+    except UnicodeDecodeError:
+        errors.append(f"Invalid texture import remap: {image}.import")
+        return
+    remaps = re.findall(r'^path(?:\.[^=]+)?="res://([^"\r\n]+)"\s*$', text, re.M)
+    if not remaps:
+        errors.append(f"Texture import has no resource path: {image}.import")
+    for target in remaps:
+        if target not in entries or not entries[target][0]:
+            errors.append(f"Missing imported texture payload for {image}: {target}")
+
+
 def validate(entries, project):
     errors = []
     json_count = 0
@@ -88,8 +116,8 @@ def validate(entries, project):
             elif source.read_bytes() != payload:
                 errors.append(f"Exported JSON differs from current source: {name}")
 
-    required_json = ["data/chapter1.json", "data/chapter2.json", "data/map_details.json", "data/atlas.json",
-                     "assets/maps/scenery.json", "assets/maps/hanshui_props.json", "assets/props/landmarks.json",
+    required_json = ["data/chapter1.json", "data/chapter2.json", "data/chapter3.json", "data/map_details.json", "data/atlas.json",
+                     "assets/maps/scenery.json", "assets/maps/hanshui_props.json", "assets/maps/jigu_props.json", "assets/props/landmarks.json",
                      "assets/props/painted_markers.json"]
     required_json += [f"assets/props/{prop}.json" for prop in PROP_NAMES]
     for name in required_json:
@@ -115,32 +143,14 @@ def validate(entries, project):
     # rather than accepting only a manifest or an orphaned .import file.
     images = [f"assets/props/{prop}.png" for prop in PROP_NAMES]
     images.append("assets/props/painted_markers.png")
+    images.extend(f"assets/maps/{atlas}.png" for atlas in ("scenery", "hanshui_props", "jigu_props"))
+    images.extend(f"assets/maps/{region}.png" for region in GROUND_REGIONS)
     for image in images:
         # Godot exports imported texture data rather than the source PNG. Follow
         # the actual remap instead of assuming the generated .ctex hash/name.
-        if image in entries:
-            continue
-        imported = entries.get(image + ".import")
-        if imported is None:
-            errors.append(f"Missing prop texture/import remap: {image}")
-            continue
-        try:
-            text = imported[0].decode("utf-8")
-        except UnicodeDecodeError:
-            errors.append(f"Invalid texture import remap: {image}.import")
-            continue
-        remaps = re.findall(r'^path(?:\.[^=]+)?="res://([^"\r\n]+)"\s*$', text, re.M)
-        if not remaps:
-            errors.append(f"Texture import has no resource path: {image}.import")
-        for target in remaps:
-            if target not in entries or not entries[target][0]:
-                errors.append(f"Missing imported prop texture payload: {target}")
+        require_texture(entries, image, errors)
 
-    for region in ("hs_forest", "hs_grain", "hs_return", "hs_camp", "hs_river", "hs_final"):
-        image = f"assets/maps/{region}.png"
-        if image not in entries and image + ".import" not in entries:
-            errors.append(f"Missing chapter-two baked ground: {image}")
-    for script in ("map_atmosphere", "map_details", "campaign", "tactic_director", "grain_cart", "hanshui_layout", "huangzhong_support", "painted_props", "painted_ground"):
+    for script in ("map_atmosphere", "map_details", "campaign", "tactic_director", "grain_cart", "hanshui_layout", "huangzhong_support", "painted_props", "painted_ground", "jigu_director", "jigu_layout"):
         name = f"scripts/{script}.gd"
         if name not in entries and not all(
                 resource in entries for resource in (name + ".remap", name + "c")):
@@ -167,7 +177,8 @@ def main():
         print(f"EXPORT_PACK_VERIFY {len(errors)} failures", file=sys.stderr)
         return 1
     print(f"EXPORT_PACK_VERIFY {len(entries)} resources, {json_count} JSON files, "
-          f"4 prop textures and painted marker atlas; all checksums and JSON source bytes match; "
+          f"18 baked grounds, 3 scenery atlases, 4 prop textures and painted marker atlas with payloads; "
+          f"all checksums and JSON source bytes match; "
           f"no forbidden resources; Godot {engine}; 0 failures")
     return 0
 

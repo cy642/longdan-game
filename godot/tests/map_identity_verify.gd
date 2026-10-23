@@ -32,7 +32,9 @@ func serializable(value: Variant) -> Variant:
 	return value
 func scenarios() -> Array:
 	var result = []
-	for chapter in Campaign.CHAPTER_STAGES:
+	# This frozen baseline belongs to the original two chapters. New regions
+	# receive their own layout/route suite; never regenerate the old baseline.
+	for chapter in [1,2]:
 		for id in Campaign.CHAPTER_STAGES[chapter]:
 			result.append({"key":id,"chapter":chapter,"stage":id,"gate":"PREPARE","supplies":false})
 	result.append({"key":"bridge_supplies_burned","chapter":1,"stage":"bridge","gate":"PREPARE","supplies":true})

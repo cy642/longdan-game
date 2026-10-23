@@ -48,7 +48,7 @@ func reset(level: String = "normal", chapter_id: int = 1) -> void:
 	cleared = []; seen = []; history = []
 	checkpoint = {"stage": "mountain", "x": 190.0, "y": 910.0, "encounter": ""}
 	if chapter == 2: checkpoint = {"stage":"hs_forest", "x":200.0, "y":900.0, "encounter":""}
-	if chapter == 3: checkpoint = {"stage":"jg_fog", "x":200.0, "y":900.0, "encounter":""}
+	if chapter == 3: checkpoint = {"stage":"jg_fog", "x":220.0, "y":900.0, "encounter":""}
 	route = "bridge"; time = 0.0; kills = 0; precision_count = 0; complete = false
 
 func record(message: String) -> void:
