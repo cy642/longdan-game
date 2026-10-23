@@ -190,8 +190,8 @@ assert.equal(g.effects.filter(effect => effect.type === 'ring').length, 1); asse
 g.step(.02); assert.equal(g.events.filter(event => event.kind === 'sound' && event.sound === 'heal').length, 1, 'A consumed pickup must not repeat its feedback');
 g = empty(); g.player.hp -= 35; g.loot.push({ x: g.player.x, y: g.player.y, life: 35 }); g.step(.02); assert.equal(g.player.hp, g.player.maxHp - 17); assert(g.floaters.some(floater => /\+18/.test(floater.text)));
 g = empty(); g.loot.push({ x: g.player.x, y: g.player.y, life: .01 }); g.step(.02); assert.equal(g.loot.length, 0, 'Unused pickups still expire at full health');
-const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8'); assert(!html.includes('GAME_SCRIPT')); assert(!html.includes('GAME_STYLES')); assert(!/<script[^>]+src=/.test(html));
-assert.equal(html, build(), 'Published entry must match the current source build');
+const html = readFileSync(new URL('./legacy.html', import.meta.url), 'utf8'); assert(!html.includes('GAME_SCRIPT')); assert(!html.includes('GAME_STYLES')); assert(!/<script[^>]+src=/.test(html));
+assert.equal(html, build(), 'Archived Canvas entry must match the current source build');
 assert(html.length < 250000, 'Online entry should allow images to be cached independently');
 const offlineHtml = build({ offline: true }); assert.equal((offlineHtml.match(/data:image\/png;base64,/g) || []).length, 6);
 assert(!/"assets\/[^"\n]+\.png"/.test(offlineHtml), 'Offline game must retain every embedded character image');

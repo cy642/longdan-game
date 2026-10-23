@@ -1,0 +1,447 @@
+{
+  "version": 1,
+  "sheets": {
+    "architecture": "res://art_source/painted/architecture-source.png",
+    "nature": "res://art_source/painted/nature-source.png",
+    "utility": "res://art_source/painted/utility-source.png"
+  },
+  "frames": {
+    "intact_house": {
+      "sheet": "architecture",
+      "source_rect": [
+        18,
+        79,
+        436,
+        352
+      ],
+      "source_seed": [
+        236,
+        255
+      ],
+      "source_foot": [
+        218,
+        341
+      ],
+      "source_footprint_width": 350,
+      "target_footprint_width": 140
+    },
+    "damaged_house": {
+      "sheet": "architecture",
+      "source_rect": [
+        477,
+        80,
+        410,
+        355
+      ],
+      "source_seed": [
+        682,
+        257
+      ],
+      "source_foot": [
+        205,
+        347
+      ],
+      "source_footprint_width": 340,
+      "target_footprint_width": 140
+    },
+    "temple_hall": {
+      "sheet": "architecture",
+      "source_rect": [
+        893,
+        32,
+        470,
+        429
+      ],
+      "source_seed": [
+        1128,
+        246
+      ],
+      "source_foot": [
+        235,
+        420
+      ],
+      "source_footprint_width": 390,
+      "target_footprint_width": 155
+    },
+    "gateway": {
+      "sheet": "architecture",
+      "source_rect": [
+        1364,
+        79,
+        405,
+        347
+      ],
+      "source_seed": [
+        1566,
+        252
+      ],
+      "source_foot": [
+        202,
+        341
+      ],
+      "source_footprint_width": 330,
+      "target_footprint_width": 180
+    },
+    "tent_warm": {
+      "sheet": "architecture",
+      "source_rect": [
+        13,
+        486,
+        423,
+        327
+      ],
+      "source_seed": [
+        224,
+        649
+      ],
+      "source_foot": [
+        211,
+        320
+      ],
+      "source_footprint_width": 360,
+      "target_footprint_width": 130
+    },
+    "tent_blue": {
+      "sheet": "architecture",
+      "source_rect": [
+        446,
+        471,
+        426,
+        364
+      ],
+      "source_seed": [
+        659,
+        653
+      ],
+      "source_foot": [
+        213,
+        355
+      ],
+      "source_footprint_width": 360,
+      "target_footprint_width": 130
+    },
+    "ridge_wide": {
+      "sheet": "architecture",
+      "source_rect": [
+        849,
+        576,
+        544,
+        229
+      ],
+      "source_seed": [
+        1121,
+        690
+      ],
+      "source_foot": [
+        272,
+        222
+      ],
+      "source_footprint_width": 450,
+      "target_footprint_width": 240
+    },
+    "grain_rack": {
+      "sheet": "architecture",
+      "source_rect": [
+        1404,
+        526,
+        346,
+        297
+      ],
+      "source_seed": [
+        1577,
+        674
+      ],
+      "source_foot": [
+        173,
+        290
+      ],
+      "source_footprint_width": 300,
+      "target_footprint_width": 90
+    },
+    "weathered": {
+      "sheet": "nature",
+      "source_rect": [
+        28,
+        82,
+        438,
+        405
+      ],
+      "source_seed": [
+        245,
+        282
+      ],
+      "source_foot": [
+        237,
+        395
+      ],
+      "source_footprint_width": 420,
+      "target_footprint_width": 92
+    },
+    "bare": {
+      "sheet": "nature",
+      "source_rect": [
+        508,
+        50,
+        361,
+        446
+      ],
+      "source_seed": [
+        688,
+        273
+      ],
+      "source_foot": [
+        180,
+        439
+      ],
+      "source_footprint_width": 340,
+      "target_footprint_width": 72
+    },
+    "cypress": {
+      "sheet": "nature",
+      "source_rect": [
+        988,
+        24,
+        275,
+        473
+      ],
+      "source_seed": [
+        1125,
+        260
+      ],
+      "source_foot": [
+        137,
+        466
+      ],
+      "source_footprint_width": 255,
+      "target_footprint_width": 68
+    },
+    "willow": {
+      "sheet": "nature",
+      "source_rect": [
+        1343,
+        109,
+        408,
+        383
+      ],
+      "source_seed": [
+        1547,
+        300
+      ],
+      "source_foot": [
+        204,
+        376
+      ],
+      "source_footprint_width": 380,
+      "target_footprint_width": 100
+    },
+    "bamboo": {
+      "sheet": "nature",
+      "source_rect": [
+        63,
+        516,
+        376,
+        341
+      ],
+      "source_seed": [
+        251,
+        686
+      ],
+      "source_foot": [
+        188,
+        332
+      ],
+      "source_footprint_width": 350,
+      "target_footprint_width": 98
+    },
+    "scrub": {
+      "sheet": "nature",
+      "source_rect": [
+        501,
+        577,
+        348,
+        263
+      ],
+      "source_seed": [
+        675,
+        708
+      ],
+      "source_foot": [
+        174,
+        254
+      ],
+      "source_footprint_width": 330,
+      "target_footprint_width": 72
+    },
+    "small_rock": {
+      "sheet": "nature",
+      "source_rect": [
+        928,
+        576,
+        333,
+        263
+      ],
+      "source_seed": [
+        1094,
+        707
+      ],
+      "source_foot": [
+        166,
+        256
+      ],
+      "source_footprint_width": 310,
+      "target_footprint_width": 44
+    },
+    "ridge_short": {
+      "sheet": "nature",
+      "source_rect": [
+        1322,
+        599,
+        426,
+        242
+      ],
+      "source_seed": [
+        1535,
+        720
+      ],
+      "source_foot": [
+        213,
+        235
+      ],
+      "source_footprint_width": 350,
+      "target_footprint_width": 200
+    },
+    "altar": {
+      "sheet": "utility",
+      "source_rect": [
+        42,
+        87,
+        504,
+        378
+      ],
+      "source_seed": [
+        294,
+        276
+      ],
+      "source_foot": [
+        252,
+        368
+      ],
+      "source_footprint_width": 450,
+      "target_footprint_width": 114
+    },
+    "stela": {
+      "sheet": "utility",
+      "source_rect": [
+        600,
+        48,
+        255,
+        392
+      ],
+      "source_seed": [
+        727,
+        244
+      ],
+      "source_foot": [
+        127,
+        382
+      ],
+      "source_footprint_width": 230,
+      "target_footprint_width": 46
+    },
+    "well": {
+      "sheet": "utility",
+      "source_rect": [
+        965,
+        24,
+        409,
+        431
+      ],
+      "source_seed": [
+        1169,
+        239
+      ],
+      "source_foot": [
+        204,
+        425
+      ],
+      "source_footprint_width": 350,
+      "target_footprint_width": 90
+    },
+    "lantern": {
+      "sheet": "utility",
+      "source_rect": [
+        1465,
+        15,
+        223,
+        411
+      ],
+      "source_seed": [
+        1576,
+        220
+      ],
+      "source_foot": [
+        75,
+        403
+      ],
+      "source_footprint_width": 100,
+      "target_footprint_width": 28
+    },
+    "palisade_strip": {
+      "sheet": "utility",
+      "source_rect": [
+        40,
+        499,
+        506,
+        326
+      ],
+      "source_seed": [
+        293,
+        662
+      ],
+      "source_foot": [
+        253,
+        316
+      ],
+      "source_footprint_width": 475,
+      "target_footprint_width": 126
+    },
+    "single_stake": {
+      "sheet": "utility",
+      "source_rect": [
+        619,
+        490,
+        119,
+        333
+      ],
+      "source_seed": [
+        678,
+        656
+      ],
+      "source_foot": [
+        59,
+        323
+      ],
+      "source_footprint_width": 95,
+      "target_footprint_width": 22
+    },
+    "boatframe": {
+      "sheet": "utility",
+      "source_rect": [
+        835,
+        492,
+        532,
+        371
+      ],
+      "source_seed": [
+        1101,
+        677
+      ],
+      "source_foot": [
+        266,
+        364
+      ],
+      "source_footprint_width": 500,
+      "target_footprint_width": 240
+    }
+  }
+}

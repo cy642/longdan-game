@@ -1,10 +1,12 @@
-# 《龙胆：逆命三国》双章地图美术规范（0.4.0）
+# 《龙胆：逆命三国》双章地图美术规范（0.5.0）
 
 本规范约束 Godot 电脑版十二个区域的地图制作。玩家应能从路线形状、脚下材质、植被轮廓和一处与剧情相关的地标辨认所在区域；关卡名和界面文字只是辅助。战斗与互动区域保持低对比度，装饰集中在道路边缘、建筑脚下和水岸。所有固定地表由源码烘焙，运行时只绘制贴图、实体和有限的动态氛围。
 
-![六个区域的实际游戏镜头](images/map-themes-0.4.0.jpg)
+2026-10-23 更新：本轮沿用 0.4.0 的分区身份与坐标，接入内置 `image_gen` 生成的环境原图。原始 PNG、最终提示词、alpha 连通抽帧和 Godot 烘焙方式见 [PAINTED-ENVIRONMENT.md](PAINTED-ENVIRONMENT.md)。新增资产完整性检查并入二十二组回归；本轮源码与原生截图结果见 [Godot 开发说明](../godot/README.md)，导出和线上验收仍待完成。
 
-上图是正常 1.15 倍率下的原生游戏截图缩略图；完整验收另外覆盖十二个区域和五个任务/战斗状态。它用于比较地图风格，不代替逐张检查角色与预警。
+![历史0.4.0六个区域的实际游戏镜头](images/map-themes-0.4.0.jpg)
+
+上图是 **0.4.0 历史截图**，用于说明分区方向，不是 0.5.0 的最终像素或验收结果。当前画面仍须按正常 1.15 倍率逐张检查角色、预警和地标，缩略联系表不代替实际游戏尺寸的复核。默认在线首页已统一进入 Godot；`legacy.html` 是旧 Canvas 原型，不能用它判断当前地图。
 
 ## 十二个区域的身份
 
@@ -25,27 +27,30 @@
 
 ## 可编辑源与坐标边界
 
-- `godot/data/chapter1.json` 与 `godot/data/chapter2.json` 给出剧情入口、道路、交互物、敌群、竞技区和第二章布局。`godot/data/map_details.json` 是第一章局部地表、地标与碰撞的补充来源。0.4.0 地图美术沿用现有通行、碰撞、寻路及剧情坐标；纯绘画痕迹不能被误读为挡路的高墙。
+- `godot/data/chapter1.json` 与 `godot/data/chapter2.json` 给出剧情入口、道路、交互物、敌群、竞技区和第二章布局。`godot/data/map_details.json` 是第一章局部地表、地标与碰撞的补充来源。0.5.0 继续沿用现有通行、碰撞、寻路及剧情坐标；纯绘画痕迹不能被误读为挡路的高墙。
 - `godot/scripts/terrain_materials.gd` 定义每区土色、道路宽度、地表植物笔触、树种和保留密度。道路与植物须服务地貌和行军用途；低对比细纹只在有依据的区域出现。
-- `godot/scripts/scenery_styles.gd` 与 `godot/scripts/scenery.gd` 是树种及建筑轮廓的可编辑源，统一烘焙进 `godot/assets/maps/scenery.png`。场景使用风蚀树、枯树、柏树、柳树、竹林和灌丛的不同剪影；房屋与军帐保留原脚底锚点及实体占地。图集帧、尺寸若调整，以再生后的 `scenery.json` 为准。
+- `godot/art_source/painted/` 保存环境原画与最终提示词，`props-manifest.json` 定义连通抽帧种子、脚底与占地宽。`painted_props.gd` 仅在烘焙时读取这些源，生成 `scenery.png`、`hanshui_props.png` 及地标贴图；`scenery_styles.gd` 保留旧剪影和未覆盖物件的后备。场景仍按风蚀树、枯树、柏树、柳树、竹林和灌丛区分，房屋与军帐保留原脚底锚点及实体占地。
+- `painted_ground.gd` 把六种地表原图用于既有地表多边形，混入区域底色、按边缘渐隐，并在离线阶段处理接缝和重复。正式地图只有烘焙 PNG，不逐帧运行原画材质 shader。不能用新增材质多边形悄悄改变导航或实体范围。
 - 第一章手工地表在 `godot/scripts/map_details.gd`：山脊石层、村街烧痕、庙庭裂缝、井庭生活磨损、粮营车辙和桥头踩踏均画在地面。第二章材料与叙事笔触在 `godot/scripts/hanshui_layout.gd`，局部图形必须贴合 `chapter2.json` 的 `layout`、水域及现有 `solids`。
-- `godot/art_source/map_landmarks.blend` 保留祭坛、旧碑、粮架、灯柱四件可编辑 Blender 模型；相应 PNG、锚点清单由 `godot/art_source/regenerate_landmarks.py` 再生。新增或修改这些模型时同步维护再生脚本和清单，不能仅修改烘焙 PNG。
+- `godot/tools/bake_painted_landmarks.gd` 用新原画生成祭坛、旧碑、粮架和灯柱，原资源路径、尺寸、脚底与碰撞元数据保留；新增门楼/井进入四帧 `painted_markers` 图集。`godot/art_source/map_landmarks.blend` 与 `regenerate_landmarks.py` 保留为旧 Blender 方案。执行旧再生脚本会覆盖四张当前地标，发行前须重新执行绘画地标烘焙。
 
 ## 禁止退回的画法
 
 1. 不得在整张图均匀随机撒草、树、石子、瓦砾或光点来填空。细纹可以由固定种子生成，但必须受道路、林带、水岸、屋基等明确区域约束；战斗中心优先留白。
 2. 不得用相同规则砖地、完整几何多边形或同一条等宽双车辙道路换色充当另一关。先改变空间轮廓与材质用途，再考虑色差。
 3. 不得在可走路面画无碰撞高墙、树干或码头实体，也不得移动现有实体而不同步碰撞、导航、箭路与剧情交互。平面的裂缝、阴影、布席和水痕必须保持可通行的视觉语义。
-4. 不得直接修饰导出的地图 PNG 作为唯一源文件；修改应回到 Godot/Blender 可编辑源并重新生成。
+4. 不得直接修饰导出的地图 PNG 作为唯一源文件；修改应回到原画/提示词、抽帧清单或 Godot 可编辑绘画源并重新生成。旧 Blender 模型属于历史回退管线，不应无记录地覆盖当前绘画版。
 
 ## 重建与待验收项目
 
-修改第一章地表、道路、树种或建筑源码后，运行 Godot 图形烘焙；修改第二章地表或汉水场景物后，运行汉水专用烘焙。随后导入更新的贴图，再进行图形截图、碰撞与路线核对。下列命令从仓库根目录执行，需本机可用的 Godot 4.x 图形渲染器：
+修改原画、抽帧清单或可编辑地表后，先烘焙绘画地标并导入新贴图，再生成第一章地表/共享景物和第二章地表/汉水图集。随后再次导入更新贴图，进行图形截图、碰撞与路线核对。三个烘焙步骤需本机可用的 Godot 图形渲染器：
 
 ```powershell
+godot --path godot --script res://tools/bake_painted_landmarks.gd
+godot --headless --path godot --editor --import --quit
 godot --path godot --script res://tools/bake_maps.gd
 godot --path godot --script res://tests/hanshui_layout_verify.gd -- --bake
 godot --headless --path godot --editor --import --quit
 ```
 
-烘焙完成后，使用 `godot/tests/theme_preview.gd` 在正式游戏镜头下逐区检查十二张地图：首先看路线是否一眼可辨、地标是否支持剧情，再看角色是否被景物遮住、红色预警与箭路是否清楚。需要对照 `map_verify.gd`、`hanshui_layout_verify.gd`、`hanshui_world_layout_verify.gd` 的通行与碰撞结果。源码改动不等于视觉或玩法验收完成；Web 试玩仍需重新导出、部署并单独检查。
+烘焙完成后，使用 `godot/tests/map_identity_preview.gd -- --label=唯一标签` 检查十二关和五个战斗/任务状态。该入口保留正常 1.15 镜头，验证赵云脚点在真实可走地形上，并等待景物遮挡淡出稳定；旧 `theme_preview.gd` 只保留为历史参考。首先看路线与剧情地标，再看角色、红区和箭路；对照 `map_verify.gd`、`hanshui_layout_verify.gd`、`hanshui_world_layout_verify.gd` 及修改前保存的本地 `map_identity_verify` 基线。`painted_assets_verify.gd` 另外验证正式贴图与脚底契约，在导出 PCK 上也不依赖原画目录。源码、资产完整性和历史截图均不能代替本轮实画面验收；Web 仍需重新导出、部署并检查。

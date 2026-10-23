@@ -89,7 +89,8 @@ def validate(entries, project):
                 errors.append(f"Exported JSON differs from current source: {name}")
 
     required_json = ["data/chapter1.json", "data/chapter2.json", "data/map_details.json", "data/atlas.json",
-                     "assets/maps/scenery.json", "assets/maps/hanshui_props.json", "assets/props/landmarks.json"]
+                     "assets/maps/scenery.json", "assets/maps/hanshui_props.json", "assets/props/landmarks.json",
+                     "assets/props/painted_markers.json"]
     required_json += [f"assets/props/{prop}.json" for prop in PROP_NAMES]
     for name in required_json:
         if name not in entries:
@@ -110,6 +111,11 @@ def validate(entries, project):
         image = f"assets/props/{prop}.png"
         if not isinstance(frame, dict) or frame.get("image") != "res://" + image:
             errors.append(f"Missing or incorrect manifest image for prop: {prop}")
+    # Marker art is also imported by Godot. Validate the remapped payload,
+    # rather than accepting only a manifest or an orphaned .import file.
+    images = [f"assets/props/{prop}.png" for prop in PROP_NAMES]
+    images.append("assets/props/painted_markers.png")
+    for image in images:
         # Godot exports imported texture data rather than the source PNG. Follow
         # the actual remap instead of assuming the generated .ctex hash/name.
         if image in entries:
@@ -134,7 +140,7 @@ def validate(entries, project):
         image = f"assets/maps/{region}.png"
         if image not in entries and image + ".import" not in entries:
             errors.append(f"Missing chapter-two baked ground: {image}")
-    for script in ("map_atmosphere", "map_details", "campaign", "tactic_director", "grain_cart", "hanshui_layout", "huangzhong_support"):
+    for script in ("map_atmosphere", "map_details", "campaign", "tactic_director", "grain_cart", "hanshui_layout", "huangzhong_support", "painted_props", "painted_ground"):
         name = f"scripts/{script}.gd"
         if name not in entries and not all(
                 resource in entries for resource in (name + ".remap", name + "c")):
@@ -161,7 +167,7 @@ def main():
         print(f"EXPORT_PACK_VERIFY {len(errors)} failures", file=sys.stderr)
         return 1
     print(f"EXPORT_PACK_VERIFY {len(entries)} resources, {json_count} JSON files, "
-          f"4 prop textures; all checksums and JSON source bytes match; "
+          f"4 prop textures and painted marker atlas; all checksums and JSON source bytes match; "
           f"no forbidden resources; Godot {engine}; 0 failures")
     return 0
 

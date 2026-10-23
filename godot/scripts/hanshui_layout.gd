@@ -1,4 +1,6 @@
 extends Node2D
+const Painted=preload("res://scripts/painted_ground.gd")
+const PaintedProps=preload("res://scripts/painted_props.gd")
 ## Chapter-two source art: immutable terrain and colliders share the JSON layout.
 ## Ground is baked to one texture; upright props retain their ground Y-sort anchor.
 static var baking=false
@@ -163,6 +165,8 @@ func _surface_materials() -> void:
 		var polygon=_points(surface.polygon)
 		var base={"hs_forest":Color("7e9079"),"hs_grain":Color("ac9e77"),"hs_return":Color("929a92"),"hs_river":Color("91a18f")}.get(stage,Color("8d9986"))
 		if stage=="hs_river" and surface.kind=="earth": base=Color("899482")
+		var kind=Painted.SLATE if stage=="hs_return" else Painted.MUD if stage in ["hs_forest","hs_river"] else Painted.DRY
+		if Painted.paint(self,polygon,kind,base,stage,15.0,.44 if stage=="hs_return" else .48): continue
 		# Same walkable polygons, but no beveled flagstones or planted border.
 		# A broad feather hides the previous renderer's uniformly outlined edge.
 		var edge=polygon.duplicate(); edge.append(polygon[0])
@@ -172,6 +176,8 @@ func _surface_materials() -> void:
 
 func _packed_ground(values: Array, tone: Color, marks: int) -> void:
 	var polygon=_points(values)
+	# Packed camp earth retains its authored outline and quiet battle center.
+	if Painted.paint(self,polygon,Painted.DRY,tone,stage,18.0,.48): return
 	var edge=polygon.duplicate(); edge.append(polygon[0])
 	draw_polyline(edge,Color(tone,.34),32,true)
 	draw_colored_polygon(polygon,tone)
@@ -215,8 +221,9 @@ func _bamboo_floor() -> void:
 		for i in range(14):
 			var a=i*TAU/14; var r=1.0+sin(i*2.1+cluster.x)*.14
 			skirt.append(cluster+Vector2(cos(a)*102,sin(a)*45)*r)
-		draw_colored_polygon(skirt,Color(.20,.32,.23,.24))
-		for branch in range(5):
+		var illustrated=Painted.paint(self,skirt,Painted.LITTER,Color("5d705d",.70),stage,17.0,.64)
+		if not illustrated: draw_colored_polygon(skirt,Color(.20,.32,.23,.24))
+		for branch in range(0 if illustrated else 5):
 			var start=cluster+Vector2(branch*11-35,branch%3*9)
 			var end=start+Vector2(72,-44-branch*5)
 			draw_line(start,end,Color(.12,.30,.26,.12),4,true)
@@ -226,7 +233,7 @@ func _bamboo_floor() -> void:
 		for i in range(46):
 			var at=cluster+Vector2(rng.randf_range(-88,90),rng.randf_range(-31,39))
 			var side=1 if i%2 else -1
-			_poly([[at.x,at.y],[at.x+side*9,at.y-4],[at.x+side*19,at.y-3],[at.x+side*8,at.y+1]],Color(.65,.66,.39,.48) if i%3 else Color(.21,.33,.24,.48))
+			if not illustrated: _poly([[at.x,at.y],[at.x+side*9,at.y-4],[at.x+side*19,at.y-3],[at.x+side*8,at.y+1]],Color(.65,.66,.39,.48) if i%3 else Color(.21,.33,.24,.48))
 	# A handful of flush stones, not an evenly dotted navigation line.
 	for road in definition.roads:
 		for i in range(1,road.size()):
@@ -410,6 +417,7 @@ func _water(bounds: Array) -> void:
 
 func _draw_prop() -> void:
 	if item.is_empty(): return
+	if baking and PaintedProps.draw_hanshui(self,item): return
 	match item.kind:
 		"bamboo": _bamboo()
 		"rockwall", "lowwall": _stone_wall()

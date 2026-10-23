@@ -34,7 +34,7 @@ func run() -> void:
 	var items=[]
 	for species in ["weathered","bare","cypress","willow","bamboo","scrub"]:
 		for i in range(4): items.append({"key":species+"_"+str(i),"data":{"kind":"tree","size":40,"seed":i,"variant":.7,"species":species}})
-	for i in range(4): items.append({"key":"rock_"+str(i),"data":{"kind":"rock","size":22+i*.2}})
+	for i in range(4): items.append({"key":"rock_"+str(i),"data":{"kind":"rock","size":22+i*.2,"paint_variant":i}})
 	var definitions=JSON.parse_string(FileAccess.get_file_as_string("res://data/chapter1.json")).StageDefinition
 	definitions.merge(JSON.parse_string(FileAccess.get_file_as_string("res://data/chapter2.json")).StageDefinition)
 	var seen={}

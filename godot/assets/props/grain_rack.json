@@ -1,37 +1,38 @@
 {
-  "image_size": [
-    288,
-    272
-  ],
+  "anchor_note": "Painted source ground contact is placed at the retained logical anchor; existing physics metadata is unchanged.",
   "anchor_px": [
-    144,
-    234
+    144.0,
+    234.0
   ],
+  "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow.",
   "colliders": [
     {
       "rect": [
-        -46,
-        -20,
-        92,
-        32
+        -46.0,
+        -20.0,
+        92.0,
+        32.0
       ]
     }
-  ],
-  "image": "res://assets/props/grain_rack.png",
-  "logical_size": [
-    144.0,
-    136.0
-  ],
-  "scale": 0.5,
-  "logical_anchor": [
-    72.0,
-    117.0
   ],
   "draw_offset": [
     -72.0,
     -117.0
   ],
+  "image": "res://assets/props/grain_rack.png",
+  "image_size": [
+    288.0,
+    272.0
+  ],
+  "logical_anchor": [
+    72.0,
+    117.0
+  ],
+  "logical_size": [
+    144.0,
+    136.0
+  ],
   "model_scene": "grain_rack",
-  "anchor_note": "The source-pixel anchor projects Blender ground origin (0,0,0). Draw at landmark.position with draw_offset, logical_size; keep node Y-sort at landmark.position.",
-  "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow."
+  "scale": 0.5,
+  "source_frame": "grain_rack"
 }

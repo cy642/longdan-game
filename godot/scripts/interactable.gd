@@ -26,7 +26,7 @@ func _ready() -> void:
 	if data.id=="civilians":
 		person("chapter",3,Vector2(-4,-6),61)
 		for i in range(3): person("units",5+i,Vector2(-30+i*28,28+absf(i-1)*15),48)
-	elif data.id=="adou": person("chapter",4,Vector2(20,-4),63)
+	elif data.id=="adou": person("chapter",4,Vector2(44,-4),63)
 	elif data.kind=="huangzhong": person("chapter",3,Vector2(2,-3),74)
 	elif data.kind=="wounded": person("chapter",5,Vector2(0,4),57)
 
@@ -132,10 +132,12 @@ func _draw() -> void:
 				draw_line(p+Vector2(-12,-12),p+Vector2(12,-12),Color("786544"),2,true)
 				if world.state.flags.supplies: flame(p-Vector2(0,12),15)
 		"story":
-			oval(Vector2(-20,13),26,.46,Color(.16,.29,.24,.23))
-			oval(Vector2(-20,3),23,.6,Color("aaaf8b")); oval(Vector2(-20,-3),22,.55,Color("d0cbb1")); oval(Vector2(-20,-4),14,.53,Color("445d51"))
-			draw_line(Vector2(-46,-22),Vector2(1,-22),Color("756a50"),5,true)
-			for x in [-43,-1]: draw_line(Vector2(x,7),Vector2(x,-25),Color("8e7c58"),4,true)
+			var well=get_parent().get_node_or_null("Landmark_well_hoist")
+			if well==null or not is_instance_valid(well.get("rendered_prop")):
+				oval(Vector2(-20,13),26,.46,Color(.16,.29,.24,.23))
+				oval(Vector2(-20,3),23,.6,Color("aaaf8b")); oval(Vector2(-20,-3),22,.55,Color("d0cbb1")); oval(Vector2(-20,-4),14,.53,Color("445d51"))
+				draw_line(Vector2(-46,-22),Vector2(1,-22),Color("756a50"),5,true)
+				for x in [-43,-1]: draw_line(Vector2(x,7),Vector2(x,-25),Color("8e7c58"),4,true)
 		"huangzhong":
 			# A pale-haired source portrait keeps the friendly Q-style face. The
 			# yellow mantle and full bow silhouette identify this older general.

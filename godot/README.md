@@ -1,19 +1,21 @@
 # 龙胆：逆命三国 · Godot 电脑版
 
-0.4.0（2026-10-22）按十二个区域的剧情与战术用途，分别处理道路宽度、地表材质、树种和建筑。二十一组回归 42,697 项断言通过，另有地图基线对照 1,107 项及十七张正式镜头复核；图形、性能、导出与发布结果见 [开发记录](../CLOUD-POLISH.md)。
+0.5.0（2026-10-23）把可追溯的绘画环境原图接入十二个区域：原图由内置 `image_gen` 生成，提示词和源像素保留，材质/景物离线烘焙后进入正常运行贴图。四件旧地标保留尺寸、脚底与碰撞元数据，门楼/井使用独立四帧图集。完整流程见 [PAINTED-ENVIRONMENT.md](../docs/PAINTED-ENVIRONMENT.md)，当前画面见 [0.5.0 六区原生实机图](../docs/images/map-materials-0.5.0.jpg)。本轮二十二组源码回归 **42,815 项断言、0 失败**（`.qa/painted-full-checks.log`），旧地图基线 **1,107 项、0 失败**（`.qa/painted-map-identity.log`），正常镜头 **17 张原生截图、0 捕获失败**（`.qa/painted-release-preview.log`）；Windows/Web 导出及 PCK 验证已通过，本地网页已验证两章入口与基本操作；线上发布结果见开发记录。
+历史 0.4.0（2026-10-22）确立十二个区域的道路、土质、树种和建筑身份，二十一组回归 42,697 项、地图基线 1,107 项及十七张镜头检查是该版结果。不要沿用为 0.5.0 成绩；各轮图形、性能、导出与发布结果见 [开发记录](../CLOUD-POLISH.md)。
 0.3.1 的首玩提示、营火引导、敌人状态反馈和黄忠援射，以及此前的枪势、战法和护车玩法继续保留。地图逐区构图、制作约束与重建方式见 [地图美术规范](../docs/MAP-ART-DIRECTION.md)；玩法设计见 [PLAYABILITY-PLAN.md](../docs/PLAYABILITY-PLAN.md)。
 可编辑布局见 `data/map_details.json` 与 `data/chapter2.json`，双章巡游入口为 `../Map-Tour.cmd`。正式构建沿用原有 Godot 存档目录；此前单独交付的本地地图预览包使用 `LongdanMapPolishPreview`。
 
-宣传副标题：**重生之我在三国当赵子龙**。Godot 4.7.2 / GDScript 的原生 2D 动作冒险，含第一章「长坂逆命」与第二章「汉水孤营」，各有六个区域。原来的 Canvas 网页版继续保留在仓库根目录；新增玩法开发以本目录为准。
+宣传副标题：**重生之我在三国当赵子龙**。Godot 4.7.2 / GDScript 的原生 2D 动作冒险，含第一章「长坂逆命」与第二章「汉水孤营」，各有六个区域。原来的 Canvas 网页版保留在根目录 `legacy.html`；默认首页与新增玩法均以 Godot 为准。
 
 ## 直接试玩
 
-- Godot 在线试玩：<https://cy642.github.io/longdan-game/godot-play/>，使用电脑 Chrome、Edge 或 Firefox；首次需要下载引擎与素材。
+- 默认在线首页 <https://cy642.github.io/longdan-game/> 会进入 <https://cy642.github.io/longdan-game/godot-play/>，跳转保留参数/片段。在线版与 Windows 版从同一 Godot 工程导出；使用电脑 Chrome、Edge 或 Firefox，首次需要下载引擎与素材。
 - 本地导出后可双击 `../builds/windows/Longdan.exe`，运行此程序无需安装 Godot、Python 或联网；Windows 构建包不纳入源码仓库。
 - 打开工程：在 Godot 4.7.2 中导入本目录的 `project.godot`，按 F5 运行。
 - 标题可选择任一章、普通/剧情难度，开始或继续所选章节；另一章进度会保留。查看战报也按当前选择的章节读取。
 - 快速巡览：打开 `tests/map_tour.tscn` 后按 F6，或在 Windows 使用根目录 `Map-Tour.cmd`；Tab 切章、F1–F6 切换该章六区，WASD / 方向键移动，M 打开军图。巡览不读取或写入玩家存档。
 - Windows 版和浏览器版分别保存进度；旧 Canvas 版存档不会自动迁移。
+- 旧原型地址为 <https://cy642.github.io/longdan-game/legacy.html>。`node build.mjs` 只生成这个历史页面；正式首页不再被 Canvas 构建覆盖。
 
 ## 操作与战斗
 
@@ -81,7 +83,9 @@
 - `scripts/actor_visual.gd`、`frame_texture.gd`：赵云八方向动作、固定模型比例与脚底锚点；`data/atlas.json` 的 `model_scale` 为整套原画的像素密度校准，walk/attack 共用 0.34，旧 hero 倒地原画为 0.29。不要再用逐帧头发色块高度或含长枪的包围盒自动归一化。原画网格保持敌人脸和武器刚性，重叠图集通过绘制几何排除邻帧碎片。
 - `scripts/terrain.gd`、`scenery.gd`：原生地形碰撞、Godot AStarGrid2D 绕障碍路径、烘焙地表与共用景物图集。
 - `scripts/hanshui_layout.gd`：第二章六区共用的美术、地形与碰撞布局；动态营门开合与路径更新由 `terrain.gd` 提供。
+- `scripts/painted_ground.gd`、`painted_props.gd`：仅在制作阶段读取环境原图并绘制材质/连通区域抽帧；正式运行使用烘焙结果。
 - `assets/maps/`：两章各六张 1600 × 1100 地表，以及共用景物图集、第二章景物图集和脚底坐标。树木、岩石和建筑仍按原位置遮挡人物，动态路障单独绘制。
+- `assets/props/`：四件旧地标的新绘画像素及原契约清单，另含 `painted_markers.png/json` 的三种门楼跨度与井架。
 - `scripts/effects.gd`、`sound.gd`：战斗预警、枪芒、受击火花、残影、局部音效。
 - `scripts/world.gd`、`campaign.gd`：章节入口、剧情、目标、v2 独立进度、旧 v1 兼容、战报和奖励。
 - `scripts/tactic_director.gd`：第二章有限波次/存活上限、藏兵与门前试探、退军名册、擂鼓结果及稳定恢复阶段。
@@ -122,14 +126,24 @@ godot --headless --path godot --script res://tests/first_minutes_verify.gd
 godot --headless --path godot --script res://tests/combat_clarity_verify.gd
 godot --headless --path godot --script res://tests/huangzhong_support_verify.gd
 godot --headless --path godot --script res://tests/scenery_occlusion_verify.gd
+godot --headless --path godot --script res://tests/painted_assets_verify.gd
 New-Item -ItemType Directory -Force builds/windows, godot-play | Out-Null
 godot --headless --path godot --export-release "Windows Desktop"
 godot --headless --path godot --export-release "Web"
 ```
 
-Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与二十一组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。0.4.0 增加合法落脚下的 `scenery_occlusion_verify`；0.3.1 新增 `first_minutes_verify`、`combat_clarity_verify`、`huangzhong_support_verify`，与上一轮枪势/战法/护车/双章衔接专项一起运行。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。检查输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程的环境变量。两个 `.cmd` 启动器也支持把引擎路径作为第一个参数，或使用 `GODOT_EXE` / PATH。
+Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与二十二组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。0.5.0 新增可独立对导出包运行的 `painted_assets_verify`；0.4.0 的 `scenery_occlusion_verify` 和此前首玩/战斗/护车/章节衔接专项继续保留。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。检查输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程的环境变量。两个 `.cmd` 启动器也支持把引擎路径作为第一个参数，或使用 `GODOT_EXE` / PATH。
 
-输出目录为仓库的 `builds/windows/` 与 `godot-play/`。`builds/`、`.godot/`、`.qa/`、日志和本机引擎不入库。`godot-play/` 是已跟踪的 Web 导出，修改 Godot 游戏后须重新导出并与源码一起提交。现有 GitHub Pages 从 `main` 分支的仓库根目录自动发布，Pages 流程不会替你运行测试或导出 Godot；根目录的 Canvas 入口继续保留，Godot 入口为 `/godot-play/`。
+输出目录为仓库的 `builds/windows/` 与 `godot-play/`。`builds/`、`.godot/`、`.qa/`、日志和本机引擎不入库。`godot-play/` 是已跟踪的 Web 导出，修改 Godot 游戏后须重新导出并与源码一起提交。现有 GitHub Pages 从 `main` 分支的仓库根目录自动发布，Pages 流程不会替你运行测试或导出 Godot。根 `index.html` 跳转至 `./godot-play/`；旧 Canvas 使用 `legacy.html`，Godot 加载页也明确指向该历史路径。
+
+`painted_assets_verify.gd` 不读取原画或本机基线，可从项目外针对实际 PCK 检查所有运行资产。导出完成后执行（脚本路径须为本机绝对路径）：
+
+```powershell
+godot --headless --main-pack godot-play/index.pck --script "D:/gpt/longdan-game/godot/tests/painted_assets_verify.gd"
+python godot/tools/verify_export_pack.py
+```
+
+专项验证十二个真实区域均使用缓存贴图、四件旧地标契约和四帧门楼/井图集；制作侧加载标志始终未触发。PCK 检查还要求 marker 图集、JSON 及其实际导入载荷存在，并继续禁止导出原画、工具与测试。资产检查不判断画面美感，地图坐标仍需单独基线比对。
 
 检查 Web 导出时，在仓库根目录执行 `python -m http.server 8767 --bind 127.0.0.1`，然后用浏览器打开 `http://127.0.0.1:8767/godot-play/`；不要直接双击 Web 导出的 HTML 文件。
 
@@ -156,19 +170,21 @@ godot --path godot --script res://tests/hanshui_performance.gd
 
 ## 地图与性能
 
-`terrain_materials.gd` 为十二个区域分别指定土色、路宽、植物笔触、树种及植被保留密度；`scenery_styles.gd` 画出竹林、柏树、柳树、风蚀树、枯树、灌丛和按区域变化的屋舍/军帐剪影。第一章的岩层、烧痕、残缺庙庭、井庭、粮辙与桥滩在 `map_details.gd`，第二章的林道、粮场、石隘、孤营、河岸与铁营地表在 `hanshui_layout.gd`。制作要求与十二关叙事依据见 [MAP-ART-DIRECTION.md](../docs/MAP-ART-DIRECTION.md)。`map_atmosphere.gd` 的有限水光与叶片在游玩时以 24 Hz 更新；正常镜头保持 1.15。
+`terrain_materials.gd` 保留十二个区域的土色、路宽、树种和植被密度。0.5.0 的 `painted_ground.gd` 在离线烘焙时将六种原画材质混入这些既有地表；`painted_props.gd` 从透明原图的指定种子点抽取连通物件，按脚底和占地宽重绘景物图集。`scenery_styles.gd` 留作旧轮廓和未覆盖物件的后备。第一章叙事笔触在 `map_details.gd`，第二章在 `hanshui_layout.gd`。制作要求见 [MAP-ART-DIRECTION.md](../docs/MAP-ART-DIRECTION.md)，原图及重建步骤见 [PAINTED-ENVIRONMENT.md](../docs/PAINTED-ENVIRONMENT.md)。`map_atmosphere.gd` 的有限水光与叶片在游玩时以 24 Hz 更新；正常镜头保持 1.15。
 
-十二个区域各有一张 1600 × 1100 的静态地表。树木、岩石、屋舍及军帐共用一张 47 帧、2048 × 1536 景物图集，替代旧的 33 帧、1920 × 1920 图集；脚底锚点保留。美术绘画与原有实体、交互和剧情坐标分离，树候选的原随机取样序列保持不变，视觉筛选只改变显示的植被。通路及旧存档格式沿用，仍须用下方的本地基线对照验证。修改可编辑源后，先以带图形渲染的 Godot 重建静态资源：
+十二个区域各有一张 1600 × 1100 静态地表；景物、汉水道具、门楼/井分别使用正式图集与脚底清单。当前图集尺寸和帧坐标以 `assets/maps/`、`assets/props/painted_markers.json` 为准。原图和最终生成提示词保留在 `art_source/painted/`，源 PNG 保持原始生成像素；正式游戏不加载该目录。美术绘画与实体、交互和剧情坐标分离，通路及旧存档格式沿用，仍须用下方的本地基线对照验证。修改原画、抽帧清单或绘画代码后，按以下顺序重建：
 
 ```powershell
 # 在仓库根目录运行。
+godot --path godot --script res://tools/bake_painted_landmarks.gd
+godot --headless --path godot --editor --import --quit
 godot --path godot --script res://tools/bake_maps.gd
 godot --path godot --script res://tests/hanshui_layout_verify.gd -- --bake
 godot --headless --path godot --editor --import --quit
 godot --path godot --script res://tests/performance.gd -- --label=my-computer
 ```
 
-第一条为第一章地表和共享景物图集的烘焙，第二条为第二章地表与汉水场景物的烘焙；第三条导入更新后的贴图。不要只修补导出的 PNG。`.qa/` 是本机忽略目录，**基线不随 Git 提交**；在干净克隆中，准备下一次地图美术修改时，先在修改前运行下列第一、第二条，保留源状态与正常镜头截图；修改并重烘焙后再运行后两条作对照。基线文件已存在时脚本拒绝覆盖，若开始另一轮对比，应保留旧证据并另建独立本地工作目录。
+先生成四件地标和四帧 marker，立即导入新地标贴图，再生成第一章地表/共享景物，接着生成第二章地表/汉水图集，最后再次导入。中间导入确保后续地图烘焙读取新地标。不要只修补导出的 PNG；也不要把旧 Blender 再生脚本的输出当作当前绘画资产。`.qa/` 是本机忽略目录，**基线不随 Git 提交**；在干净克隆中，准备下一次地图美术修改时，先在修改前运行下列第一、第二条，保留源状态与正常镜头截图；修改并重烘焙后再运行后两条作对照。基线文件已存在时脚本拒绝覆盖，若开始另一轮对比，应保留旧证据并另建独立本地工作目录。
 
 ```powershell
 godot --headless --path godot --script res://tests/map_identity_verify.gd -- --write-baseline

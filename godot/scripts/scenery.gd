@@ -1,5 +1,6 @@
 extends Node2D
 const Styles=preload("res://scripts/scenery_styles.gd")
+const PaintedProps=preload("res://scripts/painted_props.gd")
 ## Every static prop shares one atlas, retaining its original ground sort origin.
 static var baking=false
 static var atlas: Texture2D
@@ -38,6 +39,7 @@ func oval(center: Vector2, radius: float, squash: float, color: Color) -> void:
 
 func _draw() -> void:
 	if data.is_empty() or cached_sprite!=null: return
+	if baking and data.kind!="oil" and PaintedProps.draw_scenery(self,data): return
 	match data.kind:
 		"tree": draw_tree()
 		"rock": draw_rock()

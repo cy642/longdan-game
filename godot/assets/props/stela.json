@@ -1,37 +1,38 @@
 {
-  "image_size": [
-    152,
-    200
-  ],
+  "anchor_note": "Painted source ground contact is placed at the retained logical anchor; existing physics metadata is unchanged.",
   "anchor_px": [
-    76,
-    172
+    76.0,
+    172.0
   ],
+  "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow.",
   "colliders": [
     {
       "rect": [
-        -19,
-        -13,
-        38,
-        24
+        -19.0,
+        -13.0,
+        38.0,
+        24.0
       ]
     }
-  ],
-  "image": "res://assets/props/stela.png",
-  "logical_size": [
-    76.0,
-    100.0
-  ],
-  "scale": 0.5,
-  "logical_anchor": [
-    38.0,
-    86.0
   ],
   "draw_offset": [
     -38.0,
     -86.0
   ],
+  "image": "res://assets/props/stela.png",
+  "image_size": [
+    152.0,
+    200.0
+  ],
+  "logical_anchor": [
+    38.0,
+    86.0
+  ],
+  "logical_size": [
+    76.0,
+    100.0
+  ],
   "model_scene": "stela",
-  "anchor_note": "The source-pixel anchor projects Blender ground origin (0,0,0). Draw at landmark.position with draw_offset, logical_size; keep node Y-sort at landmark.position.",
-  "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow."
+  "scale": 0.5,
+  "source_frame": "stela"
 }

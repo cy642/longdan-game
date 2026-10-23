@@ -1,4 +1,5 @@
 extends RefCounted
+const Painted=preload("res://scripts/painted_ground.gd")
 ## Art-only region grammar. No random draws are shared with terrain collision.
 ## These strokes are captured into the existing single ground texture.
 const PROFILES = {
@@ -36,6 +37,10 @@ static func _oval(canvas: Node2D,p: Vector2,r: float,squash: float,c: Color) -> 
 
 static func ground(canvas: Node2D,stage: String,grain: Array,pools: Array) -> void:
 	var material=profile(stage); var base=Color(material.ground)
+	# Broad ground stays quieter than actor silhouettes and local authored
+	# surfaces. Strong grass/leaf detail belongs to clumps, not every pixel.
+	var strength={"temple":.28,"hs_forest":.28,"hs_return":.36,"village":.34,"house":.34,"hs_camp":.34,"hs_final":.34}.get(stage,.40)
+	if Painted.paint(canvas,PackedVector2Array([Vector2.ZERO,Vector2(1600,0),Vector2(1600,1100),Vector2(0,1100)]),Painted.ground_kind(stage),base,stage,0.0,strength): return
 	canvas.draw_rect(Rect2(0,0,1600,1100),base)
 	# Broad quiet masses; fine marks accumulate in believable strips, not an
 	# evenly scattered carpet of identical V-shaped grass or polygon confetti.
@@ -83,6 +88,7 @@ static func ground(canvas: Node2D,stage: String,grain: Array,pools: Array) -> vo
 
 static func roads(canvas: Node2D,stage: String,definition: Dictionary) -> void:
 	var material=profile(stage); var color=Color(material.road)
+	if Painted.available(): color=color.lightened(.055 if stage in ["village","house"] else .035 if stage=="hs_return" else .025)
 	for path in definition.roads:
 		var width=float(material.width)
 		if path in definition.get("secondary_roads",[]): width*=.68
@@ -97,10 +103,15 @@ static func roads(canvas: Node2D,stage: String,definition: Dictionary) -> void:
 				var wear=sin(p.x*.027+p.y*.019)*3.5+sin(p.y*.067)*1.3
 				left.append(p+normal*(width*.5+wear)); right.append(p-normal*(width*.5-wear*.7))
 			var strip=left.duplicate(); var reverse=right.duplicate(); reverse.reverse(); strip.append_array(reverse)
-			canvas.draw_colored_polygon(strip,color)
-			canvas.draw_circle(a,width*.47,color); canvas.draw_circle(b,width*.47,color)
-			canvas.draw_polyline(left,Color(color.darkened(.23),.28),4,true)
-			canvas.draw_polyline(right,Color(color.darkened(.21),.24),3,true)
+			var painted=Painted.paint(canvas,strip,Painted.road_kind(stage),color,stage,9.0,.42)
+			if painted:
+				Painted.circle(canvas,a,width*.47,Painted.road_kind(stage),color,stage,9.0,.42)
+				Painted.circle(canvas,b,width*.47,Painted.road_kind(stage),color,stage,9.0,.42)
+			else:
+				canvas.draw_colored_polygon(strip,color)
+				canvas.draw_circle(a,width*.47,color); canvas.draw_circle(b,width*.47,color)
+				canvas.draw_polyline(left,Color(color.darkened(.23),.28),4,true)
+				canvas.draw_polyline(right,Color(color.darkened(.21),.24),3,true)
 			for i in range(count):
 				var p=a.lerp(b,(i+.5)/count)
 				# Ruts tell the freight routes; pedestrian and sacred paths have
@@ -109,8 +120,8 @@ static func roads(canvas: Node2D,stage: String,definition: Dictionary) -> void:
 					for side in [-1,1]:
 						var rut=p+normal*(side*20+sin(p.y*.02)*2)
 						canvas.draw_line(rut,rut+(b-a).normalized()*19,Color(color.darkened(.37),.25),2.4,true)
-				elif stage in ["mountain","hs_forest"] and i%3==0:
+				elif not painted and stage in ["mountain","hs_forest"] and i%3==0:
 					_oval(canvas,p+normal*sin(i*2.4)*17,7,.35,Color(color.darkened(.17),.27))
-				if i%4==0:
+				if not painted and i%4==0:
 					var shoulder=p+normal*(1 if i%8==0 else -1)*(width*.47)
 					canvas.draw_line(shoulder,shoulder+(b-a).normalized()*9,Color(color.lightened(.17),.36),2,true)

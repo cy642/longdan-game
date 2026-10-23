@@ -2,8 +2,11 @@ extends Node2D
 ## Editable map art. Ground is baked; upright landmarks keep their own Y-sort anchor.
 ## The JSON contains only local additions; chapter1.json remains the campaign source.
 const DATA_PATH = "res://data/map_details.json"
+const Painted = preload("res://scripts/painted_ground.gd")
 static var layout_cache: Dictionary = {}
 static var prop_frames: Dictionary = {}
+static var painted_marker_frames: Dictionary = {}
+static var painted_marker_atlas: Texture2D
 var rendered_prop: Sprite2D
 var definition: Dictionary = {}
 var stage: String = ""
@@ -69,6 +72,7 @@ func _ready() -> void:
 	set_process(layer == "landmark" and landmark.get("kind", "") == "banner")
 
 func _attach_rendered_prop() -> void:
+	if _attach_painted_marker(): return
 	var manifest_path = "res://assets/props/landmarks.json"
 	if prop_frames.is_empty() and FileAccess.file_exists(manifest_path):
 		var parsed = JSON.parse_string(FileAccess.get_file_as_string(manifest_path))
@@ -78,13 +82,30 @@ func _attach_rendered_prop() -> void:
 	var frame: Dictionary = prop_frames[kind]
 	if not ResourceLoader.exists(frame.image): return
 	rendered_prop = Sprite2D.new()
-	rendered_prop.name = "BlenderLandmark"
+	rendered_prop.name = "PaintedLandmark"
 	rendered_prop.centered = false
 	rendered_prop.texture = load(frame.image)
 	rendered_prop.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	rendered_prop.scale = Vector2.ONE * float(frame.scale)
 	rendered_prop.position = Vector2(frame.draw_offset[0],frame.draw_offset[1])
 	add_child(rendered_prop)
+
+func _attach_painted_marker() -> bool:
+	var key=str(landmark.get("kind",""))
+	if key=="gateway": key+="_"+str(int(landmark.get("span",152)))
+	if key!="well_hoist" and not key.begins_with("gateway_"): return false
+	var path="res://assets/props/painted_markers.json"
+	if painted_marker_frames.is_empty() and FileAccess.file_exists(path):
+		painted_marker_frames=JSON.parse_string(FileAccess.get_file_as_string(path))
+		painted_marker_atlas=load("res://assets/props/painted_markers.png")
+	if not painted_marker_frames.has(key) or painted_marker_atlas==null: return false
+	var frame=painted_marker_frames[key]
+	var texture=AtlasTexture.new(); texture.atlas=painted_marker_atlas
+	texture.region=Rect2(frame.region[0],frame.region[1],frame.region[2],frame.region[3]); texture.filter_clip=true
+	rendered_prop=Sprite2D.new(); rendered_prop.name="PaintedLandmark"; rendered_prop.centered=false
+	rendered_prop.texture=texture; rendered_prop.position=-Vector2(frame.anchor[0],frame.anchor[1])
+	rendered_prop.texture_filter=CanvasItem.TEXTURE_FILTER_LINEAR; add_child(rendered_prop)
+	return true
 
 func _process(delta: float) -> void:
 	if not is_instance_valid(world) or world.mode != "playing": return
@@ -226,6 +247,9 @@ func _surface(surface: Dictionary) -> void:
 		"bridge":{"flagstone":"a4a68f","gravel":"a9a48b"}
 	}
 	var tone = Color(colors.get(stage,{}).get(surface.kind,"aaa18a"))
+	# The paint already contains worn joints and chips; another vector paving
+	# grid would bring back the geometric-block style over the illustrated art.
+	if Painted.paint(self,points,Painted.surface_kind(surface.kind),tone,stage,13.0,.63): return
 	draw_colored_polygon(points,tone)
 	var bounds = Rect2(points[0],Vector2.ZERO)
 	for p in points: bounds = bounds.expand(p)
@@ -275,7 +299,8 @@ func _temple_court_surface() -> void:
 		[981,655],[981,682],[788,677],[783,638],[707,635],
 		[712,525],[681,519],[684,436],[733,429],[737,355],[805,351]
 	])
-	draw_colored_polygon(visual_points,Color("a0a292",.39))
+	var painted=Painted.paint(self,visual_points,Painted.PAVING,Color("a0a292",.84),stage,16.0,.59)
+	if not painted: draw_colored_polygon(visual_points,Color("a0a292",.39))
 	# Chipped foundations imply a former courtyard without outlining a fresh
 	# barrier or paving every step of the combat floor.
 	for seam in [
@@ -290,6 +315,7 @@ func _temple_court_surface() -> void:
 		[[713,609],[792,632],[827,675],[782,673],[707,638]],
 		[[1116,650],[1175,583],[1194,527],[1184,619],[1151,657]]
 	]: draw_colored_polygon(_points(intrusion),Color("858b7b",.30))
+	if painted: return
 	var fragments = [
 		[853,349,45,23,-.05],[908,354,58,26,.04],[1052,371,55,27,-.03],
 		[1163,397,25,44,.02],[1170,454,27,42,-.06],[1148,552,39,23,.05],
@@ -415,6 +441,15 @@ func _stairs(step: Dictionary) -> void:
 	for i in range(count):
 		var p = center+forward*(i-(count-1)*.5)*11
 		var a = p-across*width*.5; var b = p+across*width*.5
+		if Painted.available():
+			for j in range(3):
+				var left=a.lerp(b,j/3.0)+across*1.2
+				var right=a.lerp(b,(j+1)/3.0)-across*1.2
+				var chipped=PackedVector2Array([left-forward*3.7+across*1.8,right-forward*4.1-across*2,right+forward*3.6,left+forward*4.3])
+				draw_line(left-forward*4.5,right-forward*4.5,Color(.28,.29,.25,.45),2,true)
+				Painted.paint(self,chipped,Painted.SLATE,Color("aaa38e").lightened((i+j)%3*.025),stage,.8,.65)
+				draw_line(left+forward*3.8,right+forward*3.1,Color(.84,.81,.68,.54),1,true)
+			continue
 		draw_line(a-forward*3,b-forward*3,Color("697d6c"),10,true)
 		draw_line(a,b,Color("b6b9a0") if i%2 else Color("adb298"),8,true)
 		draw_line(a+forward*3,b+forward*3,Color("d0ceb0"),1.5,true)
@@ -467,8 +502,9 @@ func _temple_inlay() -> void:
 func _well_court() -> void:
 	var p = Vector2(1070,472)
 	var curb = PackedVector2Array([p+Vector2(-52,-15),p+Vector2(-26,-36),p+Vector2(29,-34),p+Vector2(54,-8),p+Vector2(45,26),p+Vector2(-34,33),p+Vector2(-52,-15)])
-	draw_polyline(curb,Color("858f76"),8,true)
-	draw_polyline(curb,Color("c0bfa0"),2,true)
+	if not ResourceLoader.exists("res://assets/props/painted_markers.png"):
+		draw_polyline(curb,Color("858f76"),8,true)
+		draw_polyline(curb,Color("c0bfa0"),2,true)
 	# A shallow water runnel identifies the well court without changing walkability.
 	draw_polyline(PackedVector2Array([p+Vector2(38,17),p+Vector2(74,44),p+Vector2(116,48)]),Color(.28,.46,.39,.5),5,true)
 	draw_polyline(PackedVector2Array([p+Vector2(38,17),p+Vector2(74,44),p+Vector2(116,48)]),Color(.66,.77,.64,.6),1,true)

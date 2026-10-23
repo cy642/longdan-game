@@ -1,37 +1,38 @@
 {
-  "image_size": [
-    280,
-    280
-  ],
+  "anchor_note": "Painted source ground contact is placed at the retained logical anchor; existing physics metadata is unchanged.",
   "anchor_px": [
-    140,
-    238
+    140.0,
+    238.0
   ],
+  "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow.",
   "colliders": [
     {
       "rect": [
-        -52,
-        -22,
-        104,
-        36
+        -52.0,
+        -22.0,
+        104.0,
+        36.0
       ]
     }
-  ],
-  "image": "res://assets/props/altar.png",
-  "logical_size": [
-    140.0,
-    140.0
-  ],
-  "scale": 0.5,
-  "logical_anchor": [
-    70.0,
-    119.0
   ],
   "draw_offset": [
     -70.0,
     -119.0
   ],
+  "image": "res://assets/props/altar.png",
+  "image_size": [
+    280.0,
+    280.0
+  ],
+  "logical_anchor": [
+    70.0,
+    119.0
+  ],
+  "logical_size": [
+    140.0,
+    140.0
+  ],
   "model_scene": "altar",
-  "anchor_note": "The source-pixel anchor projects Blender ground origin (0,0,0). Draw at landmark.position with draw_offset, logical_size; keep node Y-sort at landmark.position.",
-  "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow."
+  "scale": 0.5,
+  "source_frame": "altar"
 }

@@ -1,36 +1,37 @@
 {
-  "image_size": [
-    160,
-    244
-  ],
+  "anchor_note": "Painted source ground contact is placed at the retained logical anchor; existing physics metadata is unchanged.",
   "anchor_px": [
-    52,
-    218
+    52.0,
+    218.0
   ],
+  "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow.",
   "colliders": [
     {
       "circle": [
-        0,
-        0,
-        7
+        0.0,
+        0.0,
+        7.0
       ]
     }
-  ],
-  "image": "res://assets/props/lantern.png",
-  "logical_size": [
-    80.0,
-    122.0
-  ],
-  "scale": 0.5,
-  "logical_anchor": [
-    26.0,
-    109.0
   ],
   "draw_offset": [
     -26.0,
     -109.0
   ],
+  "image": "res://assets/props/lantern.png",
+  "image_size": [
+    160.0,
+    244.0
+  ],
+  "logical_anchor": [
+    26.0,
+    109.0
+  ],
+  "logical_size": [
+    80.0,
+    122.0
+  ],
   "model_scene": "lantern",
-  "anchor_note": "The source-pixel anchor projects Blender ground origin (0,0,0). Draw at landmark.position with draw_offset, logical_size; keep node Y-sort at landmark.position.",
-  "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow."
+  "scale": 0.5,
+  "source_frame": "lantern"
 }

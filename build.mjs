@@ -17,7 +17,8 @@ export function build({ offline = false } = {}) {
     .replace('/* GAME_SCRIPT */', () => artwork + '\n' + ['scene-art.js', 'combat-art.js', 'stages.js', 'campaign.js', 'game.js'].map(name => readFileSync(path.join(root, name), 'utf8')).join('\n'));
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const offline = process.argv.includes('--offline'), filename = offline ? 'longdan-offline.html' : 'index.html';
+  // The root index is the permanent Godot entry; Canvas builds stay archived.
+  const offline = process.argv.includes('--offline'), filename = offline ? 'longdan-offline.html' : 'legacy.html';
   writeFileSync(path.join(root, filename), build({ offline }));
-  console.log('已生成' + (offline ? '可单独复制的离线游戏：' : '线上轻量入口：') + filename);
+  console.log('已生成' + (offline ? '可单独复制的离线游戏：' : '旧 Canvas 原型：') + filename);
 }

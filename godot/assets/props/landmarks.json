@@ -1,157 +1,160 @@
 {
-  "version": 1,
-  "renderer": "Blender 4.3.2 / Cycles CPU",
-  "samples": 256,
-  "source": "res://art_source/map_landmarks.blend",
-  "camera": "Orthographic, front-facing, 30 degree elevation, no yaw",
-  "source_pixels_per_world_pixel": 2,
+  "camera": "Oblique top-down illustrated props, source foot anchor aligned to the original gameplay origin",
   "props": {
     "altar": {
-      "image_size": [
-        280,
-        280
-      ],
+      "anchor_note": "Painted source ground contact is placed at the retained logical anchor; existing physics metadata is unchanged.",
       "anchor_px": [
-        140,
-        238
+        140.0,
+        238.0
       ],
+      "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow.",
       "colliders": [
         {
           "rect": [
-            -52,
-            -22,
-            104,
-            36
+            -52.0,
+            -22.0,
+            104.0,
+            36.0
           ]
         }
-      ],
-      "image": "res://assets/props/altar.png",
-      "logical_size": [
-        140.0,
-        140.0
-      ],
-      "scale": 0.5,
-      "logical_anchor": [
-        70.0,
-        119.0
       ],
       "draw_offset": [
         -70.0,
         -119.0
       ],
-      "model_scene": "altar",
-      "anchor_note": "The source-pixel anchor projects Blender ground origin (0,0,0). Draw at landmark.position with draw_offset, logical_size; keep node Y-sort at landmark.position.",
-      "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow."
-    },
-    "stela": {
+      "image": "res://assets/props/altar.png",
       "image_size": [
-        152,
-        200
+        280.0,
+        280.0
       ],
-      "anchor_px": [
-        76,
-        172
-      ],
-      "colliders": [
-        {
-          "rect": [
-            -19,
-            -13,
-            38,
-            24
-          ]
-        }
-      ],
-      "image": "res://assets/props/stela.png",
-      "logical_size": [
-        76.0,
-        100.0
-      ],
-      "scale": 0.5,
       "logical_anchor": [
-        38.0,
-        86.0
+        70.0,
+        119.0
       ],
-      "draw_offset": [
-        -38.0,
-        -86.0
+      "logical_size": [
+        140.0,
+        140.0
       ],
-      "model_scene": "stela",
-      "anchor_note": "The source-pixel anchor projects Blender ground origin (0,0,0). Draw at landmark.position with draw_offset, logical_size; keep node Y-sort at landmark.position.",
-      "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow."
+      "model_scene": "altar",
+      "scale": 0.5,
+      "source_frame": "altar"
     },
     "grain_rack": {
-      "image_size": [
-        288,
-        272
-      ],
+      "anchor_note": "Painted source ground contact is placed at the retained logical anchor; existing physics metadata is unchanged.",
       "anchor_px": [
-        144,
-        234
+        144.0,
+        234.0
       ],
+      "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow.",
       "colliders": [
         {
           "rect": [
-            -46,
-            -20,
-            92,
-            32
+            -46.0,
+            -20.0,
+            92.0,
+            32.0
           ]
         }
-      ],
-      "image": "res://assets/props/grain_rack.png",
-      "logical_size": [
-        144.0,
-        136.0
-      ],
-      "scale": 0.5,
-      "logical_anchor": [
-        72.0,
-        117.0
       ],
       "draw_offset": [
         -72.0,
         -117.0
       ],
+      "image": "res://assets/props/grain_rack.png",
+      "image_size": [
+        288.0,
+        272.0
+      ],
+      "logical_anchor": [
+        72.0,
+        117.0
+      ],
+      "logical_size": [
+        144.0,
+        136.0
+      ],
       "model_scene": "grain_rack",
-      "anchor_note": "The source-pixel anchor projects Blender ground origin (0,0,0). Draw at landmark.position with draw_offset, logical_size; keep node Y-sort at landmark.position.",
-      "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow."
+      "scale": 0.5,
+      "source_frame": "grain_rack"
     },
     "lantern": {
-      "image_size": [
-        160,
-        244
-      ],
+      "anchor_note": "Painted source ground contact is placed at the retained logical anchor; existing physics metadata is unchanged.",
       "anchor_px": [
-        52,
-        218
+        52.0,
+        218.0
       ],
+      "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow.",
       "colliders": [
         {
           "circle": [
-            0,
-            0,
-            7
+            0.0,
+            0.0,
+            7.0
           ]
         }
-      ],
-      "image": "res://assets/props/lantern.png",
-      "logical_size": [
-        80.0,
-        122.0
-      ],
-      "scale": 0.5,
-      "logical_anchor": [
-        26.0,
-        109.0
       ],
       "draw_offset": [
         -26.0,
         -109.0
       ],
+      "image": "res://assets/props/lantern.png",
+      "image_size": [
+        160.0,
+        244.0
+      ],
+      "logical_anchor": [
+        26.0,
+        109.0
+      ],
+      "logical_size": [
+        80.0,
+        122.0
+      ],
       "model_scene": "lantern",
-      "anchor_note": "The source-pixel anchor projects Blender ground origin (0,0,0). Draw at landmark.position with draw_offset, logical_size; keep node Y-sort at landmark.position.",
-      "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow."
+      "scale": 0.5,
+      "source_frame": "lantern"
+    },
+    "stela": {
+      "anchor_note": "Painted source ground contact is placed at the retained logical anchor; existing physics metadata is unchanged.",
+      "anchor_px": [
+        76.0,
+        172.0
+      ],
+      "collider_note": "Existing world-pixel colliders copied for correspondence only. Use data/map_details.json as the gameplay authority; do not collide against the full upright sprite or contact shadow.",
+      "colliders": [
+        {
+          "rect": [
+            -19.0,
+            -13.0,
+            38.0,
+            24.0
+          ]
+        }
+      ],
+      "draw_offset": [
+        -38.0,
+        -86.0
+      ],
+      "image": "res://assets/props/stela.png",
+      "image_size": [
+        152.0,
+        200.0
+      ],
+      "logical_anchor": [
+        38.0,
+        86.0
+      ],
+      "logical_size": [
+        76.0,
+        100.0
+      ],
+      "model_scene": "stela",
+      "scale": 0.5,
+      "source_frame": "stela"
     }
-  }
+  },
+  "renderer": "image_gen illustrated sources / Godot 4.7.2 bake",
+  "source": "res://art_source/painted/props-manifest.json",
+  "source_pixels_per_world_pixel": 2.0,
+  "version": 1.0
 }
