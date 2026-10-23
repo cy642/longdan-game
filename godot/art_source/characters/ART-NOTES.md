@@ -1,16 +1,16 @@
 # Q 版角色素材
 
-使用内置图像生成工具，以用户提供的第一张角色图为形象和画风参考。原图保持不变，复制到本目录并用于首页展示。人物的新画法覆盖此前的白袍头盔造型。
+使用内置图像生成工具，以用户提供的第一张角色图为形象和画风参考。原图保持不变；现有角色 PNG 统一保存在 `godot/assets/`，本目录只保存制作说明和历史生成提示词。人物的新画法覆盖此前的白袍头盔造型。以下文件名均相对于 `godot/assets/`。
 
 ## 素材
 
-- `zhaoyun-reference.png`：用户提供的透明原图，首页使用。
+- `zhaoyun-reference.png`：用户提供的透明原图，Godot 标题角色展示使用。
 - `zhaoyun-actions-v1.png`：赵云八个姿势的透明动作图集。
 - `chibi-units-v1.png`：随军、刀兵、枪兵、弓兵、夏侯恩和三种百姓的透明角色图集。
 
-图片在构建时内嵌到 `index.html`，不需要联网加载。运行时按透明轮廓提取图集中的角色，避免裁掉长枪和飘带，亦避免出现相邻角色的碎片。
+Godot 将原图作为资源导入并随 Windows/Web 导出包发布。`godot/tools/prepare_assets.py` 在制作阶段直接读取原图的透明轮廓，生成 `godot/data/atlas.json` 的帧范围、脚底锚点和邻帧排除区域；运行时按清单绘制，保留长枪和飘带并排除相邻角色碎片。使用 `--check` 只核对元数据，不改写清单或图片。
 
-当前赵云有待机、两个走动姿势、蓄势、刺击、横扫、闪避和受击姿势，左右朝向使用镜像。随军与敌兵当前用单姿势配合摆动，后续可补充连续动作和八方向素材。
+第一版赵云图集包含待机、两步、蓄势、刺击、横扫、闪避与受击姿势；当前 Godot 的站立/步行与刺击使用后续八方向图集，旧反应/倒地图按原画密度校准。walk/attack 整套固定 `model_scale = 0.34`，hero 原图固定为 `0.29`，不按每帧头发色块或带枪包围盒重新缩放。随军和敌军使用现有原画配合代码姿态与装备，独立逐帧动作仍待补充。
 
 ## 赵云图集的最终生成提示词
 
@@ -20,9 +20,9 @@ Use case: stylized-concept. Asset type: a transparent PNG character animation sp
 
 Use case: stylized-concept. Asset type: transparent PNG NPC sprite atlas for the 2D Three Kingdoms game whose player uses image 1. Image 1 is ONLY the anime chibi illustration STYLE reference, NOT the NPC identities. Make exactly EIGHT DIFFERENT full body chibi Three Kingdoms characters, same refined high-quality clean anime linework, cel-shaded silver armor, cute expressive eyes, approximately 2.5 heads tall, natural appealing anatomy. Friendly human faces, never grotesque, no realistic adult anatomy. Layout: exact 4 equal columns by 2 equal rows on a landscape canvas, no visible grid. EACH character must fit comfortably within its own equal-size cell with LARGE transparent margins of at least 8% on every side, including its entire weapon. No overlap between neighbors. Faces and bodies all looking left in 3/4 view, same character scale, same foot baseline at 85% cell height. Row 1 left to right: (1) friendly Shu foot soldier with blue-green headcloth, teal tunic, plain silver breastplate, a short spear, no elaborate hero scarf, dark brown hair; (2) Cao sword soldier with dark red headcloth, red tunic, grey lamellar armor, curved short dao sword; (3) Cao spear soldier with simple grey helmet, dark red tunic, bronze-grey lamellar cuirass and spear; (4) Cao archer with red headband, grey short tunic and leather guards, brown recurved bow. Row 2 left to right: (5) enemy general Xiahou En, proud stern chibi adult with black eyebrows and short black beard, ornate gold-trimmed steel armor, crimson shoulder cloth, broad silver sword, slightly larger body; (6) civilian man wearing simple tan hemp robe with brown sash and brown headcloth, empty hands; (7) civilian woman with neatly tied dark hair wearing warm cream and muted peach simple Han-style clothes, empty hands; (8) civilian young man with dark short hair, light olive hemp robe and tan cloth bundle on back. Do not copy Zhao Yun's distinctive chestnut spiky hair, blue hero headband or long bright blue scarf onto these NPCs. Background must be truly transparent alpha; no floor, no shadows, no scenery, no UI, no text, no labels, no watermark. Keep all eight clearly separate and fully visible, with stable clean outlines suitable for scaling down to in-game sprites.
 
-## 第一章与手机版新增素材（2026-10-01）
+## 第一章角色素材（历史生成于 2026-10-01）
 
-使用内置 image_gen，参考原始赵云形象，新生成透明 PNG，未修改原参考图。文件：`zhaoyun-walk-v2.png`（1254×1254）和 `chapter1-units-v2.png`（1536×1024）。两张均保留原始透明通道。运行时按独立人物轮廓提取，并按头部与脚底锚点绘制。
+这批原图最初在第一章与早期手机版制作时生成，现由 Godot 统一复用。使用内置 image_gen，参考原始赵云形象，生成透明 PNG，未修改原参考图。文件：`zhaoyun-walk-v2.png`（1254×1254）和 `chapter1-units-v2.png`（1536×1024）。两张均保留原始透明通道；Godot 制作工具预计算独立人物帧与脚底锚点，运行时应用已校准的比例。
 
 步行图：16格（8方向各两步）。生成图中部分方向朝向与指定格序相反，渲染端依据实际方向映射和镜像，完成八方向显示。步伐由实际移动距离推进，阴影固定在地面。
 

@@ -1,5 +1,15 @@
 # 龙胆：逆命三国 · 开发与发布记录
 
+## 2026-10-23：仅保留 Godot，入口改为“开始游戏”
+
+按最新需求清除当前仓库的旧 Canvas 原型：删除 `legacy.html`、根目录 JS/CSS/原型模板与构建、验证脚本，以及四张旧版设备/试玩截图。网页加载按钮统一为“开始游戏”，移除旧版链接和标题中的“电脑版试玩”；首页仍直达 Godot。旧文件可从 Git 历史追溯，当前版本不再提供旧版游戏。
+
+移除依赖旧 `stages.js` 的数据同步工具，第一章直接维护 `godot/data/chapter1.json`。根目录六张重复角色 PNG 与 Godot 对应文件逐项 SHA-256 一致，删除重复副本，角色素材处理工具改为直接读取 `godot/assets/`；新增 `--check` 只读验证模式。两份角色素材说明及完整提示词迁入 `godot/art_source/characters/`，README 与美术说明同步整理，现有 Godot 角色 PNG、数据与存档均不改动。
+
+本轮定向验证：角色图集 **56 帧**元数据与现有原图一致；重新导出 Web，PCK 仍为 **27,894,176 字节**、SHA-256 `715B2E4DF9116DCAFCA305F2CA713253C63FA7DF1B4634D5370CB68894FD147D`，与本轮清理前完全一致。包内 130 资源/12 JSON 校验通过，从实际 PCK 启动检查覆盖十二个区域。日志 `.qa/godot-only-atlas-check.log`、`.qa/godot-only-export-pack.log`、`.qa/godot-only-export-smoke.log`。本轮没有重跑全部玩法回归，运行内容逐字节未变；此前的历史验证按其对应提交保留。
+
+本地浏览器实测首页跳转、加载页仅显示“开始游戏”、无旧版链接，点击后进入 Godot 标题且控制台无 warn/error；未开始或覆盖已有存档。截图 `.qa/godot-only-start-local.jpg`、`.qa/godot-only-loaded-local.jpg`。两份迁移文档的五个完整提示词块与迁移前一致，相对文档链接校验通过。
+
 ## 2026-10-23：0.5.0 建筑与地形材质
 
 从 `027a5cb` 继续，开发前确认本地与远端一致。本轮沿用十二个区域的构图、战斗与剧情位置，把主要建筑、植被、岩石和地表接入与 Q 版赵云更一致的插画素材。实际画面见 [六区实机概览](docs/images/map-materials-0.5.0.jpg)，素材出处与完整重建顺序见 [环境资产说明](docs/PAINTED-ENVIRONMENT.md)。

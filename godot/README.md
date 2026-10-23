@@ -5,17 +5,16 @@
 0.3.1 的首玩提示、营火引导、敌人状态反馈和黄忠援射，以及此前的枪势、战法和护车玩法继续保留。地图逐区构图、制作约束与重建方式见 [地图美术规范](../docs/MAP-ART-DIRECTION.md)；玩法设计见 [PLAYABILITY-PLAN.md](../docs/PLAYABILITY-PLAN.md)。
 可编辑布局见 `data/map_details.json` 与 `data/chapter2.json`，双章巡游入口为 `../Map-Tour.cmd`。正式构建沿用原有 Godot 存档目录；此前单独交付的本地地图预览包使用 `LongdanMapPolishPreview`。
 
-宣传副标题：**重生之我在三国当赵子龙**。Godot 4.7.2 / GDScript 的原生 2D 动作冒险，含第一章「长坂逆命」与第二章「汉水孤营」，各有六个区域。原来的 Canvas 网页版保留在根目录 `legacy.html`；默认首页与新增玩法均以 Godot 为准。
+宣传副标题：**重生之我在三国当赵子龙**。Godot 4.7.2 / GDScript 的原生 2D 动作冒险，含第一章「长坂逆命」与第二章「汉水孤营」，各有六个区域。仓库只保留这一套 Godot 游戏，在线版与 Windows 本地版共用游戏内容与开发源。
 
 ## 直接试玩
 
-- 默认在线首页 <https://cy642.github.io/longdan-game/> 会进入 <https://cy642.github.io/longdan-game/godot-play/>，跳转保留参数/片段。在线版与 Windows 版从同一 Godot 工程导出；使用电脑 Chrome、Edge 或 Firefox，首次需要下载引擎与素材。
+- 默认在线首页 <https://cy642.github.io/longdan-game/> 会进入 <https://cy642.github.io/longdan-game/godot-play/>，跳转保留参数/片段。在线版与 Windows 版从同一 Godot 工程导出；加载页点击「开始游戏」，使用电脑 Chrome、Edge 或 Firefox，首次需要下载引擎与素材。
 - 本地导出后可双击 `../builds/windows/Longdan.exe`，运行此程序无需安装 Godot、Python 或联网；Windows 构建包不纳入源码仓库。
 - 打开工程：在 Godot 4.7.2 中导入本目录的 `project.godot`，按 F5 运行。
 - 标题可选择任一章、普通/剧情难度，开始或继续所选章节；另一章进度会保留。查看战报也按当前选择的章节读取。
 - 快速巡览：打开 `tests/map_tour.tscn` 后按 F6，或在 Windows 使用根目录 `Map-Tour.cmd`；Tab 切章、F1–F6 切换该章六区，WASD / 方向键移动，M 打开军图。巡览不读取或写入玩家存档。
-- Windows 版和浏览器版分别保存进度；旧 Canvas 版存档不会自动迁移。
-- 旧原型地址为 <https://cy642.github.io/longdan-game/legacy.html>。`node build.mjs` 只生成这个历史页面；正式首页不再被 Canvas 构建覆盖。
+- Windows 版和浏览器版分别保存进度，不跨设备或浏览器自动同步。
 
 ## 操作与战斗
 
@@ -93,7 +92,7 @@
 - `scripts/grain_cart.gd`：粮车原生碰撞、耐久与受击；路线和停靠由战术调度控制。
 - `scripts/interactable.gd`：营火、出入口、黄忠/伤兵、火箭辎重、藏兵旗、门扇和鼓台实物；粮车提示跟随车移动。
 - `scripts/interface.gd`、`map_view.gd`：原生中文界面、暂停、军图和战斗状态。
-- `data/chapter1.json`：从现有 `stages.js` 复用的关卡及招式参数。
+- `data/chapter1.json`：第一章关卡与招式参数的唯一数据源，直接编辑；不再从外部 JavaScript 同步。
 - `data/chapter2.json`：汉水六区的路网、实体、支线、波次、计策坐标与初始调参。
 - `export_presets.cfg`：Windows 单文件与单线程 Web 导出设置。
 
@@ -134,7 +133,7 @@ godot --headless --path godot --export-release "Web"
 
 Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与二十二组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。0.5.0 新增可独立对导出包运行的 `painted_assets_verify`；0.4.0 的 `scenery_occlusion_verify` 和此前首玩/战斗/护车/章节衔接专项继续保留。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。检查输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程的环境变量。两个 `.cmd` 启动器也支持把引擎路径作为第一个参数，或使用 `GODOT_EXE` / PATH。
 
-输出目录为仓库的 `builds/windows/` 与 `godot-play/`。`builds/`、`.godot/`、`.qa/`、日志和本机引擎不入库。`godot-play/` 是已跟踪的 Web 导出，修改 Godot 游戏后须重新导出并与源码一起提交。现有 GitHub Pages 从 `main` 分支的仓库根目录自动发布，Pages 流程不会替你运行测试或导出 Godot。根 `index.html` 跳转至 `./godot-play/`；旧 Canvas 使用 `legacy.html`，Godot 加载页也明确指向该历史路径。
+输出目录为仓库的 `builds/windows/` 与 `godot-play/`。`builds/`、`.godot/`、`.qa/`、日志和本机引擎不入库。`godot-play/` 是已跟踪的 Web 导出，修改 Godot 游戏后须重新导出并与源码一起提交。现有 GitHub Pages 从 `main` 分支的仓库根目录自动发布，Pages 流程不会替你运行测试或导出 Godot。根 `index.html` 跳转至 `./godot-play/`，加载页统一显示「开始游戏」。仓库已移除旧 Canvas 页面、脚本和构建工具，只保留 Godot 游戏。
 
 `painted_assets_verify.gd` 不读取原画或本机基线，可从项目外针对实际 PCK 检查所有运行资产。导出完成后执行（脚本路径须为本机绝对路径）：
 
@@ -164,7 +163,7 @@ godot --path godot --script res://tests/hanshui_performance.gd
 
 截图入口保存 `.qa/hanshui-visuals.png`，实际渲染新敌人动作与交互实体；`hero_pose_capture.gd` 输出八方向六状态联系表。地图正常镜头优先使用 `map_identity_preview.gd`：它输出十二个区域和五个实战状态共十七张 1280 × 720、镜头倍率 1.15 的 `.qa/map-identity-标签-场景.png`，并写入同标签的 manifest。五个状态包含北山黄忠援射可用、孤营关门、乱石护车，以及夏侯恩与督军蓄势。预览采用内存进度，不读取或写入玩家存档；同名标签存在时拒绝覆盖，复拍须使用新标签。旧 `theme_preview.gd` 保留供历史截图复核，不作为 0.4.0 的主要巡图证据。开发试玩使用隔离测试进度打开指定汉水区域；性能入口采样 8 敌/3 随军、营门、退军河湾和督军二阶段，输出 `.qa/hanshui-performance.json`。人工检查要记录设备、分辨率、难度和耗时；无界面检查不能代替画面、声音或性能验收。
 
-关卡和参数同步工具为 `tools/sync_data.mjs`；原始图集元数据读取工具为 `tools/prepare_assets.py`（Pillow / NumPy）。提交内已包含可直接运行的图集与元数据，平时开发无需运行这些工具。
+第一章关卡与招式参数直接维护 `data/chapter1.json`，第二章直接维护 `data/chapter2.json`，不再保留旧 JavaScript 同步管线。角色原图只保存在 `assets/`；`tools/prepare_assets.py`（Pillow / NumPy）直接读取这些 PNG，重建 `data/atlas.json` 的锚点、裁切和固定比例，不复制或修改原图。提交内已包含可直接运行的图集与元数据，日常开发无需重建。运行 `python godot/tools/prepare_assets.py --check` 可只核对清单是否与原图一致；不加 `--check` 时重建清单。原图来源和完整提示词见 [角色素材说明](art_source/characters/ART-NOTES.md) 与 [八方向出枪说明](art_source/characters/ATTACK-V3-NOTES.md)。
 
 中文字体为 Noto Sans SC 的游戏字符子集，已按 OFL 更名为 Longdan Game Sans；许可见 `assets/fonts/LICENSE.txt`。新增中文对白后需运行 `tools/subset_font.py` 重建字符子集（fonttools，首次从官方来源下载原字体并缓存）。Godot 与第三方组件许可见 `assets/licenses/`。
 

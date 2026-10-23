@@ -1,7 +1,7 @@
 """Read atlas anchors and safe clipping geometry; original PNGs stay unchanged."""
 from pathlib import Path
+import argparse
 import json
-import shutil
 import numpy as np
 from PIL import Image
 
@@ -32,9 +32,10 @@ def connected_labels(mask):
     return labels
 
 project = Path(__file__).resolve().parents[1]
-source = project.parent / 'assets'
-destination = project / 'assets'
-destination.mkdir(exist_ok=True)
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--check', action='store_true', help='Verify current metadata without writing files.')
+args = parser.parse_args()
+source = project / 'assets'
 atlases = {}
 specs = {'hero': ('zhaoyun-actions-v1.png', 8, 2),
          'walk': ('zhaoyun-walk-v2.png', 16, 4),
@@ -48,7 +49,6 @@ specs = {'hero': ('zhaoyun-actions-v1.png', 8, 2),
 # These are uniform transforms only: no raster is resized or repainted.
 hero_model_scales = {'walk': .34, 'attack': .34, 'hero': .29}
 for key, (filename, count, rows) in specs.items():
-    shutil.copy2(source / filename, destination / filename)
     pixels = np.asarray(Image.open(source / filename).convert('RGBA'))
     height, width = pixels.shape[:2]
     labels = connected_labels(pixels[:, :, 3] >= 28)
@@ -103,6 +103,11 @@ atlases['attack']['frames'][3]['anchor'][1] -= 22
 for index, ground_x in {5: 453, 13: 520}.items():
     frame = atlases['attack']['frames'][index]
     frame['anchor'][0] = ground_x - frame['region'][0]
-shutil.copy2(source / 'zhaoyun-reference.png', destination / 'zhaoyun-reference.png')
-(project / 'data' / 'atlas.json').write_text(json.dumps(atlases, indent=2) + '\n', encoding='utf-8')
-print('Original character atlases copied. Feet and head anchors indexed:', sum(len(a['frames']) for a in atlases.values()))
+output = project / 'data' / 'atlas.json'
+if args.check:
+    if json.loads(output.read_text(encoding='utf-8')) != atlases:
+        raise SystemExit('Character atlas metadata differs from current PNG sources; no files changed.')
+    print('CHARACTER_ATLAS_CHECK_OK frames=', sum(len(a['frames']) for a in atlases.values()))
+else:
+    output.write_text(json.dumps(atlases, indent=2) + '\n', encoding='utf-8')
+    print('Original Godot PNGs retained. Feet and head anchors indexed:', sum(len(a['frames']) for a in atlases.values()))
