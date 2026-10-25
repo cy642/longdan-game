@@ -19,6 +19,7 @@ import sys
 
 
 PROP_NAMES = ("altar", "stela", "grain_rack", "lantern")
+ENEMY_ATLAS_COUNTS = {"enemy_changban": 6, "enemy_hanshui": 6, "enemy_jigu": 6, "enemy_commanders": 4}
 FORBIDDEN = {"art_source", "tests", "tools"}
 GROUND_REGIONS = (
     "mountain", "village", "temple", "house", "fork", "bridge",
@@ -116,7 +117,7 @@ def validate(entries, project):
             elif source.read_bytes() != payload:
                 errors.append(f"Exported JSON differs from current source: {name}")
 
-    required_json = ["data/chapter1.json", "data/chapter2.json", "data/chapter3.json", "data/map_details.json", "data/atlas.json",
+    required_json = ["data/chapter1.json", "data/chapter2.json", "data/chapter3.json", "data/map_details.json", "data/atlas.json", "data/enemy_atlas.json",
                      "assets/maps/scenery.json", "assets/maps/hanshui_props.json", "assets/maps/jigu_props.json", "assets/props/landmarks.json",
                      "assets/props/painted_markers.json"]
     required_json += [f"assets/props/{prop}.json" for prop in PROP_NAMES]
@@ -145,12 +146,35 @@ def validate(entries, project):
     images.append("assets/props/painted_markers.png")
     images.extend(f"assets/maps/{atlas}.png" for atlas in ("scenery", "hanshui_props", "jigu_props"))
     images.extend(f"assets/maps/{region}.png" for region in GROUND_REGIONS)
+    enemy_manifest_entry = entries.get("data/enemy_atlas.json")
+    if enemy_manifest_entry:
+        try:
+            enemy_manifest = json.loads(enemy_manifest_entry[0])
+            if not isinstance(enemy_manifest, dict) or set(enemy_manifest) != set(ENEMY_ATLAS_COUNTS):
+                raise ValueError("expected exactly four independent enemy atlas keys")
+            enemy_images = set()
+            for key, count in ENEMY_ATLAS_COUNTS.items():
+                info = enemy_manifest[key]
+                if not isinstance(info, dict) or not isinstance(info.get("frames"), list) or len(info["frames"]) != count:
+                    raise ValueError(f"{key} must contain {count} independently authored frames")
+                path = info.get("file", "")
+                if not isinstance(path, str) or not path.startswith("res://assets/") or not path.endswith(".png"):
+                    raise ValueError(f"{key} has an invalid runtime PNG path")
+                image = path[6:]
+                if image in {"assets/chibi-units-v1.png", "assets/chapter1-units-v2.png"}:
+                    raise ValueError(f"{key} still refers to the old shared NPC atlas")
+                if image in enemy_images:
+                    raise ValueError(f"{key} reuses another chapter's enemy atlas")
+                enemy_images.add(image)
+                images.append(image)
+        except (AttributeError, TypeError, ValueError, UnicodeDecodeError) as error:
+            errors.append(f"Invalid enemy atlas manifest: {error}")
     for image in images:
         # Godot exports imported texture data rather than the source PNG. Follow
         # the actual remap instead of assuming the generated .ctex hash/name.
         require_texture(entries, image, errors)
 
-    for script in ("map_atmosphere", "map_details", "campaign", "tactic_director", "grain_cart", "hanshui_layout", "huangzhong_support", "painted_props", "painted_ground", "jigu_director", "jigu_layout"):
+    for script in ("map_atmosphere", "map_details", "campaign", "tactic_director", "grain_cart", "hanshui_layout", "huangzhong_support", "painted_props", "painted_ground", "jigu_director", "jigu_layout", "enemy_roster"):
         name = f"scripts/{script}.gd"
         if name not in entries and not all(
                 resource in entries for resource in (name + ".remap", name + "c")):
@@ -178,6 +202,7 @@ def main():
         return 1
     print(f"EXPORT_PACK_VERIFY {len(entries)} resources, {json_count} JSON files, "
           f"18 baked grounds, 3 scenery atlases, 4 prop textures and painted marker atlas with payloads; "
+          f"4 independent enemy atlases containing 22 profiles; "
           f"all checksums and JSON source bytes match; "
           f"no forbidden resources; Godot {engine}; 0 failures")
     return 0

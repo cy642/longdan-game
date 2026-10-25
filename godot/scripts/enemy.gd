@@ -1,4 +1,5 @@
 extends "res://scripts/actor.gd"
+const EnemyRoster = preload("res://scripts/enemy_roster.gd")
 const BOSS_MOVES = {
 	"xiahou": [
 		[{"name":"双剑 · 起手","windup":.68,"active":.13,"recovery":.22,"range":142.0,"arc":.8,"damage":22}, {"name":"双剑 · 第二剑","windup":.32,"active":.13,"recovery":1.35,"range":152.0,"arc":1.1,"damage":24}],
@@ -41,15 +42,21 @@ var interrupt_guard_noticed = false
 # A visual clock for an actual poise break, separate from the longer period
 # during which poise cannot build again. Other stuns must not claim a break.
 var poise_break_left = 0.0
+var visual_profile: Dictionary = {}
 
 func configure(unit_kind: String, boss: String = "") -> void:
 	kind = unit_kind; boss_id = boss
+	# The region is authoritative for the art family. Review worlds may not
+	# expose Campaign.chapter, and restored squads keep their original kind.
+	var region = str(world.get("stage")) if is_instance_valid(world) and world.get("stage") != null else ""
+	var chapter_id = 3 if region.begins_with("jg_") else 2 if region.begins_with("hs_") else 1
+	visual_profile = EnemyRoster.resolve(chapter_id,region,kind,boss_id,group_id)
 	max_hp = float({"sword":72,"spear":91,"archer":58,"shield":115,"elite":285,"scout":75,"crossbow":65,"ironshield":140,"boss":1450 if boss in ["dujun","vanguard"] else 1350 if boss == "zhanghe" else 830}.get(kind,72))
 	max_hp *= .84 if world.state.difficulty == "story" else 1
 	hp = max_hp; radius = 22 if kind == "boss" else 14
 	speed = 109 if kind == "boss" else 88 if is_ranged() else 118 if kind == "scout" else 87 if kind == "ironshield" else 104
 	stagger_max = 140 if boss == "vanguard" else 135 if boss == "dujun" else 125 if kind == "boss" else 90 if kind in ["elite","ironshield"] else 65
-	display_name = "玄甲先锋" if boss == "vanguard" else "夏侯恩" if boss == "xiahou" else "张郃" if boss == "zhanghe" else "铁面督军" if boss == "dujun" else "盾阵校尉" if kind == "elite" else "双刀斥候" if kind == "scout" else "汉水弩兵" if kind == "crossbow" else "铁甲盾兵" if kind == "ironshield" else ""
+	display_name = str(visual_profile.name)
 	cooldown = .6 + world.rng.randf() * .5
 
 func is_ranged() -> bool:

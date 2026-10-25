@@ -1,6 +1,6 @@
 # 龙胆：逆命三国
 
-**重生之我在三国当赵子龙**。操控 Q 版赵云，长坂救主，汉水设伏，箕谷断后。**0.6.0** 包含「长坂逆命」「汉水孤营」「箕谷断后」三章，共十八个区域。
+**重生之我在三国当赵子龙**。操控 Q 版赵云，长坂救主，汉水设伏，箕谷断后。**0.7.0** 包含「长坂逆命」「汉水孤营」「箕谷断后」三章，共十八个区域。
 
 仓库只维护 **Godot 4.7.2 / GDScript** 这一套游戏。在线版与 Windows 本地版由同一工程导出，关卡、角色、地图与技能一致；进度分别保存，不跨浏览器或设备自动同步。
 
@@ -40,16 +40,21 @@
 
 ## 当前画面与后续开发
 
+**0.7.0 三章敌军重绘（2026-10-25）**：18 种独立兵卒与 4 位将领，按长坂追兵、汉水营军、箕谷山阵分配完整原画。荒村刀手、北山辎重弩手、崖台号旗弩卫有专门形象；圆盾、塔盾、双刀、弩、枪与戟不再依靠旧身体叠加附件。人物按人体高度与靴底校准，长武器和旗帜不再压小身体。设计、十八区配置和制作约定见 [敌军美术规范](docs/ENEMY-ART-DIRECTION.md)，原画来源见 [生成提示词](godot/art_source/characters/ENEMY-REDESIGN-PROMPTS.md)。本轮不改变命中窗口、伤害数值、波次或旧存档。
+
+[三章敌兵与将领实机图鉴（0.7.0）](docs/images/enemy-roster-0.7.0.png)
+
 **0.6.0 箕谷断后（2026-10-23）**：第三章增加冷灰崖壁、横向栈道、旧石门、断索危桥与谷口岩台，使用六张独立烘焙地表和箕谷景物图集。沿用 0.5.0 可追溯的绘画原图与固定角色脚锚，按新地形重新构图；第三章地图不复用汉水地表。素材与重建顺序见 [绘画环境管线](docs/PAINTED-ENVIRONMENT.md)，[0.5.0 六区实机图](docs/images/map-materials-0.5.0.jpg) 仅作前版画面对照。
 
 [第三章六区实机概览（0.6.0）](docs/images/jigu-0.6.0.jpg)
 
-三章主路、第三章两种桥头路线及支线已接入。敌军仍使用现有原画、连续姿态和刚性装备附件，独立逐帧图集、完整过场与音乐待制作；第三章 18–25 分钟是设计目标，尚非完整人工通关实测。玩法与实现范围见 [可玩性计划](docs/PLAYABILITY-PLAN.md)、[第二章设计稿](docs/CHAPTER-2-HANSHUI.md)、[第三章设计及实施对照](docs/CHAPTER-3-JIGU.md) 和 [原两章开发交接](docs/CHAPTER-2-PLAYABLE-PLAN.md)。
+三章主路、第三章两种桥头路线及支线已接入。新敌军原画仍使用连续网格姿态与左右镜像，脸部和绘制兵器保持刚性；独立八方向逐帧动作、完整过场与音乐待制作。第三章 18–25 分钟是设计目标，尚非完整人工通关实测。玩法与实现范围见 [可玩性计划](docs/PLAYABILITY-PLAN.md)、[第二章设计稿](docs/CHAPTER-2-HANSHUI.md)、[第三章设计及实施对照](docs/CHAPTER-3-JIGU.md) 和 [原两章开发交接](docs/CHAPTER-2-PLAYABLE-PLAN.md)。
 
 ## 开发、构建与验证
 
 - 游戏入口：`godot/scenes/main.tscn`。三章关卡数据分别为 `godot/data/chapter1.json`、`chapter2.json`、`chapter3.json`；第一章局部地标与碰撞补充为 `godot/data/map_details.json`。第三章有限波次与撤军任务由 `godot/scripts/jigu_director.gd` 调度。
 - 角色原图保存在 `godot/assets/`；[角色素材说明](godot/art_source/characters/ART-NOTES.md) 和 [八方向出枪提示词](godot/art_source/characters/ATTACK-V3-NOTES.md) 保留生成来源。`prepare_assets.py` 直接读取这些原图重建锚点清单，`--check` 只检查现有清单是否一致。
+- 新敌军：`assets/enemies/` 的四张透明原画、`data/enemy_atlas.json` 的脚锚与刚性区域、`scripts/enemy_roster.gd` 的章节/兵种/支线选择。`prepare_enemy_assets.py` 按美术校准清单重建元数据，保留原画像素；不能只换 PNG 而不重新校准脚点和人体尺寸。
 - 三章地图巡览：编辑器打开 `godot/tests/map_tour.tscn` 按 F6，或运行 `Map-Tour.cmd`；Tab 切章、F1–F6 切区，不写入玩家存档。
 - 工程职责、完整操作、测试和地图重建见 [Godot 开发说明](godot/README.md)；分区要求见 [地图美术规范](docs/MAP-ART-DIRECTION.md)。
 
@@ -58,11 +63,12 @@
 ```powershell
 ./Run-Checks.ps1 -Engine "Godot 可执行文件绝对路径"
 python godot/tools/prepare_assets.py --check
+python godot/tools/prepare_enemy_assets.py --check
 godot --headless --path godot --export-release "Windows Desktop"
 godot --headless --path godot --export-release "Web"
 python godot/tools/verify_export_pack.py
 ```
 
-检查脚本已纳入二十七组回归，并使用隔离测试存档。新增专项覆盖箕谷地图、有限波次与两条桥头路线、三章磁盘存档与真实界面衔接、玄甲先锋跨帧战斗和姿态。专项记录见 [第三章实施对照](docs/CHAPTER-3-JIGU.md)；最终完整回归、画面、性能、Web/Windows 构建及发布结果统一记录在 [开发记录](CLOUD-POLISH.md)。自动流程与采样断言不等于完整人工通关或难度验收，不沿用 0.5.0 的验证成绩。
+检查脚本已纳入二十八组回归，并使用隔离测试存档。敌军专项遍历 22 种原画、实际生成选择、靴底像素、人体比例、面部/兵器刚性与旧 NPC 保留；原三章流程、存档、战斗与地图检查继续保留。最终完整回归、画面、性能、Web/Windows 构建及发布结果统一记录在 [开发记录](CLOUD-POLISH.md)。自动流程与采样断言不等于完整人工通关或难度验收，不沿用旧版验证成绩。
 
 `godot-play/` 是提交到 Git 的 Web 导出，`index.html` 是统一入口。修改游戏或 Web 加载页后要重新导出、验证，并一同提交；GitHub Pages 只发布仓库文件，不会自动运行 Godot 构建。新增中文后重建字体子集，修改地图后重新烘焙。原 Canvas 程序已从当前仓库移除，后续开发只使用 Godot。

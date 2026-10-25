@@ -182,23 +182,25 @@ func draw_vanguard_strike(p: Vector2,direction: float,radius: float,arc: float,t
 
 func draw_enemy_status(enemy) -> void:
 	var p = enemy.position
+	var body_height = float(enemy.visual_profile.get("height",84.0 if enemy.kind in ["boss","elite"] else 65.0))
+	var bar_y = -body_height-11.0
 	# Only the nameplate is culled; a distant bow can still telegraph into
 	# the viewport. This avoids redrawing offscreen health/text every frame.
-	var screen_position = get_canvas_transform() * (p+Vector2(0,-85))
+	var screen_position = get_canvas_transform() * (p+Vector2(0,bar_y-12))
 	if not get_viewport_rect().grow(100).has_point(screen_position): return
 	if enemy.kind not in ["boss","elite"] and enemy.hp<enemy.max_hp:
-		draw_rect(Rect2(p+Vector2(-18,-76),Vector2(36,3)),Color(.08,.17,.17,.8))
-		draw_rect(Rect2(p+Vector2(-18,-76),Vector2(36*enemy.hp/enemy.max_hp,3)),Color("d99178"))
+		draw_rect(Rect2(p+Vector2(-18,bar_y),Vector2(36,3)),Color(.08,.17,.17,.8))
+		draw_rect(Rect2(p+Vector2(-18,bar_y),Vector2(36*enemy.hp/enemy.max_hp,3)),Color("d99178"))
 	if enemy.kind != "boss" and (enemy.stagger > 0 or enemy.hp < enemy.max_hp):
-		draw_rect(Rect2(p+Vector2(-18,-71),Vector2(36,2)),Color(.08,.17,.17,.7))
+		draw_rect(Rect2(p+Vector2(-18,bar_y+5),Vector2(36,2)),Color(.08,.17,.17,.7))
 		if enemy.stagger_shield <= 0:
-			draw_rect(Rect2(p+Vector2(-18,-71),Vector2(36*clampf(enemy.stagger/enemy.stagger_max,0,1),2)),Color("efcf83"))
+			draw_rect(Rect2(p+Vector2(-18,bar_y+5),Vector2(36*clampf(enemy.stagger/enemy.stagger_max,0,1),2)),Color("efcf83"))
 	var status = enemy.combat_status()
 	var text = {"phase":"变招 · 留意新式","break":"破势 · 追击","shield":"盾防已破","recovery":"收招 · 反击","guard":"稳势 · 抗轻击"}.get(status,"")
 	var tint = Color("e8d398") if status not in ["guard","recovery"] else Color("e6ae72") if status == "guard" else Color("a7e1d1")
 	if text!="" and font:
 		var size = font.get_string_size(text,HORIZONTAL_ALIGNMENT_LEFT,-1,12).x
-		var origin = p+Vector2(-size/2,-102 if enemy.kind=="boss" else -88)
+		var origin = p+Vector2(-size/2,-body_height-23)
 		draw_rect(Rect2(origin+Vector2(-6,-14),Vector2(size+12,19)),Color(.07,.18,.17,.85))
 		draw_string(font,origin,text,HORIZONTAL_ALIGNMENT_LEFT,-1,12,tint)
 		if status != "phase":

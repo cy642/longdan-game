@@ -1,6 +1,6 @@
 # 龙胆：逆命三国 · Godot 电脑版
 
-0.6.0（2026-10-23）增加第三章「箕谷断后」，三章共十八区。新增夺旗停箭、两段撤军、断索/留桥两条路线、军报和辎重支线，以及两阶段原创敌将玄甲先锋。第三章六张独立地表和景物图集从可编辑布局离线烘焙，保留前两章的绘画风格与角色固定脚锚。
+当前 0.7.0（2026-10-25）重绘三章18种敌兵与4位将领，改用独立完整原画、人体尺寸标定和每帧保护区域。0.6.0 加入的第三章「箕谷断后」及三章十八区全部保留；地图、存档与战斗规则沿用现有实现。
 
 已运行的第三章专项与实际范围见 [第三章设计及实施对照](../docs/CHAPTER-3-JIGU.md)。完整回归、真实画面、性能、Windows/Web 导出和线上发布结果见 [开发记录](../CLOUD-POLISH.md)；不沿用历史版本的成绩。0.5.0 的 42,815 项回归、1,107 项旧地图对照和十七张截图仅是历史记录，[0.5.0 六区图](../docs/images/map-materials-0.5.0.jpg) 也只作前版画面对照。
 
@@ -85,6 +85,8 @@
 
 ## Godot 的结构
 
+- `scripts/enemy_roster.gd`、`data/enemy_atlas.json`、`assets/enemies/`：0.7.0 三章十八种兵卒与四位将领的独立原画。章节、行为类型及少量支线身份决定画像，行为和存档仍使用原 `kind/boss_id`。`tools/prepare_enemy_assets.py` 读取 `art_source/characters/enemy-calibration.json`，按人体尺寸、靴底、头部及刚性武器区域生成清单，不改写原 PNG；`--check` 只校验。更换原画必须重新校准并检查真实落脚，不按长枪/旗帜包围盒缩放。
+- `tests/enemy_roster_verify.gd`、`tests/enemy_roster_preview.gd`：遍历22种实际画像并检查比例/落脚/缓存独立性，以及用真实骨架生成联系表。预览使用 `-- --label=新标签` 保存到 `.qa/`，拒绝覆盖旧证据。新增原画是连续网格动作与左右镜像，不是八方向逐帧动画；旧代码装备附件已移除。
 - `scenes/main.tscn`：游戏入口。
 - `scenes/hero.tscn`、`scenes/enemy.tscn`：原生 `CharacterBody2D` 与地面碰撞形状。
 - `scripts/hero.gd`、`enemy.gd`、`companion.gd`：动作阶段、闪避、敌人连招、盾防与军令。
@@ -148,7 +150,7 @@ godot --headless --path godot --export-release "Windows Desktop"
 godot --headless --path godot --export-release "Web"
 ```
 
-Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与二十七组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。新增五项箕谷/玄甲先锋专项，保留前两章和绘画资产检查。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程环境。两个 `.cmd` 启动器也接受引擎路径作为首参数，或使用 `GODOT_EXE` / PATH。
+Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与二十八组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。新增独立敌军图集专项，保留三章流程与绘画资产检查。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程环境。两个 `.cmd` 启动器也接受引擎路径作为首参数，或使用 `GODOT_EXE` / PATH。
 
 输出目录为仓库的 `builds/windows/` 与 `godot-play/`。`builds/`、`.godot/`、`.qa/`、日志和本机引擎不入库。`godot-play/` 是已跟踪的 Web 导出，修改 Godot 游戏后须重新导出并与源码一起提交。现有 GitHub Pages 从 `main` 分支的仓库根目录自动发布，Pages 流程不会替你运行测试或导出 Godot。根 `index.html` 跳转至 `./godot-play/`，加载页统一显示「开始游戏」。仓库已移除旧 Canvas 页面、脚本和构建工具，只保留 Godot 游戏。
 

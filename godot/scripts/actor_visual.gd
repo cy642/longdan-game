@@ -1,6 +1,7 @@
 extends Node2D
 ## Frames exclude neighboring sprites and retain one authored model scale and boot pivot.
 const FrameTexture = preload("res://scripts/frame_texture.gd")
+const EnemyRoster = preload("res://scripts/enemy_roster.gd")
 const WALK = [12, 2, 0, 2, 4, 6, 8, 10]
 const WINDUP = [12, 2, 0, 2, 12, 10, 8, 10]
 const STRIKE = [5, 3, 1, 3, 5, 7, 9, 7]
@@ -8,6 +9,8 @@ const WINDUP_FLIP = [false, true, false, false, true, true, false, false]
 const STRIKE_FLIP = [false, false, false, true, true, true, false, false]
 static var atlas_data: Dictionary = {}
 static var frames: Dictionary = {}
+var enemy_profile: Dictionary = {}
+var active_meta: Dictionary = {}
 var actor
 var body: Sprite2D
 var current_scale = 1.0
@@ -35,95 +38,6 @@ var death_start = -1.0
 var death_pose: Dictionary = neutral_pose()
 var death_direction = 1.0
 var enemy_equipment: Node2D
-
-# A few rigid, code-native additions give the Hanshui units readable silhouettes
-# without stretching their painted faces or requiring a second animated atlas.
-class EnemyEquipment extends Node2D:
-	var unit_kind = ""
-	var aim_tilt = 0.0
-
-	func polygon(points: Array, color: Color) -> void:
-		var outline = PackedVector2Array()
-		for point in points: outline.append(Vector2(point[0], point[1]))
-		draw_colored_polygon(outline, color)
-
-	func stroke(points: Array, color: Color, width: float = 1.0) -> void:
-		var line = PackedVector2Array()
-		for point in points: line.append(Vector2(point[0], point[1]))
-		draw_polyline(line, color, width, true)
-
-	func _draw() -> void:
-		match unit_kind:
-			"scout":
-				# The original sabre is the leading blade; the second hand carries a
-				# shorter reverse-grip knife. Both stay attached to the upper body.
-				polygon([[21,-22],[25,-22],[32,-7],[29,-2],[27,-8]],Color("dbe5dc"))
-				stroke([[21,-24],[25,-21],[28,-16]],Color("8d654b"),2.0)
-				stroke([[22,-20],[27,-8],[29,-4]],Color("788e8a"),.8)
-				polygon([[5,-34],[16,-31],[15,-26],[5,-28]],Color("546b66"))
-				stroke([[6,-32],[14,-29]],Color("99a18a"),1.0)
-			"crossbow":
-				# This base has no bow or spear painted into it. The stock, horizontal
-				# limbs, string and bolt therefore read as one complete small crossbow.
-				polygon([[-5,-26],[8,-29],[15,-22],[12,-15],[-6,-17]],Color("425c55"))
-				stroke([[-4,-23],[9,-24],[12,-19],[-5,-19]],Color("829186"),1.0)
-				var grip=Vector2(-9,-24)
-				draw_set_transform(grip-grip.rotated(aim_tilt),aim_tilt)
-				stroke([[-4,-22],[-21,-31],[-27,-30]],Color("544939"),4.0)
-				stroke([[-5,-23],[-21,-32]],Color("aa9066"),1.3)
-				stroke([[-23,-43],[-29,-36],[-30,-28],[-27,-20]],Color("344747"),3.0)
-				stroke([[-23,-43],[-27,-35],[-27,-28],[-25,-21]],Color("a9b9a8"),1.0)
-				stroke([[-23,-43],[-12,-30],[-27,-20]],Color("d4cfad"),.75)
-				stroke([[-7,-28],[-34,-36]],Color("e0d5ac"),.9)
-				polygon([[-33,-38],[-39,-38],[-35,-33]],Color("c5d8d3"))
-				draw_circle(Vector2(-10,-24),3.0,Color("bba17e"))
-				draw_set_transform(Vector2.ZERO)
-				stroke([[-6,-53],[1,-54],[11,-52]],Color("536c5e"),2.0)
-				polygon([[0,-55],[4,-55],[5,-52],[1,-51]],Color("b0ab7d"))
-			"ironshield":
-				# Broad dark rim, square top and copper boss distinguish the heavy
-				# shield from the first chapter's round wooden one at combat scale.
-				polygon([[9,-35],[29,-34],[30,-8],[20,-3],[9,-10]],Color("283a3b"))
-				stroke([[9,-35],[29,-34],[30,-8],[20,-3],[9,-10],[9,-35]],Color("a49165"),1.7)
-				polygon([[13,-31],[25,-30],[26,-10],[20,-7],[13,-12]],Color("4c5b58"))
-				stroke([[14,-27],[24,-26]],Color("819188"),1.0)
-				stroke([[14,-22],[25,-21]],Color("2d4140"),1.0)
-				draw_circle(Vector2(20,-20),4.4,Color("b49a65"))
-				draw_circle(Vector2(20,-20),2.5,Color("566861"))
-			"vanguard":
-				# Keep the source spear shaft rigid. A crescent cheek joins its tip,
-				# making one long halberd rather than adding a second floating weapon.
-				polygon([[-20,-61],[-13,-64],[-9,-59],[-8,-51],[-12,-46],[-17,-47],[-12,-51],[-13,-57],[-20,-58]],Color("c4ccbd"))
-				polygon([[-17,-60],[-13,-61],[-11,-57],[-11,-51],[-14,-49],[-14,-55]],Color("536566"))
-				stroke([[-13,-64],[-9,-59],[-8,-51],[-12,-46],[-17,-47]],Color("ece3bd"),.9)
-				stroke([[-23,-47],[-18,-48]],Color("b69c67"),2.2)
-				polygon([[-20,-47],[-14,-46],[-12,-38],[-16,-40],[-17,-35],[-20,-43]],Color("813e3b"))
-				# Dark iron shoulders and a narrow red sash remain visible in guard.
-				polygon([[-11,-27],[-4,-30],[3,-26],[-1,-20],[-10,-22]],Color("303c42"))
-				polygon([[6,-29],[15,-27],[20,-21],[14,-19],[7,-23]],Color("303c42"))
-				stroke([[-10,-26],[-4,-28],[1,-25]],Color("99a6a1"),.9)
-				stroke([[9,-27],[15,-25],[18,-22]],Color("99a6a1"),.9)
-				polygon([[-5,-22],[8,-23],[13,-18],[8,-11],[-5,-12]],Color("38444b"))
-				for y in [-20,-17,-14]: stroke([[-3,y],[8,y-1]],Color("737c77"),.8)
-				stroke([[-6,-12],[8,-13]],Color("a65e50"),2.0)
-			"dujun":
-				# Black lamellar plates, an iron half-mask and three copper rings are
-				# persistent visual identifiers, including while the boss is idle.
-				polygon([[-5,-24],[10,-26],[20,-20],[15,-10],[-6,-12]],Color("283438"))
-				polygon([[-11,-25],[-3,-28],[3,-23],[-3,-18],[-11,-20]],Color("34464a"))
-				polygon([[13,-26],[22,-23],[26,-18],[18,-15],[12,-21]],Color("34464a"))
-				for y in [-21,-17,-13]: stroke([[-3,y],[13,y-1]],Color("7e8067"),.8)
-				polygon([[-3,-33],[12,-34],[16,-29],[9,-23],[0,-25]],Color("3b4849"))
-				stroke([[0,-30],[5,-29]],Color("b4b292"),.8)
-				stroke([[9,-30],[13,-31]],Color("b4b292"),.8)
-				stroke([[7,-29],[8,-26]],Color("83918a"),.8)
-				stroke([[-6,-18],[-29,-64]],Color("384341"),4.4)
-				stroke([[-7,-20],[-28,-63]],Color("bca772"),1.0)
-				polygon([[-29,-69],[-18,-64],[-13,-53],[-20,-48],[-18,-55],[-24,-59],[-35,-59],[-38,-63]],Color("aebfba"))
-				polygon([[-29,-66],[-20,-62],[-17,-55],[-22,-57],[-34,-61]],Color("526a69"))
-				stroke([[-38,-63],[-30,-69],[-18,-64],[-13,-53],[-20,-48]],Color("e0dfbc"),1.1)
-				for p in [Vector2(-26,-65),Vector2(-22,-63),Vector2(-18,-59)]:
-					draw_arc(p,2.4,0,TAU,12,Color("c9a96f"),1.0,true)
 
 static func neutral_pose() -> Dictionary:
 	return {"lean":0.0, "crouch":0.0, "arm":0.0, "reach":0.0, "stride":0.0, "lift":0.0, "guard":0.0}
@@ -155,6 +69,8 @@ func react_to_hit(direction: float, blocked: bool, lethal: bool) -> void:
 static func prepare() -> void:
 	if not frames.is_empty(): return
 	atlas_data = JSON.parse_string(FileAccess.get_file_as_string("res://data/atlas.json"))
+	var enemy_atlases = JSON.parse_string(FileAccess.get_file_as_string("res://data/enemy_atlas.json"))
+	atlas_data.merge(enemy_atlases)
 	for key in atlas_data:
 		var atlas = load(atlas_data[key].file)
 		var textures: Array = []
@@ -177,7 +93,7 @@ func set_frame(key: String, index: int, flip: bool, hero: bool, height: float = 
 	# a ruler for Zhao Yun's anatomy. Both current sheets use the same art scale;
 	# the older reaction sheet has its own once-calibrated source density.
 	# Never refit each pose to its bounds: crouches and long spears must stay natural.
-	current_scale = float(atlas_data[key].model_scale) if hero else height / float(meta.region[3])
+	current_scale = float(atlas_data[key].model_scale) if hero else height / float(meta.get("body_height",meta.region[3]))
 	# The pivot always remains on the ground; spear tips cannot change body scale.
 	body.position = Vector2(-meta.anchor[0], -meta.anchor[1]) * current_scale
 	body.scale = Vector2.ONE * current_scale
@@ -208,6 +124,13 @@ func update_pose() -> void:
 			rotation = sin(actor.walk_distance / 18) * .022 if actor.moving else 0
 			if actor.dash_left > 0: rotation = -.08
 	else:
+		var profile = actor.get("visual_profile")
+		enemy_profile = profile if profile is Dictionary else {}
+		if actor.faction == "enemy" and enemy_profile.is_empty():
+			var stage = str(actor.world.get("stage")) if actor.world else ""
+			var chapter = 3 if stage.begins_with("jg_") else 2 if stage.begins_with("hs_") else 1
+			enemy_profile = EnemyRoster.resolve(chapter,stage,actor.kind,actor.boss_id,actor.group_id)
+			if profile is Dictionary: actor.visual_profile = enemy_profile
 		var key = "units"; var index = 1
 		match actor.kind:
 			"scout": index = 1
@@ -221,7 +144,11 @@ func update_pose() -> void:
 			"healer": key = "chapter"; index = 3
 			"mother": key = "chapter"; index = 4
 			"civil": index = 5 + int(actor.uid % 3)
-		set_frame(key, index, cos(actor.facing) >= 0, false, 84 if actor.kind in ["boss", "elite"] else 58 if actor.kind in ["civil", "healer", "mother"] else 65)
+		var height = 84.0 if actor.kind in ["boss", "elite"] else 58.0 if actor.kind in ["civil", "healer", "mother"] else 65.0
+		if actor.faction == "enemy" and not enemy_profile.is_empty():
+			key = enemy_profile.atlas; index = enemy_profile.index; height = enemy_profile.height
+		active_meta = atlas_data[key].frames[index]
+		set_frame(key, index, cos(actor.facing) >= 0, false, height)
 		if actor.faction == "enemy":
 			update_enemy_pose(key, index)
 		elif actor.hp <= 0:
@@ -262,8 +189,8 @@ func sample_enemy_action(a: Dictionary) -> Dictionary:
 	follow.reach *= .7
 	follow.crouch = 2.0
 	if archer:
-		loaded.merge({"lean":.07, "crouch":.9, "arm":-.12, "reach":-2.5}, true)
-		strike.merge({"lean":.11, "crouch":1.0, "arm":.15, "reach":1.5}, true)
+		loaded.merge({"lean":-.04, "crouch":1.7, "arm":-.30, "reach":-3.0}, true)
+		strike.merge({"lean":.13, "crouch":2.5, "arm":.20, "reach":3.0}, true)
 		follow = strike.duplicate()
 	if actor.kind == "scout":
 		loaded.arm = .36
@@ -306,7 +233,11 @@ func sample_enemy_action(a: Dictionary) -> Dictionary:
 		return blend_pose(neutral_pose(), loaded, pose_ease(a.t / (d.windup * .82)))
 	if a.t < d.windup + d.active:
 		var t = (a.t - d.windup) / d.active
-		return blend_pose(loaded, strike, pose_ease(t / .42)) if t < .42 else blend_pose(strike, follow, pose_ease((t - .42) / .58))
+		# The new full-size sword/spear commanders have wider capes and longer
+		# painted weapons. Spread their visible release over the same active
+		# window to avoid snapping the outer silhouette; hit timing is unchanged.
+		var release_fraction = .56 if actor.boss_id in ["xiahou","zhanghe"] else .42
+		return blend_pose(loaded, strike, pose_ease(t / release_fraction)) if t < release_fraction else blend_pose(strike, follow, pose_ease((t - release_fraction) / (1.0-release_fraction)))
 	var recovery = (a.t - d.windup - d.active) / maxf(.001, d.recovery)
 	# Hold the follow-through briefly, then visibly release back into guard.
 	return blend_pose(follow, neutral_pose(), pose_ease((recovery - .12) / .88))
@@ -314,9 +245,9 @@ func sample_enemy_action(a: Dictionary) -> Dictionary:
 func sample_crossbow_action(a: Dictionary) -> Dictionary:
 	var d = a.def
 	var loaded = neutral_pose()
-	loaded.merge({"lean":.06,"crouch":.8,"arm":-.15,"reach":-2.5},true)
+	loaded.merge({"lean":.01,"crouch":1.8,"arm":-.40,"reach":-3.0},true)
 	var release = neutral_pose()
-	release.merge({"lean":.11,"crouch":1.3,"arm":.17,"reach":1.8},true)
+	release.merge({"lean":.12,"crouch":3.2,"arm":.32,"reach":3.0},true)
 	if a.t < d.windup: return blend_pose(neutral_pose(),loaded,pose_ease(a.t/(d.windup*.82)))
 	var fired_time = a.t-d.windup
 	# The second visible release is tied to the same +.25 s boundary as the
@@ -384,19 +315,15 @@ func update_enemy_pose(key: String, index: int) -> void:
 		modulate.a = lerpf(1.0, .42, pose_ease((actor.dead_time - .55) / .6)) * clampf(1.0 - maxf(0, actor.dead_time - 1.5) / 8.5, 0, 1)
 	displayed_pose = pose
 	deform_enemy_rig(pose, gait)
-	if enemy_equipment != null:
-		var unit = float(rig_data.height) / 65.0
-		enemy_equipment.transform = enemy_upper_transform(pose) * Transform2D(Vector2(unit,0),Vector2(0,unit),Vector2.ZERO)
-		if actor.kind == "crossbow":
-			var tilt = -sin(actor.facing)*.8
-			if not is_equal_approx(enemy_equipment.aim_tilt,tilt):
-				enemy_equipment.aim_tilt=tilt; enemy_equipment.queue_redraw()
 
 func build_enemy_rig(key: String, index: int) -> void:
-	var cache_key = key + ":" + str(index) + ":" + actor.kind + ":" + actor.boss_id
+	var cache_key = key + ":" + str(index) + ":" + actor.kind + ":" + actor.boss_id + ":" + str(enemy_profile.get("id","legacy"))
 	if not enemy_rigs.has(cache_key):
 		var meta = atlas_data[key].frames[index]
 		var width = float(meta.region[2]); var height = float(meta.region[3])
+		var leg_start = float(meta.get("leg_start",.70))
+		var leg_end = float(meta.get("leg_end",.95))
+		var hip_meta: Array = meta.get("hip",[.52,.73])
 		var xs: Array = []; var ys: Array = []
 		var head_bounds = enemy_head_bounds()
 		var safe_head = head_bounds.grow(.04)
@@ -405,6 +332,8 @@ func build_enemy_rig(key: String, index: int) -> void:
 		# remain clipped without paying for a dense full-sprite mesh each tick.
 		for x in range(9): xs.append(width * x / 8.0)
 		for y in [0.0, .25, .5, .625, .66, .70, .78, .86, .93, 1.0]: ys.append(height * y)
+		for y in [leg_start,leg_end,float(hip_meta[1])]:
+			if not ys.has(height*y): ys.append(height*y)
 		var holes: Array[Rect2] = []
 		for excluded in meta.get("exclude", []):
 			var hole = Rect2(excluded[0], excluded[1], excluded[2], excluded[3])
@@ -431,8 +360,8 @@ func build_enemy_rig(key: String, index: int) -> void:
 				var weapon = enemy_weapon_region(n)
 				if head_bounds.has_point(n): head_indices.append(rest.size() - 1)
 				if weapon: weapon_indices.append(rest.size() - 1)
-				var lower = 0.0 if weapon else pose_ease((n.y - .70) / .25)
-				var upper = 1.0 if protected or weapon else 1 - pose_ease((n.y - .66) / .33)
+				var lower = 0.0 if weapon else pose_ease((n.y - leg_start) / maxf(.01,leg_end-leg_start))
+				var upper = 1.0 if protected or weapon else 1 - pose_ease((n.y - (leg_start-.04)) / maxf(.01,1.0-leg_start+.03))
 				weights.append(Vector4(upper, 0, lower, pose_ease((n.x - .38) / .22)))
 		for y in range(ys.size() - 1):
 			for x in range(xs.size() - 1):
@@ -443,7 +372,7 @@ func build_enemy_rig(key: String, index: int) -> void:
 				if excluded: continue
 				var i = y * xs.size() + x
 				polygons.append(PackedInt32Array([i, i + 1, i + xs.size() + 1, i + xs.size()]))
-		enemy_rigs[cache_key] = {"rest":rest, "uv":uv, "weights":weights, "head_indices":head_indices, "weapon_indices":weapon_indices, "polygons":polygons, "height":height, "hip":Vector2(width*.52,height*.73)-anchor, "texture":load(atlas_data[key].file)}
+		enemy_rigs[cache_key] = {"rest":rest, "uv":uv, "weights":weights, "head_indices":head_indices, "weapon_indices":weapon_indices, "polygons":polygons, "height":height, "body_height":float(meta.get("body_height",height)), "hip":Vector2(width*hip_meta[0],height*hip_meta[1])-anchor, "texture":load(atlas_data[key].file)}
 	rig_data = enemy_rigs[cache_key]
 	rig = Polygon2D.new()
 	rig.name = "ArticulatedEnemy"
@@ -452,17 +381,11 @@ func build_enemy_rig(key: String, index: int) -> void:
 	rig.uv = rig_data.uv
 	rig.polygons = rig_data.polygons
 	add_child(rig)
-	var equipment_kind = actor.boss_id if actor.boss_id in ["dujun","vanguard"] else str(actor.kind)
-	if equipment_kind in ["scout", "crossbow", "ironshield", "dujun", "vanguard"]:
-		enemy_equipment = EnemyEquipment.new()
-		enemy_equipment.name = "VanguardEquipment" if equipment_kind == "vanguard" else "HanshuiEquipment"
-		enemy_equipment.unit_kind = equipment_kind
-		rig.add_child(enemy_equipment)
-		if equipment_kind in ["ironshield", "dujun"]:
-			rig.self_modulate = Color("b6c2c0") if equipment_kind == "ironshield" else Color("98aaa9")
-		elif equipment_kind == "vanguard": rig.self_modulate = Color("b5b8bb")
 
 func enemy_head_bounds() -> Rect2:
+	if active_meta.has("head_rect"):
+		var r = active_meta.head_rect
+		return Rect2(r[0],r[1],r[2],r[3])
 	# These source-space rectangles protect the painted face and helmet as one
 	# rigid piece. The grid also includes a margin around their edges, preventing
 	# a weapon triangle from dragging neighboring facial pixels across the joint.
@@ -478,6 +401,10 @@ func enemy_head_bounds() -> Rect2:
 	return Rect2(.15, .1, .7, .5)
 
 func enemy_weapon_region(n: Vector2) -> bool:
+	if active_meta.has("rigid_weapon_regions"):
+		for r in active_meta.rigid_weapon_regions:
+			if Rect2(r[0],r[1],r[2],r[3]).has_point(n): return true
+		return false
 	# The source spear crosses the painted face/arm. Rotating that strip alone
 	# stretches the helmet or bends the shaft. Keep its silhouette rigid with
 	# the upper body, including the portion extending below the belt.
@@ -489,7 +416,7 @@ func enemy_weapon_region(n: Vector2) -> bool:
 	return n.x < .34 and n.y > .24 and n.y < .73
 
 func enemy_upper_transform(pose: Dictionary) -> Transform2D:
-	var unit = float(rig_data.height) / 65.0
+	var unit = float(rig_data.get("body_height",rig_data.height)) / 65.0
 	var hip: Vector2 = rig_data.hip
 	# Shoulder preparation/release moves the complete painted upper silhouette;
 	# it is deliberately not advertised as newly drawn/separated arm frames.
@@ -502,7 +429,7 @@ func deform_enemy_rig(pose: Dictionary, gait: float) -> void:
 	last_rig_pose = pose.duplicate()
 	last_rig_gait = gait
 	var points: PackedVector2Array = rig_data.rest.duplicate()
-	var unit = float(rig_data.height) / 65.0
+	var unit = float(rig_data.get("body_height",rig_data.height)) / 65.0
 	var upper = enemy_upper_transform(pose)
 	var stride = float(pose.stride) * unit
 	var lift = float(pose.lift) * unit

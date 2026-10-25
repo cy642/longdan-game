@@ -1,10 +1,13 @@
 extends SceneTree
 ## Production mesh/pose contract. No saves or GPU capture are required.
 const Enemy = preload("res://scripts/enemy.gd")
+const Roster = preload("res://scripts/enemy_roster.gd")
 class ReviewState extends RefCounted:
+	var chapter = 3
 	var flags = {"adou":false}
 class ReviewWorld extends Node2D:
 	var state = ReviewState.new()
+	var stage = "jg_final"
 var checks = 0
 var failures: Array = []
 
@@ -24,11 +27,13 @@ func sample(enemy,definition: Dictionary,time: float,direction: float,id: int) -
 func run() -> void:
 	var review = ReviewWorld.new(); root.add_child(review)
 	var enemy = Enemy.new(); enemy.world = review; enemy.kind = "boss"; enemy.boss_id = "vanguard"
+	enemy.visual_profile=Roster.resolve(review.state.chapter,review.stage,enemy.kind,enemy.boss_id,enemy.group_id)
 	review.add_child(enemy)
 	var visual = enemy.visual
-	expect(visual.enemy_equipment != null and visual.enemy_equipment.unit_kind == "vanguard","dedicated halberd and iron armor attachment")
-	expect(visual.last_frame[0] == "chapter" and visual.last_frame[1] == 2,"spear-bearing base differs from dujun axe base")
-	expect(visual.enemy_equipment.get_parent() == visual.rig,"equipment mirrors and falls with the production rig")
+	expect(visual.enemy_equipment == null,"independently painted halberd and iron armor need no duplicate code attachment")
+	expect(enemy.visual_profile.id == "boss_vanguard" and visual.last_frame[0] == "enemy_commanders" and visual.last_frame[1] == enemy.visual_profile.index,"vanguard selects its own painted commander frame")
+	expect(visual.rig.get_parent() == visual and not visual.body.visible,"painted equipment mirrors and falls with the complete production rig")
+	expect(not visual.rig_data.head_indices.is_empty() and not visual.rig_data.weapon_indices.is_empty(),"painted face and halberd protection cover real mesh vertices")
 	var model_scale = visual.current_scale
 	var original_bottom = -INF
 	for index in range(visual.rig_data.rest.size()):
@@ -74,16 +79,14 @@ func run() -> void:
 					prior = points.duplicate()
 					expect(finite and face_error < .001 and weapon_error < .001,definition.name+" keeps painted face and halberd shaft rigid")
 					expect(visual.current_scale == model_scale and visual.position.is_zero_approx() and visual.scale == Vector2.ONE,definition.name+" retains fixed body scale and foot anchor")
-					var unit = float(visual.rig_data.height)/65.0
-					var grip = Vector2(-14,-25)
-					expect((visual.enemy_equipment.transform*grip).distance_to(upper*(grip*unit)) < .001,definition.name+" keeps crescent blade attached to the original shaft")
+					expect(weapon_error < .001 and visual.enemy_equipment == null,definition.name+" keeps painted crescent and shaft together without a second weapon")
 				expect(biggest_step < 15.0,definition.name+" avoids single-frame mesh jumps: "+str(biggest_step))
 	var sweep = Enemy.BOSS_MOVES.vanguard[2][0]; var returning = Enemy.BOSS_MOVES.vanguard[3][1]
 	var first = sample(enemy,sweep,sweep.windup*.95,0,id+1)
 	var second = sample(enemy,returning,returning.windup*.95,0,id+2)
 	expect(first.arm > .3 and second.arm < -.3,"return sweep visibly loads from the opposite side")
 	enemy.action = {}; visual.react_to_hit(0,false,true); enemy.hp = 0; enemy.dead_time = .46; enemy.update_visual()
-	expect(absf(visual.rotation) > 1.0 and visual.enemy_equipment.get_parent() == visual.rig,"death rotates body and halberd together")
+	expect(absf(visual.rotation) > 1.0 and visual.rig.get_parent() == visual and visual.enemy_equipment == null,"death rotates complete painted body and halberd together")
 	print("VANGUARD_VISUAL_VERIFY ",checks," checks; ",failures.size()," failures")
 	review.queue_free(); await process_frame; await process_frame
 	quit(0 if failures.is_empty() else 1)

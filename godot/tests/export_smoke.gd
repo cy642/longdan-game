@@ -4,11 +4,51 @@ const Game = preload("res://scripts/world.gd")
 const Campaign = preload("res://scripts/campaign.gd")
 const JiguDirector = preload("res://scripts/jigu_director.gd")
 const JiguLayout = preload("res://scripts/jigu_layout.gd")
+const Roster = preload("res://scripts/enemy_roster.gd")
+const ROSTER_CASES = [
+	[1,"mountain","sword","","m1","cb_sword"],[1,"mountain","spear","","m1","cb_spear"],
+	[1,"mountain","archer","","m1","cb_archer"],[1,"mountain","shield","","m1","cb_shield"],
+	[1,"fork","elite","","elite","cb_elite"],[1,"village","sword","","v1","cb_village"],
+	[2,"hs_forest","sword","","forest_main","hs_sword"],[2,"hs_forest","spear","","forest_main","hs_spear"],
+	[2,"hs_forest","scout","","forest_main","hs_scout"],[2,"hs_forest","crossbow","","forest_main","hs_crossbow"],
+	[2,"hs_forest","ironshield","","forest_main","hs_ironshield"],[2,"hs_grain","crossbow","","hs_beacon_guard","hs_beacon"],
+	[3,"jg_fog","sword","","jg_f1","jg_sword"],[3,"jg_fog","spear","","jg_f1","jg_spear"],
+	[3,"jg_fog","scout","","jg_f1","jg_scout"],[3,"jg_fog","crossbow","","jg_f1","jg_crossbow"],
+	[3,"jg_fog","ironshield","","jg_f1","jg_ironshield"],[3,"jg_signal","crossbow","","jg_s2","jg_signal"],
+	[1,"temple","boss","xiahou","boss","boss_xiahou"],[1,"bridge","boss","zhanghe","boss","boss_zhanghe"],
+	[2,"hs_final","boss","dujun","boss","boss_dujun"],[3,"jg_final","boss","vanguard","boss","boss_vanguard"]
+]
 class MemoryCampaign extends Campaign:
 	func read_save() -> Dictionary: return {}
 	func save() -> bool: return true
 
 func _initialize() -> void: call_deferred("run")
+
+func verify_enemy_roster(world) -> bool:
+	var metadata = JSON.parse_string(FileAccess.get_file_as_string("res://data/enemy_atlas.json"))
+	if not metadata is Dictionary:
+		push_error("Missing exported enemy roster metadata"); return false
+	var used_frames: Dictionary = {}; var used_atlases: Dictionary = {}
+	for row in ROSTER_CASES:
+		world.state.reset("normal",row[0]); world.load_chapter(row[0]); world.mode="playing"
+		world.enter_stage(row[1],Vector2.INF,false); await process_frame
+		var enemy = world.spawn_enemy(row[2],Vector2(850,900),row[4],row[3]); enemy.update_visual()
+		var profile: Dictionary = enemy.visual_profile
+		if profile.get("id","")!=row[5] or profile!=Roster.resolve(row[0],row[1],row[2],row[3],row[4]):
+			push_error("Wrong exported enemy profile: "+str(row[5])); return false
+		var atlas = str(profile.get("atlas","")); var index = int(profile.get("index",-1))
+		if not metadata.has(atlas) or index<0 or index>=metadata[atlas].frames.size():
+			push_error("Missing exported enemy frame: "+str(row[5])); return false
+		var visual = enemy.visual; var identity = atlas+":"+str(index)
+		if used_frames.has(identity) or visual.rig==null or visual.enemy_equipment!=null or visual.body.visible or visual.last_frame[0]!=atlas or visual.last_frame[1]!=index:
+			push_error("Missing independent exported rig: "+str(row[5])); return false
+		if not atlas.begins_with("enemy_") or visual.rig.texture.resource_path!=metadata[atlas].file:
+			push_error("Exported enemy still uses an old/wrong sprite: "+str(row[5])); return false
+		if metadata[atlas].file in ["res://assets/chibi-units-v1.png","res://assets/chapter1-units-v2.png"]:
+			push_error("Exported roster aliases old NPC art: "+str(row[5])); return false
+		used_frames[identity]=true; used_atlases[metadata[atlas].file]=true
+	return used_frames.size()==22 and used_atlases.size()==4
+
 func run() -> void:
 	var world = Game.new(); world.test_mode = true; world.state = MemoryCampaign.new()
 	root.add_child(world); world.set_process(false); world.set_physics_process(false)
@@ -65,5 +105,6 @@ func run() -> void:
 	world.begin_boss("vanguard"); world.boss.update_visual()
 	if world.boss.display_name!="玄甲先锋" or world.boss.boss_id!="vanguard" or world.boss.visual.rig==null:
 		push_error("Missing exported Jigu vanguard boss/rig"); quit(1); return
-	print("EXPORT_SMOKE_OK regions=18 modeled_landmarks=",modeled," chapter1_articulated_enemies=",enemies," chapter2_new_enemies=3 bosses=dujun,vanguard huangzhong_support=ready jigu_props=",jigu_props)
+	if not await verify_enemy_roster(world): quit(1); return
+	print("EXPORT_SMOKE_OK regions=18 modeled_landmarks=",modeled," chapter1_articulated_enemies=",enemies," chapter2_new_enemies=3 bosses=dujun,vanguard huangzhong_support=ready jigu_props=",jigu_props," independent_enemy_profiles=22 enemy_atlases=4")
 	world.queue_free(); await process_frame; quit()

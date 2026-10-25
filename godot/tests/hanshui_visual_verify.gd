@@ -1,14 +1,17 @@
 extends SceneTree
 ## Render contracts for the added units and physical story markers. No saves.
 const Enemy = preload("res://scripts/enemy.gd")
+const Roster = preload("res://scripts/enemy_roster.gd")
 const Marker = preload("res://scripts/interactable.gd")
 const UNITS = [["scout","","Dual-blade scout"],["crossbow","","Crossbow"],["ironshield","","Iron shield"],["boss","dujun","Iron-mask commander"]]
 class ReviewState extends RefCounted:
+	var chapter = 2
 	var flags = {"adou":false,"huangzhong":false,"wounded":false,"beacon":false}
 	var tactics = {"gate":"PREPARE"}
 class ReviewWorld extends Node2D:
 	var state = ReviewState.new()
 	var mode = "playing"
+	var stage = "hs_forest"
 	var definition: Dictionary = {}
 	var camera = Camera2D.new()
 	func _ready() -> void:
@@ -28,6 +31,7 @@ func expect(ok: bool, title: String) -> void:
 func make_enemy(unit: Array, p: Vector2):
 	var enemy=Enemy.new()
 	enemy.world=review; enemy.kind=unit[0]; enemy.boss_id=unit[1]
+	enemy.visual_profile=Roster.resolve(review.state.chapter,review.stage,enemy.kind,enemy.boss_id,enemy.group_id)
 	enemy.position=p; review.add_child(enemy)
 	return enemy
 
@@ -43,9 +47,12 @@ func check_render_contracts() -> void:
 	for unit in UNITS:
 		var enemy=make_enemy(unit,Vector2.ZERO)
 		var visual=enemy.visual
-		expect(visual.enemy_equipment!=null,unit[2]+" has a dedicated equipment silhouette")
-		expect(visual.enemy_equipment.get_parent()==visual.rig,unit[2]+" equipment shares source mirroring and hurt/death visibility")
-		if enemy.kind=="crossbow": expect(visual.last_frame[0]=="units" and visual.last_frame[1]==7,"crossbow base has no painted bow or spear")
+		expect(visual.enemy_equipment==null,unit[2]+" uses its complete painted equipment without old code additions")
+		expect(visual.rig!=null and visual.rig.get_parent()==visual and not visual.body.visible,unit[2]+" complete silhouette shares mirroring and hurt/death visibility")
+		expect(visual.last_frame[0]==enemy.visual_profile.atlas and visual.last_frame[1]==enemy.visual_profile.index,unit[2]+" selects its authored profile frame")
+		expect(not visual.rig_data.head_indices.is_empty() and not visual.rig_data.weapon_indices.is_empty(),unit[2]+" actually protects face and painted weapon geometry")
+		if enemy.kind=="crossbow": expect(enemy.visual_profile.id=="hs_crossbow" and visual.last_frame[0]=="enemy_hanshui","crossbow has its own fully painted military body and weapon")
+		var model_scale=visual.current_scale
 		if enemy.kind=="crossbow":
 			var definition=Enemy.CROSSBOW_ATTACK
 			var action={"def":definition,"t":definition.windup,"dir":0.0}
@@ -82,12 +89,11 @@ func check_render_contracts() -> void:
 					for index in visual.rig_data.head_indices:
 						error=maxf(error,visual.rig.polygon[index].distance_to(upper*visual.rig_data.rest[index]))
 					expect(error<.001,unit[2]+" face and helmet remain rigid")
-					var scale_factor=float(visual.rig_data.height)/65.0
-					var grip=Vector2(-8,-23)
-					var actual: Vector2=visual.enemy_equipment.transform*grip
-					var target: Vector2=upper*(grip*scale_factor)
-					expect(actual.distance_to(target)<.001,unit[2]+" equipment stays on the painted upper body")
-				if enemy.kind=="crossbow": expect(is_equal_approx(visual.enemy_equipment.aim_tilt,-sin(facing)*.8),"crossbow has visible upper/lower aim directions")
+					var weapon_error=0.0
+					for index in visual.rig_data.weapon_indices:
+						weapon_error=maxf(weapon_error,visual.rig.polygon[index].distance_to(upper*visual.rig_data.rest[index]))
+					expect(weapon_error<.001,unit[2]+" painted grip and weapon remain rigid on the upper body")
+					expect(visual.current_scale==model_scale,unit[2]+" action never refits the painted character size")
 		enemy.queue_free()
 
 func label_at(text: String, p: Vector2, size: int=16) -> void:
@@ -99,7 +105,7 @@ func label_at(text: String, p: Vector2, size: int=16) -> void:
 func make_contact_sheet() -> void:
 	root.size=Vector2i(1280,960)
 	RenderingServer.set_default_clear_color(Color("334d46"))
-	label_at("Hanshui  |  new silhouettes attached to production rigs",Vector2(25,12),25)
+	label_at("Hanshui  |  independent painted roster on production rigs",Vector2(25,12),25)
 	var phases=["Guard","Stride","Anticipate","Strike","Recoil","Fall"]
 	for column in range(phases.size()): label_at(phases[column],Vector2(260+column*170,55))
 	for row in range(UNITS.size()):

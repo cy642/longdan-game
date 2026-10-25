@@ -43,7 +43,10 @@ func run() -> void:
 		var v = enemy.visual
 		var name = unit[0] + unit[1]
 		expect(v.rig != null and not v.body.visible, name + " uses articulated original pixels")
-		expect(v.rig.texture.resource_path == v.atlas_data[v.last_frame[0]].file, name + " uses original atlas")
+		expect(v.last_frame[0] == enemy.visual_profile.atlas and v.last_frame[1] == enemy.visual_profile.index and str(v.last_frame[0]).begins_with("enemy_"),name + " selects its independent enemy profile")
+		expect(v.rig.texture.resource_path == v.atlas_data[enemy.visual_profile.atlas].file, name + " uses its authored profile atlas")
+		expect(v.enemy_equipment == null,name + " keeps its complete painted weapon without a duplicate code attachment")
+		expect(not v.rig_data.head_indices.is_empty() and not v.rig_data.weapon_indices.is_empty(),name + " has nonempty protected face and weapon vertices")
 		expect(v.rig.polygon.size() > 100 and v.rig.polygons.size() > 70, name + " has connected deformation grid")
 		var rest: PackedVector2Array = v.rig.polygon.duplicate()
 		enemy.moving = true; enemy.walk_distance = 18
@@ -79,13 +82,16 @@ func run() -> void:
 				expect(pose_distance(windup,active) > .25, title + " anticipation and release visibly differ")
 				var previous: PackedVector2Array
 				var biggest_step = 0.0
+				var biggest_time = 0.0
 				# Sample real rendered geometry at a fine rate to catch root jumps,
 				# source exclusions, invalid vertices and abrupt end-of-action snaps.
 				for step in range(81):
 					var t = total * step / 80.0
 					sample(enemy,d,t); enemy.update_visual()
 					var points: PackedVector2Array = v.rig.polygon
-					if not previous.is_empty(): biggest_step = maxf(biggest_step,vertex_distance(previous,points)*v.current_scale)
+					if not previous.is_empty():
+						var distance = vertex_distance(previous,points)*v.current_scale
+						if distance>biggest_step: biggest_step=distance; biggest_time=t
 					previous = points.duplicate()
 					expect(v.position.is_zero_approx() and v.rotation == 0 and v.scale == Vector2.ONE, title + " attack stays foot anchored")
 					expect(points.size() == rest.size(), title + " grid remains intact")
@@ -104,7 +110,7 @@ func run() -> void:
 					for i in v.rig_data.weapon_indices:
 						weapon_error = maxf(weapon_error,points[i].distance_to(upper * v.rig_data.rest[i]))
 					expect(weapon_error < .001, title + " blade and shaft remain rigid with no kinks")
-				expect(biggest_step < 32.0, title + " no phase teleport in rendered vertices")
+				expect(biggest_step < 32.0, title + " no phase teleport in rendered vertices (max %.3f px at %.4f s, direction %.3f)"%[biggest_step,biggest_time,facing])
 		# All exclusions must remain geometry holes, rather than stray atlas pixels.
 		var meta = v.atlas_data[v.last_frame[0]].frames[v.last_frame[1]]
 		var atlas_origin = Vector2(meta.region[0],meta.region[1])

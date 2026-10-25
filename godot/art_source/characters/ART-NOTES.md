@@ -1,5 +1,11 @@
 # Q 版角色素材
 
+## 0.7.0 敌军更新
+
+三章敌军已替换为 `assets/enemies/` 的四张独立透明原画，共18兵与4将。完整内置 image_gen 提示词、源文件和哈希见 [生成记录](ENEMY-REDESIGN-PROMPTS.md)。`enemy-calibration.json` 保存人体、靴、头和武器保护区，`tools/prepare_enemy_assets.py` 生成 `data/enemy_atlas.json`；保持原画像素，以连通分量和邻帧几何排除取代等格裁切。敌军不再使用旧代码装备附件，仍以连续网格姿态和左右镜像动画展示。
+
+下面保留早期生成来源。旧 `chibi-units-v1.png` 与 `chapter1-units-v2.png` 仍供随军、百姓、医者和黄忠等使用，不应整张删除。
+
 使用内置图像生成工具，以用户提供的第一张角色图为形象和画风参考。原图保持不变；现有角色 PNG 统一保存在 `godot/assets/`，本目录只保存制作说明和历史生成提示词。人物的新画法覆盖此前的白袍头盔造型。以下文件名均相对于 `godot/assets/`。
 
 ## 素材
