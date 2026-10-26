@@ -5,8 +5,9 @@ const SAVE_PATH = "user://longdan-godot-v2.json"
 const LEGACY_PATH = "user://longdan-godot-v1.json"
 const HANSHUI_FLAGS = ["huangzhong", "wounded", "beacon", "cart", "dujun", "deception", "volley", "huilan"]
 const JIGU_FLAGS = ["jg_banner","jg_dispatch","jg_front","jg_rear","jg_rearguard","jg_supplies","jg_bridge_cut","jg_bridge_held","jg_last_guard","jg_boss","jg_supply_claimed"]
-const CHAPTER_STAGES = {1:["mountain", "village", "temple", "house", "fork", "bridge"], 2:["hs_forest", "hs_grain", "hs_return", "hs_camp", "hs_river", "hs_final"], 3:["jg_fog","jg_signal","jg_pass","jg_rearguard","jg_bridge","jg_final"]}
-const CHAPTER_NAMES = {1:"长坂逆命",2:"汉水孤营",3:"箕谷断后"}
+const CHENCANG_FLAGS = ["cc_breach","cc_beacon_out","cc_orders","cc_route_front","cc_route_flank","cc_street_done","cc_reserve_called","cc_warehouse","cc_workers","cc_courtyard","cc_committed","cc_boss"]
+const CHAPTER_STAGES = {1:["mountain", "village", "temple", "house", "fork", "bridge"], 2:["hs_forest", "hs_grain", "hs_return", "hs_camp", "hs_river", "hs_final"], 3:["jg_fog","jg_signal","jg_pass","jg_rearguard","jg_bridge","jg_final"], 4:["cc_outer","cc_beacon","cc_street","cc_store","cc_bastion","cc_final"]}
+const CHAPTER_NAMES = {1:"长坂逆命",2:"汉水孤营",3:"箕谷断后",4:"陈仓夜袭"}
 const BATTLE_ARTS = {
 	"assault":{"name":"连锋","detail":"第三枪命中积 2 格枪势。适合打满三式，再用强化横扫破阵。"},
 	"counter":{"name":"游龙","detail":"精准闪避积 2 格枪势，回马枪命中回 12 气力。适合闪避反击。"}
@@ -43,12 +44,14 @@ func reset(level: String = "normal", chapter_id: int = 1) -> void:
 		flags[key] = false
 	for key in HANSHUI_FLAGS: flags[key] = false
 	for key in JIGU_FLAGS: flags[key] = false
+	for key in CHENCANG_FLAGS: flags[key] = false
 	if chapter >= 2: flags.sword = true; flags.temple = true
 	tactics = {}
 	cleared = []; seen = []; history = []
 	checkpoint = {"stage": "mountain", "x": 190.0, "y": 910.0, "encounter": ""}
 	if chapter == 2: checkpoint = {"stage":"hs_forest", "x":200.0, "y":900.0, "encounter":""}
 	if chapter == 3: checkpoint = {"stage":"jg_fog", "x":220.0, "y":900.0, "encounter":""}
+	if chapter == 4: checkpoint = {"stage":"cc_outer", "x":220.0, "y":900.0, "encounter":""}
 	route = "bridge"; time = 0.0; kills = 0; precision_count = 0; complete = false
 
 func record(message: String) -> void:
@@ -86,10 +89,10 @@ static func valid(data: Variant) -> bool:
 	if not (schema is int or schema is float) or not is_finite(float(schema)) or float(schema)!=int(schema) or int(schema) not in [1,2]: return false
 	if not valid_run(data, int(data.get("chapter",1))): return false
 	if data.version == 2:
-		if not data.get("chapters") is Dictionary or data.chapters.size()>3: return false
+		if not data.get("chapters") is Dictionary or data.chapters.size()>4: return false
 		if not data.get("rewards",{"huilan":false}) is Dictionary or not data.get("rewards",{"huilan":false}).get("huilan") is bool: return false
 		for key in data.chapters:
-			if key not in ["1","2","3"] or not valid_run(data.chapters[key],int(key)): return false
+			if key not in ["1","2","3","4"] or not valid_run(data.chapters[key],int(key)): return false
 	return true
 
 static func valid_run(data: Variant, chapter_id: int) -> bool:
@@ -108,7 +111,7 @@ static func valid_run(data: Variant, chapter_id: int) -> bool:
 		var value = cp.get(axis)
 		if not (value is float or value is int) or not is_finite(float(value)) or value < 0 or value > (1600 if axis == "x" else 1100):
 			return false
-	if not cp.get("encounter", "") in ({1:["", "xiahou", "zhanghe", "rescue"],2:["", "dujun"],3:["", "vanguard"]}[chapter_id]):
+	if not cp.get("encounter", "") in ({1:["", "xiahou", "zhanghe", "rescue"],2:["", "dujun"],3:["", "vanguard"],4:["", "warden"]}[chapter_id]):
 		return false
 	var f = data.get("flags")
 	if not f is Dictionary:
@@ -133,6 +136,18 @@ static func valid_run(data: Variant, chapter_id: int) -> bool:
 		if f.jg_last_guard and not f.jg_bridge_held: return false
 		if f.jg_boss and not (f.jg_bridge_cut or f.jg_bridge_held and f.jg_last_guard): return false
 		if f.jg_supply_claimed and not f.jg_supplies: return false
+	if chapter_id == 4:
+		for key in CHENCANG_FLAGS:
+			if not f.get(key) is bool: return false
+		if not f.sword or not f.temple or not valid_tactics(data.get("tactics",{})): return false
+		if f.cc_beacon_out and not f.cc_breach or f.cc_orders and not f.cc_breach: return false
+		if f.cc_route_front and f.cc_route_flank: return false
+		if (f.cc_route_front or f.cc_route_flank) and not f.cc_beacon_out: return false
+		if f.cc_street_done and not (f.cc_route_front or f.cc_route_flank): return false
+		if (f.cc_reserve_called or f.cc_warehouse or f.cc_workers) and not f.cc_street_done: return false
+		if f.cc_courtyard and not f.cc_warehouse or f.cc_committed and not f.cc_courtyard: return false
+		if f.cc_boss and not f.cc_committed: return false
+		if cp.get("encounter","")=="warden" and (cp.stage!="cc_final" or not f.cc_committed or f.cc_boss): return false
 	for key in ["cleared", "seen", "history"]:
 		if not data.get(key) is Array or data[key].size() > 100:
 			return false
@@ -143,7 +158,7 @@ static func valid_run(data: Variant, chapter_id: int) -> bool:
 		var value = data.get(key)
 		if not (value is float or value is int) or not is_finite(float(value)) or value < 0 or value > 10000000:
 			return false
-	if not data.get("complete") is bool or (data.complete and not (f.boss and f.adou if chapter_id == 1 else f.dujun if chapter_id == 2 else f.jg_boss)):
+	if not data.get("complete") is bool or (data.complete and not (f.boss and f.adou if chapter_id == 1 else f.dujun if chapter_id == 2 else f.jg_boss if chapter_id == 3 else f.cc_boss)):
 		return false
 	return true
 
@@ -214,6 +229,11 @@ func read_save() -> Dictionary:
 	return data if valid(data) else {}
 
 func build_report() -> Dictionary:
+	if chapter == 4:
+		var front=flags.cc_route_front
+		var timely=flags.cc_orders and not flags.cc_reserve_called
+		var branch="赵云从正门打破盾阵，瓮城少了一队重盾的支撑。" if front else "赵云沿侧巷扳下巷闸，瓮城的弩手未能得到接应。"
+		return {"chapter":4,"title":"陈仓夜袭 · 正门破关" if front else "陈仓夜袭 · 暗巷截援","text":"烽台沉寂，鼓楼的重锤终于落地。\n\n"+branch+"\n"+("调令及时截下，仓院援军没能赶来。" if timely else "调令来迟，赵云亲自击退了仓院援军。" if flags.cc_orders else "仓院援军已被击退，守军调令仍留在西厢。")+"\n"+("工匠从西院获救，打开了通向瓮城的侧门。" if flags.cc_workers else "仓院西侧仍有未能接出的工匠。")+"\n\n这一夜，箕谷归来的军旗第一次主动插上城关。此段陈仓夜袭为本作架空演绎。","changes":int(flags.cc_orders)+int(flags.cc_workers),"kills":kills,"precision":precision_count,"time":time,"hints":([] if flags.cc_orders else ["烽台西厢：在仓院援军到场前取调令，可以截断这次增援。"])+([] if flags.cc_workers else ["仓院西侧：接出工匠，打开瓮城侧门与额外整备点。"])}
 	if chapter == 3:
 		var changes=int(flags.jg_dispatch)+int(flags.jg_supplies)+int(flags.jg_last_guard)
 		return {"chapter":3,"title":"箕谷断后 · 末队同归" if flags.jg_last_guard else "箕谷断后 · 断桥截敌","text":"两队撤军已越过栈道，石门后的军旗重新收拢。\n\n"+("赵云留下危桥，亲自接回最后的军士。" if flags.jg_last_guard else "绳索断开，谷中的追兵被留在对岸。")+"\n玄甲先锋退去，赵云转身看向归队的将士：这一程，撤退也要走得有章法。\n\n"+("军报已带回。" if flags.jg_dispatch else "崖台还有未能带回的军报。")+("辎重药械也随军归来。" if flags.jg_supplies else "偏坡的辎重留在了谷中。"),"changes":changes,"kills":kills,"precision":precision_count,"time":time,"hints":([] if flags.jg_dispatch else ["崖台西侧：取回失落军报，削弱石门弩阵。"])+([] if flags.jg_supplies else ["石门偏坡：接应辎重兵，在谷口营火领取补给。"])+([] if flags.jg_last_guard else ["另一条路线：留桥接应，击退追兵后接回末队。"])}

@@ -84,10 +84,12 @@ static func _bind(canvas: Node2D, stage: String) -> void:
 	canvas.set_meta("painted_ground_meshes",{})
 
 static func ground_kind(stage: String) -> int:
+	if stage.begins_with("cc_"): return PAVING
 	if stage.begins_with("jg_"): return SLATE if stage in ["jg_fog","jg_pass","jg_bridge"] else DRY
 	return {"temple":GRASS,"bridge":MUD,"hs_forest":LITTER,"hs_return":SLATE,"hs_river":MUD}.get(stage,DRY)
 
 static func road_kind(stage: String) -> int:
+	if stage.begins_with("cc_"): return PAVING
 	if stage.begins_with("jg_"): return SLATE
 	return MUD if stage in ["hs_forest","hs_river"] else DRY
 

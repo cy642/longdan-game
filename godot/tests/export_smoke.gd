@@ -4,6 +4,8 @@ const Game = preload("res://scripts/world.gd")
 const Campaign = preload("res://scripts/campaign.gd")
 const JiguDirector = preload("res://scripts/jigu_director.gd")
 const JiguLayout = preload("res://scripts/jigu_layout.gd")
+const ChencangDirector = preload("res://scripts/chencang_director.gd")
+const ChencangLayout = preload("res://scripts/chencang_layout.gd")
 const Roster = preload("res://scripts/enemy_roster.gd")
 const ROSTER_CASES = [
 	[1,"mountain","sword","","m1","cb_sword"],[1,"mountain","spear","","m1","cb_spear"],
@@ -16,7 +18,11 @@ const ROSTER_CASES = [
 	[3,"jg_fog","scout","","jg_f1","jg_scout"],[3,"jg_fog","crossbow","","jg_f1","jg_crossbow"],
 	[3,"jg_fog","ironshield","","jg_f1","jg_ironshield"],[3,"jg_signal","crossbow","","jg_s2","jg_signal"],
 	[1,"temple","boss","xiahou","boss","boss_xiahou"],[1,"bridge","boss","zhanghe","boss","boss_zhanghe"],
-	[2,"hs_final","boss","dujun","boss","boss_dujun"],[3,"jg_final","boss","vanguard","boss","boss_vanguard"]
+	[2,"hs_final","boss","dujun","boss","boss_dujun"],[3,"jg_final","boss","vanguard","boss","boss_vanguard"],
+	[4,"cc_outer","sword","","cc_o1","cc_sword"],[4,"cc_outer","spear","","cc_o1","cc_spear"],
+	[4,"cc_beacon","scout","","cc_b1","cc_scout"],[4,"cc_outer","crossbow","","cc_o2","cc_crossbow"],
+	[4,"cc_outer","ironshield","","cc_o2","cc_ironshield"],[4,"cc_beacon","crossbow","","cc_orders_guard","cc_orders"],
+	[4,"cc_final","boss","warden","boss","boss_warden"]
 ]
 class MemoryCampaign extends Campaign:
 	func read_save() -> Dictionary: return {}
@@ -47,7 +53,7 @@ func verify_enemy_roster(world) -> bool:
 		if metadata[atlas].file in ["res://assets/chibi-units-v1.png","res://assets/chapter1-units-v2.png"]:
 			push_error("Exported roster aliases old NPC art: "+str(row[5])); return false
 		used_frames[identity]=true; used_atlases[metadata[atlas].file]=true
-	return used_frames.size()==22 and used_atlases.size()==4
+	return used_frames.size()==29 and used_atlases.size()==6
 
 func run() -> void:
 	var world = Game.new(); world.test_mode = true; world.state = MemoryCampaign.new()
@@ -105,6 +111,28 @@ func run() -> void:
 	world.begin_boss("vanguard"); world.boss.update_visual()
 	if world.boss.display_name!="玄甲先锋" or world.boss.boss_id!="vanguard" or world.boss.visual.rig==null:
 		push_error("Missing exported Jigu vanguard boss/rig"); quit(1); return
+	world.state.reset("normal",4); world.load_chapter(4)
+	var chencang_props=0
+	for stage in ["cc_outer","cc_beacon","cc_street","cc_store","cc_bastion","cc_final"]:
+		world.mode="playing"; world.enter_stage(stage,Vector2.INF,false); await process_frame
+		if not is_instance_valid(world.tactics) or world.tactics.get_script()!=ChencangDirector or world.terrain.ground_texture==null or world.terrain.ground_texture.get_size()!=Vector2(1600,1100):
+			push_error("Missing exported fourth-chapter director/ground: "+stage); quit(1); return
+		if world.terrain.get_node_or_null("MapAtmosphere")==null or world.tactics.support_status().visible or world.tactics.cart!=null:
+			push_error("Invalid exported fourth-chapter atmosphere/compatibility: "+stage); quit(1); return
+		var region_props=0
+		for node in world.actors.get_children():
+			if node.get_script()!=ChencangLayout or node.layer!="landmark": continue
+			if node.rendered_prop==null or not node.rendered_prop.texture is AtlasTexture:
+				push_error("Missing exported Chencang atlas prop: "+str(node.item.kind)); quit(1); return
+			region_props+=1
+		if region_props!=world.definition.get("layout",{}).get("cc_props",[]).size():
+			push_error("Missing exported authored Chencang props: "+stage); quit(1); return
+		chencang_props+=region_props
+	world.begin_boss("warden"); world.boss.update_visual()
+	if world.boss.display_name!="镇关都尉" or world.boss.boss_id!="warden" or world.boss.max_hp!=1500 or world.boss.visual.rig==null:
+		push_error("Missing exported Chencang warden boss/rig"); quit(1); return
 	if not await verify_enemy_roster(world): quit(1); return
-	print("EXPORT_SMOKE_OK regions=18 modeled_landmarks=",modeled," chapter1_articulated_enemies=",enemies," chapter2_new_enemies=3 bosses=dujun,vanguard huangzhong_support=ready jigu_props=",jigu_props," independent_enemy_profiles=22 enemy_atlases=4")
+	if ChencangLayout.sources_loaded or not ChencangLayout.source_frames.is_empty():
+		push_error("Exported runtime loaded Chencang authoring source"); quit(1); return
+	print("EXPORT_SMOKE_OK regions=24 modeled_landmarks=",modeled," chapter1_articulated_enemies=",enemies," chapter2_new_enemies=3 bosses=dujun,vanguard,warden huangzhong_support=ready jigu_props=",jigu_props," chencang_props=",chencang_props," independent_enemy_profiles=29 enemy_atlases=6")
 	world.queue_free(); await process_frame; quit()

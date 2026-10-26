@@ -37,6 +37,8 @@ func _ready() -> void:
 			var sprite=Sprite2D.new(); sprite.texture=load(frame.image); sprite.centered=false
 			sprite.scale=Vector2.ONE*.35; sprite.position=-Vector2(frame.anchor_px[0],frame.anchor_px[1])*.35
 			add_child(sprite)
+	elif data.kind=="chencang" and data.get("task","")=="cc_workers":
+		person("units",5,Vector2(-16,6),57); person("units",7,Vector2(22,10),54)
 
 func person(key: String,index: int,p: Vector2,height: float) -> void:
 	var sprite=Sprite2D.new(); sprite.texture=Visual.frames[key][index]; sprite.centered=false
@@ -53,9 +55,11 @@ func _process(dt: float) -> void:
 		for sprite in people: sprite.visible=not world.state.flags.civilians
 	elif data.id=="adou":
 		for sprite in people: sprite.visible=not world.state.flags.mother
-	elif data.kind=="jigu":
+	elif data.kind in ["jigu","chencang"]:
 		for sprite in people:
 			sprite.modulate.a=move_toward(sprite.modulate.a,0.0 if world.state.flags.get(data.get("task",""),false) else 1.0,dt*1.6)
+	if data.kind=="chencang" and data.get("task","")=="cc_street_done":
+		visible=world.state.flags.get(str(data.get("need","")),false)
 	redraw_clock-=dt
 	if redraw_clock>0: return
 	redraw_clock=1.0/30.0
@@ -115,6 +119,7 @@ func _draw() -> void:
 	_draw_focus()
 	match data.kind:
 		"jigu": _draw_jigu()
+		"chencang": _draw_chencang()
 		"camp":
 			oval(Vector2(1,6),26,.45,Color(.18,.25,.2,.25))
 			for i in range(8): oval(Vector2.from_angle(i*TAU/8)*Vector2(22,9),5,.7,Color("828b6d"))
@@ -130,6 +135,7 @@ func _draw() -> void:
 			draw_line(Vector2(-8,0),Vector2(8,0),color,2,true)
 			draw_polyline(PackedVector2Array([Vector2(2,-5),Vector2(9,0),Vector2(2,5)]),color,2,true)
 		"boss":
+			if data.id=="cc_warden" and world.state.flags.get("cc_boss",false): return
 			if data.id=="jg_vanguard" and world.state.flags.get("jg_boss",false): return
 			if data.id=="xiahouGate" and world.state.flags.temple or data.id=="zhangheGate" and world.state.flags.boss: return
 			if data.id=="hs_dujun" and world.state.flags.get("dujun",false): return
@@ -235,11 +241,45 @@ func _draw() -> void:
 		elif task=="bridge_choice":
 			if world.state.flags.jg_bridge_cut: label="断索截敌 · 退路已定"
 			elif world.state.flags.jg_bridge_held: label="留桥接应 · 等待末队"
+	elif data.kind=="chencang":
+		var task=str(data.get("task",""))
+		if world.state.flags.get(task,false): label={"cc_breach":"外城军旗 · 已夺关","cc_beacon_out":"烽火已熄 · 箭阵已停","cc_orders":"守军调令 · 已取回","cc_street_done":"进路已通 · 前往仓院","cc_warehouse":"械库已封存","cc_workers":"工匠已获救 · 侧门已开","cc_courtyard":"内城军旗 · 已控制"}.get(task,"已完成")
+		elif task=="route_choice" and (world.state.flags.cc_route_front or world.state.flags.cc_route_flank): label="正门破阵 · 进路已定" if world.state.flags.cc_route_front else "侧巷截援 · 进路已定"
 	if font:
 		var width=font.get_string_size(label,HORIZONTAL_ALIGNMENT_LEFT,-1,12).x
 		var p=Vector2(-width/2,30 if data.kind!="rescue" else 72)
 		draw_string_outline(font,p,label,HORIZONTAL_ALIGNMENT_LEFT,-1,12,3,Color(.15,.26,.2,.8))
 		draw_string(font,p,label,HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("f0e3b2"))
+
+func _draw_chencang() -> void:
+	var task=str(data.get("task","")); var done=world.state.flags.get(task,false)
+	if task=="cc_workers":
+		if not done:
+			for x in [-33,0,34]: draw_line(Vector2(x,9),Vector2(x,-48),Color("66523e"),3,true)
+			draw_line(Vector2(-36,-37),Vector2(37,-37),Color("997a54"),4,true)
+		return
+	if task=="cc_orders":
+		oval(Vector2(0,5),24,.35,Color(.06,.10,.12,.35))
+		draw_rect(Rect2(-17,-24,34,31),Color("dac79e").darkened(.25 if done else 0))
+		for y in [-17,-11,-5]: draw_line(Vector2(-10,y),Vector2(9,y),Color("777461"),1.5,true)
+		draw_rect(Rect2(5,-2,7,7),Color("a35640"))
+		for x in [-18,18]: draw_line(Vector2(x,-27),Vector2(x,10),Color("796348"),4,true)
+		return
+	if task=="cc_beacon_out":
+		# The actual flame belongs to the illustrated tower; this is the rope
+		# lever at its accessible stair foot, so the interaction stays reachable.
+		draw_line(Vector2(-13,8),Vector2(-13,-33),Color("73614c"),6,true)
+		draw_line(Vector2(-13,-23),Vector2(16,3 if done else -44),Color("bdaf88"),4,true)
+		return
+	if task=="route_choice":
+		draw_line(Vector2(0,7),Vector2(0,-67),Color("6b5640"),6,true)
+		draw_colored_polygon(PackedVector2Array([Vector2(-42,-48),Vector2(-28,-60),Vector2(25,-60),Vector2(25,-40),Vector2(-28,-40)]),Color("8c7352"))
+		draw_colored_polygon(PackedVector2Array([Vector2(-23,-34),Vector2(29,-34),Vector2(43,-23),Vector2(29,-13),Vector2(-23,-13)]),Color("78634e"))
+		if font:
+			draw_string(font,Vector2(-23,-45),"侧巷",HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("e5d7b1"))
+			draw_string(font,Vector2(-12,-18),"正门",HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("e5d7b1"))
+		return
+	_draw_jigu()
 
 func _draw_jigu() -> void:
 	var task=str(data.get("task","")); var done=world.state.flags.get(task,false)

@@ -46,6 +46,9 @@ func select_region(index: int) -> void:
 	elif chapter==3:
 		world.state.flags.jg_bridge_held=false
 		world.state.flags.jg_last_guard=false
+	elif chapter==4:
+		world.state.flags.cc_route_flank=false
+		world.state.flags.cc_route_front=true
 	for id in regions:
 		for group in world.definitions[id].groups:
 			world.state.cleared.append(id+":"+str(group.id))

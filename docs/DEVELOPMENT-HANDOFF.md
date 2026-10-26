@@ -1,6 +1,52 @@
-# 开发交接 · 三章与 0.7.0 敌军重绘
+# 开发交接 · 四章与 0.8.0 陈仓夜袭
 
-## 最新进度 · 2026-10-25
+## 最新进度 · 2026-10-26
+
+0.8.0 已完成第四章「陈仓夜袭」的代码接入：四章 24 区、24 种独立兵卒与 5 位将领，共 29 档案、六张敌军图集。前三章战报依次续入下一章，第四章为当前终章。完整规划见 [陈仓设计稿](CHAPTER-4-CHENCANG.md)，当前参数见 [难度曲线](DIFFICULTY-CURVE.md)。陈仓夜袭、调令/工匠事件与镇关都尉为本作架空演绎，不能写成赵云参与该战事的史实复现。
+
+**当前处于发布验收阶段。** 34 组源码回归已通过，地图收尾后完成最终 16 张截图、原生短样本、Windows 启动/ZIP 完整性、实际 Web PCK 验证和浏览器基本操作。可见预览采样仍有约一秒长间隔，未获得有效前台帧率基准；线上包指纹待补。下方 0.7.0/0.6.0 已上线记录属于历史，不可据此宣称 0.8.0 已部署或完整人工通关。
+
+### 后续开发先读
+
+| 领域 | 当前权威文件与合同 |
+|---|---|
+| 四章进度 | `godot/scripts/campaign.gd` / `world.gd` / `interface.gd`；仍用 v2，每章记录独立。三到四章首次承接难度、战法、回澜；已有第四章检查点或战报原样恢复，重玩第四章不改前三章。旧 v1/两章与三章 v2 缺少新章字段时保守补全。 |
+| 难度递进 | `godot/scripts/combat_pacing.gd`；24 区普通敌人整套起手共用间隔 0.90→0.26 秒，剧情额外 +0.20；整套结束休息剧情 +0.12。Boss 不占普通起手名额；连段内部不加等待。旧敌兵/首领 HP、伤害、招式窗口、锁向、闪避与原攻击人数限制未提高。 |
+| 陈仓关卡 | `godot/data/chapter4.json`；`cc_outer → cc_beacon → cc_street → cc_store → cc_bastion → cc_final`。共 15 个固定敌群，未选进路不出兵，不以未生成判清场。 |
+| 队列与军令 | `godot/scripts/chencang_director.gd` 继承 JiguDirector 的有限队列，独立处理陈仓任务/路线/支线；上限 8 活敌，来向预警至少 1.2 秒。`cart=null`、隐藏援射，不启用汉水护车。 |
+| 两线与两支线 | 正门一战 3 人，侧巷两战各 2 人；分别减瓮城一名重盾/弩兵。调令只取消未到援军，实际到场后 `cc_reserve_called` 留档，补支线不能抹兵。工匠侧门还需仓院主路完成，安全落脚 `(1360,890)`；正常出口 `(220,900)` 仍可用，两波主战斗不跳过。 |
+| 烽台箭阵 | 最多 3 轮、每轮至多 2 条真实箭路，至少 1.25 秒锁向预警，与普通弩兵互斥。熄烽清未发射，已发箭保留实际碰撞；暂停、对白、军图、营火、死亡冻结，重试清瞬时队列。 |
+| 决战 | `boss_id=warden`，普通 HP 1500、破势 145，双手长柄重锤。落锤/横扫/圆形重落/半血两段回锤，圆形红区对应圆形命中。E 挑战可取消；仅 `warden:commit` 确认后写 `cc_committed` 并锁回访。击败写 `cc_boss`，再真实 E 收旗才出战报。 |
+| 新敌军 | `enemy_roster.gd`、`data/enemy_atlas.json` 和 `art_source/characters/enemy-calibration.json`；新增 `enemy_chencang` 六帧和 `enemy_warden` 一帧。原图见 `assets/enemies/chencang-v1.png` / `warden-v1.png`。完整兵器绘入原画，旧装备附件为空；保持既有脚锚/刚性/连续性阈值。 |
+| 夜城地图 | `chencang_layout.gd`、`terrain_materials.gd`、`painted_ground.gd` 与 `chapter4.json`；六张独立地表、`chencang_props.png/json` 六种建筑原画。源图/标定在 `art_source/painted/chencang-*`，只在离线烘焙时读取。 |
+
+陈仓存档旗标为 `cc_breach, cc_beacon_out, cc_orders, cc_route_front, cc_route_flank, cc_street_done, cc_reserve_called, cc_warehouse, cc_workers, cc_courtyard, cc_committed, cc_boss`。路线互斥、主路顺序、决战确认与完成条件由 `Campaign.valid` 验证；不要用直接补旗标替代实际流程验收。
+
+### 本轮证据与待完成项
+
+| 验收项 | 当前证据 / 状态 |
+|---|---|
+| 34 组源码完整检查 | **89,667 项断言，0 失败、0 ERROR 行**；`.qa/chencang-full-first.log`。大量姿态/几何采样不是同数量独立场景。 |
+| 新章流程/存档 | `chencang_flow_verify` 1574/0、`chencang_campaign_verify` 141/0；真实两线到战报、早晚调令、侧门、暂停/死亡、三到四章与旧档。 |
+| 难度/地图/首领 | `combat_pacing_verify` 1369/0，`chencang_layout_verify` 完整回归 443/0、最终烘焙检查 487/0，`warden_enemy_verify` 282/0，`warden_visual_verify` 16939/0。 |
+| 素材与实包 smoke | 源码和实际 PCK 均通过 29 档案 6571/0、24 区绘画资产 290/0、export_smoke；最终 33 个陈仓建筑，运行原图加载器未触发。 |
+| 受控截图 | 最终 `.qa/chencang-release-manifest.json` 16 张、0 自动失败，覆盖六区/两路线/烽台/侧门/重锤；首轮构图问题及原截图保留。 |
+| 原生短样本 | `.qa/chencang-performance-release.json` 三场有效，P95 帧间隔 1.502/1.679/1.090 ms；烽台实际发箭 2、都尉真实二阶段动作。first 报告作为改图前历史保留。监视器为每秒峰值口径，不能等同逐帧 P95，详见 [开发记录](../CLOUD-POLISH.md)。 |
+| Windows/Web 正式构建 | EXE 165,925,296 字节，启动 90 帧退出 0；ZIP 94,207,889 字节、完整性通过；PCK 56,756,640 字节，187 资源/17 JSON，SHA-256 `B3EB4803C4C9258C76EDF1C73454E1B29043CD329A11E1AE292C6C90D951C4A4`。实包流程 1574/0；外部父测试路径修正前的解析失败保留。 |
+| 浏览器与线上 | 实际加载四章菜单、选第四章进入剧情/入关/新敌兵，WASD/J 和 M 军图可见，控制台 warn/error 为 0。隐藏 IAB 的约 1 FPS 后台节流样本保留，不据此评价正常前台性能；可见预览也只取得 15 帧、含约一秒长间隔，日志保留，尚无有效长时前台性能结论；提交部署和线上 PCK 指纹待补。 |
+
+### 改动后如何验证
+
+- 源码：根目录 `Run-Checks.ps1` / `Run-Checks.sh` 已有 34 组；使用隔离 `.qa/runtime/`，保留首次失败与新前缀复核日志，不覆盖历史证据。
+- 新章资源：先改 JSON/原图标定/绘制代码，再运行 `godot --path godot --script res://tools/bake_chencang.gd`，随后 `--headless --editor --import --quit`。不重跑最初数据生成脚本覆盖当前 JSON。
+- 画面：`tests/chencang_preview.gd -- --label=新标签`，16 张受控场景，1280×720 / 1.15；根目录命令见 [Godot 说明](../godot/README.md)。GPU 任务串行，后台窗口隐藏。
+- 性能：`tests/chencang_performance.gd -- --label=新标签`，`.8` 秒热身、`3.2` 秒采样，校验真实活敌/发箭/阶段。报告不覆盖旧标签，失败不能作为性能通过。
+- 发布：修改代码或 Web shell 后重导出；新中文重建字体。`godot-play/` 必须与源码一起更新，Pages 不执行 Godot 构建。包验证要求 24 地表、四套景物、六敌军图集及真实导入载荷。导出版本与加载页当前文案为 0.8.0。
+- Windows ZIP 指南生成脚本为本机忽略文件 `.qa/package_windows.py`，已更新为四章 0.8.0；它不属于跨机器构建前提，源码开发入口始终是导出预设。
+
+下一轮需要完整普通难度实玩，尤其检查新手首战、后段攻击叠压、陈仓两线的选择价值和首领反击节奏；自动流程加速击杀、可控截图、短帧耗时样本均不能代替这些体验验证。
+
+## 历史记录 · 0.7.0（2026-10-25）
 
 0.7.0 已接入18种独立兵卒、4位独立将领，以及每帧人体、靴底和头/兵器刚性校准；旧代码装备附件删除。画像由 `enemy_roster.gd` 解析，元数据由 `tools/prepare_enemy_assets.py` 从4张新原图及 `art_source/characters/enemy-calibration.json` 重建。改原图后必须重新校准，不要简单等格裁切或用武器包围盒自动缩小身体。章节数据、伤害和存档规则没有改动。
 

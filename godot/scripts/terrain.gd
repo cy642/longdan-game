@@ -5,6 +5,7 @@ const MapDetails = preload("res://scripts/map_details.gd")
 const MapAtmosphere = preload("res://scripts/map_atmosphere.gd")
 const HanshuiLayout = preload("res://scripts/hanshui_layout.gd")
 const JiguLayout = preload("res://scripts/jigu_layout.gd")
+const ChencangLayout = preload("res://scripts/chencang_layout.gd")
 const Materials = preload("res://scripts/terrain_materials.gd")
 static var baking = false
 var world
@@ -32,7 +33,8 @@ const CHANGBAN_PALETTES = {
 }
 
 func build(data: Dictionary) -> void:
-	if data.has("layout"): data = HanshuiLayout.apply_layout(data,world.stage)
+	if world.stage.begins_with("cc_"): data=ChencangLayout.apply_layout(data,world.stage)
+	elif data.has("layout"): data = HanshuiLayout.apply_layout(data,world.stage)
 	definition = data
 	var baked_path = "res://assets/maps/"+world.stage+".png"
 	if not baking and ResourceLoader.exists(baked_path): ground_texture=load(baked_path)
@@ -107,7 +109,11 @@ func build(data: Dictionary) -> void:
 		var details=MapDetails.new()
 		details.stage=world.stage; details.definition=definition; details.layer="ground"
 		add_child(details)
-		if data.has("layout") and not world.stage.begins_with("jg_"):
+		if world.stage.begins_with("cc_"):
+			var chapter_ground=ChencangLayout.new()
+			chapter_ground.definition=definition; chapter_ground.stage=world.stage
+			add_child(chapter_ground)
+		elif data.has("layout") and not world.stage.begins_with("jg_"):
 			var chapter_ground=HanshuiLayout.new()
 			chapter_ground.definition=definition; chapter_ground.stage=world.stage
 			add_child(chapter_ground)
@@ -118,6 +124,7 @@ func build(data: Dictionary) -> void:
 	MapDetails.attach_landmarks(world.actors,definition,world.stage)
 	if data.has("layout"): HanshuiLayout.attach_landmarks(world.actors,definition,world.stage)
 	if world.stage.begins_with("jg_"): JiguLayout.attach_landmarks(world.actors,definition,world.stage)
+	if world.stage.begins_with("cc_"): ChencangLayout.attach_landmarks(world.actors,definition,world.stage)
 	if not baking:
 		var atmosphere = MapAtmosphere.new()
 		atmosphere.name = "MapAtmosphere"

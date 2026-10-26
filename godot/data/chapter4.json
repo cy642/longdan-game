@@ -1,0 +1,2070 @@
+{
+  "chapter": "chencang",
+  "name": "陈仓夜袭",
+  "W": 1600,
+  "H": 1100,
+  "order": [
+    "cc_outer",
+    "cc_beacon",
+    "cc_street",
+    "cc_store",
+    "cc_bastion",
+    "cc_final"
+  ],
+  "StageDefinition": {
+    "cc_outer": {
+      "name": "灰砖城关",
+      "chapter": "一 · 夜色入关",
+      "seed": 22901,
+      "mood": "village",
+      "spawn": [
+        220,
+        900
+      ],
+      "roads": [
+        [
+          [
+            180,
+            940
+          ],
+          [
+            460,
+            780
+          ],
+          [
+            760,
+            620
+          ],
+          [
+            1080,
+            420
+          ],
+          [
+            1390,
+            180
+          ]
+        ],
+        [
+          [
+            460,
+            780
+          ],
+          [
+            260,
+            630
+          ],
+          [
+            270,
+            310
+          ],
+          [
+            700,
+            280
+          ],
+          [
+            1080,
+            420
+          ]
+        ]
+      ],
+      "huts": [],
+      "props": [],
+      "objects": [
+        {
+          "id": "cc_outer_camp",
+          "kind": "camp",
+          "x": 280,
+          "y": 900,
+          "label": "外关整备点"
+        },
+        {
+          "id": "cc_breach",
+          "kind": "chencang",
+          "x": 1260,
+          "y": 280,
+          "label": "夺下外关军旗",
+          "task": "cc_breach",
+          "group": "cc_o2"
+        },
+        {
+          "id": "cc_to_beacon",
+          "kind": "exit",
+          "x": 1390,
+          "y": 180,
+          "label": "登上烽火台",
+          "to": "cc_beacon",
+          "need": "cc_breach"
+        }
+      ],
+      "groups": [
+        {
+          "id": "cc_o1",
+          "units": [
+            [
+              "sword",
+              590,
+              750
+            ],
+            [
+              "spear",
+              720,
+              640
+            ]
+          ]
+        },
+        {
+          "id": "cc_o2",
+          "units": [
+            [
+              "ironshield",
+              1060,
+              430
+            ],
+            [
+              "sword",
+              1230,
+              450
+            ],
+            [
+              "crossbow",
+              1190,
+              320
+            ]
+          ]
+        }
+      ],
+      "main_groups": [
+        "cc_o1",
+        "cc_o2"
+      ],
+      "optional_groups": [],
+      "layout": {
+        "tree_attempts": 0,
+        "rock_attempts": 0,
+        "solids": [
+          {
+            "rect": [
+              340,
+              360,
+              200,
+              180
+            ]
+          },
+          {
+            "rect": [
+              990,
+              700,
+              240,
+              160
+            ]
+          },
+          {
+            "rect": [
+              1320,
+              420,
+              150,
+              160
+            ]
+          },
+          {
+            "rect": [
+              62.400000000000006,
+              196,
+              235.2,
+              34
+            ]
+          },
+          {
+            "rect": [
+              316.0,
+              591,
+              68.0,
+              29
+            ]
+          }
+        ],
+        "clearings": [
+          [
+            280,
+            900,
+            85,
+            70
+          ],
+          [
+            1260,
+            280,
+            85,
+            70
+          ],
+          [
+            1390,
+            180,
+            85,
+            70
+          ]
+        ],
+        "surfaces": [],
+        "decor": [],
+        "landmarks": [],
+        "water": [],
+        "cc_props": [
+          {
+            "kind": "city_gate",
+            "position": [
+              440,
+              540
+            ],
+            "width": 210
+          },
+          {
+            "kind": "warehouse",
+            "position": [
+              1110,
+              860
+            ],
+            "width": 245
+          },
+          {
+            "kind": "wall_segment",
+            "position": [
+              1395,
+              580
+            ],
+            "width": 160
+          },
+          {
+            "kind": "wall_segment",
+            "position": [
+              180,
+              230
+            ],
+            "width": 280
+          },
+          {
+            "kind": "supply_crates",
+            "position": [
+              350,
+              620
+            ],
+            "width": 85
+          }
+        ],
+        "motif": "chencang_city",
+        "lanterns": [
+          [
+            302,
+            540
+          ],
+          [
+            1220,
+            860
+          ],
+          [
+            1290,
+            330
+          ]
+        ],
+        "drains": [
+          [
+            [
+              300,
+              970
+            ],
+            [
+              540,
+              830
+            ],
+            [
+              800,
+              650
+            ]
+          ]
+        ],
+        "steps": [
+          [
+            1170,
+            230,
+            175,
+            95
+          ]
+        ]
+      },
+      "tutorial": "沿城墙阴影切近巡军，砖垛能挡弩箭。击退两组守军后，到外关旗按 E。"
+    },
+    "cc_beacon": {
+      "name": "烽火台",
+      "chapter": "二 · 熄烽断令",
+      "seed": 22902,
+      "mood": "village",
+      "spawn": [
+        220,
+        900
+      ],
+      "roads": [
+        [
+          [
+            180,
+            940
+          ],
+          [
+            600,
+            740
+          ],
+          [
+            900,
+            520
+          ],
+          [
+            1190,
+            420
+          ],
+          [
+            1450,
+            380
+          ],
+          [
+            1490,
+            180
+          ],
+          [
+            1530,
+            180
+          ]
+        ],
+        [
+          [
+            600,
+            740
+          ],
+          [
+            330,
+            540
+          ],
+          [
+            330,
+            340
+          ]
+        ],
+        [
+          [
+            900,
+            520
+          ],
+          [
+            990,
+            570
+          ],
+          [
+            1450,
+            570
+          ],
+          [
+            1450,
+            870
+          ]
+        ]
+      ],
+      "huts": [],
+      "props": [],
+      "objects": [
+        {
+          "id": "cc_beacon_camp",
+          "kind": "camp",
+          "x": 280,
+          "y": 920,
+          "label": "烽台下整备"
+        },
+        {
+          "id": "cc_beacon",
+          "kind": "chencang",
+          "x": 1190,
+          "y": 420,
+          "label": "熄灭烽火 · 停止箭阵",
+          "task": "cc_beacon_out",
+          "group": "cc_b2",
+          "need": "cc_breach"
+        },
+        {
+          "id": "cc_orders",
+          "kind": "chencang",
+          "x": 330,
+          "y": 340,
+          "label": "取守军调令 · 截断援军",
+          "task": "cc_orders",
+          "group": "cc_orders_guard"
+        },
+        {
+          "id": "cc_to_street",
+          "kind": "exit",
+          "x": 1530,
+          "y": 180,
+          "label": "进入城门内街",
+          "to": "cc_street",
+          "need": "cc_beacon_out"
+        },
+        {
+          "id": "cc_back_outer",
+          "kind": "exit",
+          "x": 150,
+          "y": 965,
+          "label": "返回灰砖城关",
+          "to": "cc_outer"
+        }
+      ],
+      "groups": [
+        {
+          "id": "cc_b1",
+          "units": [
+            [
+              "scout",
+              640,
+              710
+            ],
+            [
+              "spear",
+              805,
+              610
+            ]
+          ]
+        },
+        {
+          "id": "cc_b2",
+          "units": [
+            [
+              "ironshield",
+              1050,
+              430
+            ],
+            [
+              "sword",
+              1130,
+              390
+            ],
+            [
+              "crossbow",
+              1300,
+              340
+            ]
+          ]
+        },
+        {
+          "id": "cc_orders_guard",
+          "units": [
+            [
+              "sword",
+              260,
+              400
+            ],
+            [
+              "crossbow",
+              430,
+              330
+            ]
+          ],
+          "optional": true
+        }
+      ],
+      "main_groups": [
+        "cc_b1",
+        "cc_b2"
+      ],
+      "optional_groups": [
+        "cc_orders_guard"
+      ],
+      "layout": {
+        "tree_attempts": 0,
+        "rock_attempts": 0,
+        "solids": [
+          {
+            "rect": [
+              610,
+              330,
+              200,
+              140
+            ]
+          },
+          {
+            "rect": [
+              1170,
+              650,
+              200,
+              160
+            ]
+          },
+          {
+            "rect": [
+              1150,
+              200,
+              240,
+              120
+            ]
+          },
+          {
+            "rect": [
+              150,
+              190,
+              150,
+              100
+            ]
+          }
+        ],
+        "clearings": [
+          [
+            280,
+            920,
+            85,
+            70
+          ],
+          [
+            1190,
+            420,
+            85,
+            70
+          ],
+          [
+            330,
+            340,
+            85,
+            70
+          ],
+          [
+            1530,
+            180,
+            85,
+            70
+          ],
+          [
+            150,
+            965,
+            85,
+            70
+          ]
+        ],
+        "surfaces": [],
+        "decor": [],
+        "landmarks": [],
+        "water": [],
+        "cc_props": [
+          {
+            "kind": "beacon_tower",
+            "position": [
+              1270,
+              320
+            ],
+            "width": 230,
+            "beacon": true
+          },
+          {
+            "kind": "wall_segment",
+            "position": [
+              710,
+              470
+            ],
+            "width": 210
+          },
+          {
+            "kind": "warehouse",
+            "position": [
+              1270,
+              810
+            ],
+            "width": 220
+          },
+          {
+            "kind": "warehouse",
+            "position": [
+              225,
+              290
+            ],
+            "width": 170
+          }
+        ],
+        "motif": "chencang_city",
+        "lanterns": [
+          [
+            295,
+            300
+          ],
+          [
+            1020,
+            510
+          ],
+          [
+            1400,
+            780
+          ]
+        ],
+        "drains": [
+          [
+            [
+              570,
+              810
+            ],
+            [
+              920,
+              570
+            ],
+            [
+              1100,
+              430
+            ]
+          ]
+        ],
+        "steps": [
+          [
+            1080,
+            345,
+            210,
+            105
+          ]
+        ]
+      },
+      "tutorial": "烽台箭阵先锁向再发射，借墙侧闪。击退守军后 E 熄烽；西厢军令房可截断仓院援军。",
+      "tactics": {
+        "arrow_interval": 8.0,
+        "arrow_first_delay": 4.0,
+        "arrow_warning": 1.25,
+        "arrow_damage": 12,
+        "arrow_limit": 3,
+        "arrow_origins": [
+          [
+            1410,
+            360
+          ],
+          [
+            1410,
+            470
+          ]
+        ]
+      }
+    },
+    "cc_street": {
+      "name": "城门内街",
+      "chapter": "三 · 正门与暗巷",
+      "seed": 22903,
+      "mood": "village",
+      "spawn": [
+        220,
+        900
+      ],
+      "roads": [
+        [
+          [
+            180,
+            940
+          ],
+          [
+            300,
+            880
+          ],
+          [
+            960,
+            880
+          ],
+          [
+            1080,
+            620
+          ],
+          [
+            1080,
+            390
+          ],
+          [
+            1390,
+            180
+          ]
+        ],
+        [
+          [
+            300,
+            880
+          ],
+          [
+            420,
+            760
+          ],
+          [
+            420,
+            540
+          ],
+          [
+            520,
+            300
+          ],
+          [
+            580,
+            240
+          ],
+          [
+            640,
+            170
+          ],
+          [
+            1100,
+            170
+          ],
+          [
+            1390,
+            180
+          ]
+        ]
+      ],
+      "huts": [],
+      "props": [],
+      "objects": [
+        {
+          "id": "cc_street_camp",
+          "kind": "camp",
+          "x": 240,
+          "y": 945,
+          "label": "内街落脚点"
+        },
+        {
+          "id": "cc_route_choice",
+          "kind": "chencang",
+          "x": 300,
+          "y": 880,
+          "label": "选择进攻路线",
+          "task": "route_choice",
+          "need": "cc_beacon_out"
+        },
+        {
+          "id": "cc_front_banner",
+          "kind": "chencang",
+          "x": 1180,
+          "y": 330,
+          "label": "夺门内旗 · 正门破阵",
+          "task": "cc_street_done",
+          "group": "cc_s_front",
+          "need": "cc_route_front"
+        },
+        {
+          "id": "cc_flank_winch",
+          "kind": "chencang",
+          "x": 580,
+          "y": 240,
+          "label": "扳下巷闸 · 侧巷截援",
+          "task": "cc_street_done",
+          "group": "cc_s_flank2",
+          "need": "cc_route_flank"
+        },
+        {
+          "id": "cc_to_store",
+          "kind": "exit",
+          "x": 1390,
+          "y": 180,
+          "label": "前往仓院",
+          "to": "cc_store",
+          "need": "cc_street_done"
+        },
+        {
+          "id": "cc_back_beacon",
+          "kind": "exit",
+          "x": 150,
+          "y": 965,
+          "label": "返回烽火台",
+          "to": "cc_beacon"
+        }
+      ],
+      "groups": [
+        {
+          "id": "cc_s_front",
+          "units": [
+            [
+              "ironshield",
+              980,
+              740
+            ],
+            [
+              "spear",
+              1080,
+              630
+            ],
+            [
+              "crossbow",
+              1220,
+              530
+            ]
+          ],
+          "need": "cc_route_front"
+        },
+        {
+          "id": "cc_s_flank1",
+          "units": [
+            [
+              "scout",
+              370,
+              690
+            ],
+            [
+              "sword",
+              480,
+              570
+            ]
+          ],
+          "need": "cc_route_flank"
+        },
+        {
+          "id": "cc_s_flank2",
+          "units": [
+            [
+              "spear",
+              430,
+              350
+            ],
+            [
+              "crossbow",
+              610,
+              260
+            ]
+          ],
+          "need": "cc_route_flank",
+          "after_group": "cc_s_flank1"
+        }
+      ],
+      "main_groups": [],
+      "optional_groups": [],
+      "layout": {
+        "tree_attempts": 0,
+        "rock_attempts": 0,
+        "solids": [
+          {
+            "rect": [
+              650,
+              240,
+              240,
+              500
+            ]
+          },
+          {
+            "rect": [
+              120,
+              300,
+              150,
+              320
+            ]
+          },
+          {
+            "rect": [
+              1240,
+              660,
+              240,
+              150
+            ]
+          },
+          {
+            "rect": [
+              1333.4,
+              91,
+              193.2,
+              34
+            ]
+          }
+        ],
+        "clearings": [
+          [
+            240,
+            945,
+            85,
+            70
+          ],
+          [
+            300,
+            880,
+            85,
+            70
+          ],
+          [
+            1180,
+            330,
+            85,
+            70
+          ],
+          [
+            580,
+            240,
+            85,
+            70
+          ],
+          [
+            1390,
+            180,
+            85,
+            70
+          ],
+          [
+            150,
+            965,
+            85,
+            70
+          ]
+        ],
+        "surfaces": [],
+        "decor": [],
+        "landmarks": [],
+        "water": [],
+        "cc_props": [
+          {
+            "kind": "warehouse",
+            "position": [
+              770,
+              740
+            ],
+            "width": 245
+          },
+          {
+            "kind": "wall_segment",
+            "position": [
+              770,
+              550
+            ],
+            "width": 240
+          },
+          {
+            "kind": "warehouse",
+            "position": [
+              770,
+              400
+            ],
+            "width": 245
+          },
+          {
+            "kind": "wall_segment",
+            "position": [
+              195,
+              450
+            ],
+            "width": 160
+          },
+          {
+            "kind": "wall_segment",
+            "position": [
+              195,
+              620
+            ],
+            "width": 160
+          },
+          {
+            "kind": "warehouse",
+            "position": [
+              1360,
+              810
+            ],
+            "width": 250
+          },
+          {
+            "kind": "city_gate",
+            "position": [
+              1430,
+              125
+            ],
+            "width": 230
+          },
+          {
+            "kind": "supply_crates",
+            "position": [
+              810,
+              635
+            ],
+            "width": 78
+          }
+        ],
+        "motif": "chencang_city",
+        "lanterns": [
+          [
+            620,
+            350
+          ],
+          [
+            930,
+            490
+          ],
+          [
+            930,
+            720
+          ],
+          [
+            1220,
+            650
+          ],
+          [
+            360,
+            740
+          ]
+        ],
+        "drains": [
+          [
+            [
+              595,
+              770
+            ],
+            [
+              595,
+              285
+            ]
+          ],
+          [
+            [
+              930,
+              780
+            ],
+            [
+              930,
+              260
+            ]
+          ]
+        ],
+        "steps": []
+      },
+      "tutorial": "正门短路迎战盾弩，侧巷分两段截援。到巷口 E 选择，两条路都通往仓院，选定后各自清路发令。",
+      "route_groups": {
+        "front": [
+          "cc_s_front"
+        ],
+        "flank": [
+          "cc_s_flank1",
+          "cc_s_flank2"
+        ]
+      }
+    },
+    "cc_store": {
+      "name": "仓院",
+      "chapter": "四 · 封仓救匠",
+      "seed": 22904,
+      "mood": "village",
+      "spawn": [
+        220,
+        900
+      ],
+      "roads": [
+        [
+          [
+            180,
+            940
+          ],
+          [
+            620,
+            780
+          ],
+          [
+            820,
+            570
+          ],
+          [
+            1180,
+            340
+          ],
+          [
+            1400,
+            180
+          ]
+        ],
+        [
+          [
+            620,
+            780
+          ],
+          [
+            320,
+            680
+          ],
+          [
+            320,
+            420
+          ]
+        ],
+        [
+          [
+            820,
+            570
+          ],
+          [
+            1160,
+            650
+          ],
+          [
+            1490,
+            650
+          ],
+          [
+            1490,
+            860
+          ],
+          [
+            1420,
+            850
+          ]
+        ]
+      ],
+      "huts": [],
+      "props": [],
+      "objects": [
+        {
+          "id": "cc_store_camp",
+          "kind": "camp",
+          "x": 280,
+          "y": 920,
+          "label": "仓院整备点"
+        },
+        {
+          "id": "cc_warehouse",
+          "kind": "chencang",
+          "x": 1230,
+          "y": 260,
+          "label": "封存械库 · 截断守军转运",
+          "task": "cc_warehouse",
+          "need": "cc_street_done"
+        },
+        {
+          "id": "cc_workers",
+          "kind": "chencang",
+          "x": 320,
+          "y": 420,
+          "label": "救工匠 · 开瓮城侧门",
+          "task": "cc_workers",
+          "group": "cc_workers_guard"
+        },
+        {
+          "id": "cc_worker_gate",
+          "kind": "exit",
+          "x": 1420,
+          "y": 850,
+          "label": "工匠侧门 · 瓮城东南",
+          "to": "cc_bastion",
+          "need": "cc_warehouse",
+          "need_secondary": "cc_workers",
+          "spawn_to": [
+            1360,
+            890
+          ]
+        },
+        {
+          "id": "cc_to_bastion",
+          "kind": "exit",
+          "x": 1400,
+          "y": 180,
+          "label": "前往瓮城正门",
+          "to": "cc_bastion",
+          "need": "cc_warehouse"
+        },
+        {
+          "id": "cc_back_street",
+          "kind": "exit",
+          "x": 150,
+          "y": 965,
+          "label": "返回内街",
+          "to": "cc_street"
+        }
+      ],
+      "groups": [
+        {
+          "id": "cc_w1",
+          "units": [
+            [
+              "sword",
+              610,
+              710
+            ],
+            [
+              "spear",
+              760,
+              680
+            ]
+          ]
+        },
+        {
+          "id": "cc_w2",
+          "units": [
+            [
+              "ironshield",
+              1050,
+              440
+            ],
+            [
+              "sword",
+              1120,
+              520
+            ],
+            [
+              "crossbow",
+              1210,
+              350
+            ]
+          ]
+        },
+        {
+          "id": "cc_w_reserve",
+          "units": [
+            [
+              "sword",
+              1370,
+              650
+            ],
+            [
+              "spear",
+              1400,
+              750
+            ]
+          ],
+          "conditional": "reserve"
+        },
+        {
+          "id": "cc_workers_guard",
+          "units": [
+            [
+              "scout",
+              240,
+              360
+            ],
+            [
+              "spear",
+              420,
+              430
+            ]
+          ],
+          "optional": true
+        }
+      ],
+      "main_groups": [
+        "cc_w1",
+        "cc_w2"
+      ],
+      "optional_groups": [
+        "cc_workers_guard"
+      ],
+      "layout": {
+        "tree_attempts": 0,
+        "rock_attempts": 0,
+        "solids": [
+          {
+            "rect": [
+              480,
+              300,
+              240,
+              180
+            ]
+          },
+          {
+            "rect": [
+              960,
+              730,
+              240,
+              160
+            ]
+          },
+          {
+            "rect": [
+              1300,
+              450,
+              160,
+              160
+            ]
+          },
+          {
+            "rect": [
+              180,
+              205,
+              200,
+              70
+            ]
+          },
+          {
+            "rect": [
+              880,
+              250,
+              100,
+              55
+            ]
+          },
+          {
+            "rect": [
+              888.0,
+              276,
+              84.0,
+              29
+            ]
+          },
+          {
+            "rect": [
+              974.0,
+              671,
+              72.0,
+              29
+            ]
+          }
+        ],
+        "clearings": [
+          [
+            280,
+            920,
+            85,
+            70
+          ],
+          [
+            1230,
+            260,
+            85,
+            70
+          ],
+          [
+            320,
+            420,
+            85,
+            70
+          ],
+          [
+            1420,
+            850,
+            85,
+            70
+          ],
+          [
+            1400,
+            180,
+            85,
+            70
+          ],
+          [
+            150,
+            965,
+            85,
+            70
+          ]
+        ],
+        "surfaces": [],
+        "decor": [],
+        "landmarks": [],
+        "water": [],
+        "cc_props": [
+          {
+            "kind": "warehouse",
+            "position": [
+              600,
+              480
+            ],
+            "width": 245
+          },
+          {
+            "kind": "warehouse",
+            "position": [
+              1080,
+              890
+            ],
+            "width": 250
+          },
+          {
+            "kind": "warehouse",
+            "position": [
+              280,
+              275
+            ],
+            "width": 210
+          },
+          {
+            "kind": "wall_segment",
+            "position": [
+              1380,
+              610
+            ],
+            "width": 170
+          },
+          {
+            "kind": "supply_crates",
+            "position": [
+              930,
+              305
+            ],
+            "width": 105
+          },
+          {
+            "kind": "supply_crates",
+            "position": [
+              1010,
+              700
+            ],
+            "width": 90
+          }
+        ],
+        "motif": "chencang_city",
+        "lanterns": [
+          [
+            400,
+            475
+          ],
+          [
+            780,
+            490
+          ],
+          [
+            1220,
+            865
+          ],
+          [
+            1480,
+            690
+          ]
+        ],
+        "drains": [
+          [
+            [
+              420,
+              890
+            ],
+            [
+              720,
+              820
+            ],
+            [
+              920,
+              640
+            ]
+          ]
+        ],
+        "steps": [
+          [
+            1150,
+            220,
+            180,
+            85
+          ]
+        ]
+      },
+      "tutorial": "先清两处仓院守军，再到械库 E 封存。西院工匠能开瓮城侧门；调令若已截下，援军不会到场。",
+      "tactics": {
+        "reserve_group": "cc_w_reserve",
+        "reserve_after": "cc_w2",
+        "reserve_called_flag": "cc_reserve_called",
+        "reserve_prevent_flag": "cc_orders"
+      }
+    },
+    "cc_bastion": {
+      "name": "瓮城",
+      "chapter": "五 · 关墙之间",
+      "seed": 22905,
+      "mood": "village",
+      "spawn": [
+        220,
+        900
+      ],
+      "roads": [
+        [
+          [
+            180,
+            940
+          ],
+          [
+            430,
+            760
+          ],
+          [
+            500,
+            570
+          ],
+          [
+            900,
+            570
+          ],
+          [
+            1200,
+            360
+          ],
+          [
+            1400,
+            180
+          ]
+        ],
+        [
+          [
+            1360,
+            890
+          ],
+          [
+            1220,
+            700
+          ],
+          [
+            1000,
+            570
+          ]
+        ],
+        [
+          [
+            500,
+            570
+          ],
+          [
+            430,
+            300
+          ],
+          [
+            900,
+            210
+          ],
+          [
+            1200,
+            360
+          ]
+        ]
+      ],
+      "huts": [],
+      "props": [],
+      "objects": [
+        {
+          "id": "cc_bastion_camp",
+          "kind": "camp",
+          "x": 280,
+          "y": 920,
+          "label": "瓮城正门整备"
+        },
+        {
+          "id": "cc_side_camp",
+          "kind": "camp",
+          "x": 1360,
+          "y": 890,
+          "label": "工匠侧院整备",
+          "need": "cc_workers"
+        },
+        {
+          "id": "cc_courtyard",
+          "kind": "chencang",
+          "x": 1190,
+          "y": 380,
+          "label": "控制内城军旗",
+          "task": "cc_courtyard",
+          "group": "cc_c2",
+          "need": "cc_warehouse"
+        },
+        {
+          "id": "cc_to_final",
+          "kind": "exit",
+          "x": 1400,
+          "y": 180,
+          "label": "登鼓楼决战",
+          "to": "cc_final",
+          "need": "cc_courtyard"
+        },
+        {
+          "id": "cc_back_store",
+          "kind": "exit",
+          "x": 150,
+          "y": 965,
+          "label": "返回仓院",
+          "to": "cc_store"
+        }
+      ],
+      "groups": [
+        {
+          "id": "cc_c1",
+          "units": [
+            [
+              "sword",
+              620,
+              580
+            ],
+            [
+              "spear",
+              800,
+              560
+            ],
+            [
+              "crossbow",
+              980,
+              520
+            ]
+          ]
+        },
+        {
+          "id": "cc_c2",
+          "units": [
+            [
+              "ironshield",
+              1050,
+              380
+            ],
+            [
+              "sword",
+              1170,
+              490
+            ],
+            [
+              "spear",
+              1380,
+              390
+            ],
+            [
+              "crossbow",
+              1250,
+              320
+            ]
+          ],
+          "route_reduce": {
+            "front": "ironshield",
+            "flank": "crossbow"
+          }
+        }
+      ],
+      "main_groups": [
+        "cc_c1",
+        "cc_c2"
+      ],
+      "optional_groups": [],
+      "layout": {
+        "tree_attempts": 0,
+        "rock_attempts": 0,
+        "solids": [
+          {
+            "rect": [
+              600,
+              300,
+              240,
+              160
+            ]
+          },
+          {
+            "rect": [
+              600,
+              690,
+              240,
+              160
+            ]
+          },
+          {
+            "rect": [
+              1250,
+              560,
+              200,
+              100
+            ]
+          },
+          {
+            "rect": [
+              160,
+              260,
+              160,
+              180
+            ]
+          },
+          {
+            "rect": [
+              1309.2,
+              91,
+              201.6,
+              34
+            ]
+          }
+        ],
+        "clearings": [
+          [
+            280,
+            920,
+            85,
+            70
+          ],
+          [
+            1360,
+            890,
+            85,
+            70
+          ],
+          [
+            1190,
+            380,
+            85,
+            70
+          ],
+          [
+            1400,
+            180,
+            85,
+            70
+          ],
+          [
+            150,
+            965,
+            85,
+            70
+          ]
+        ],
+        "surfaces": [],
+        "decor": [],
+        "landmarks": [],
+        "water": [],
+        "cc_props": [
+          {
+            "kind": "city_gate",
+            "position": [
+              720,
+              460
+            ],
+            "width": 245
+          },
+          {
+            "kind": "wall_segment",
+            "position": [
+              720,
+              850
+            ],
+            "width": 250
+          },
+          {
+            "kind": "warehouse",
+            "position": [
+              1350,
+              660
+            ],
+            "width": 210
+          },
+          {
+            "kind": "wall_segment",
+            "position": [
+              240,
+              440
+            ],
+            "width": 170
+          },
+          {
+            "kind": "city_gate",
+            "position": [
+              1410,
+              125
+            ],
+            "width": 240
+          }
+        ],
+        "motif": "chencang_city",
+        "lanterns": [
+          [
+            520,
+            470
+          ],
+          [
+            875,
+            470
+          ],
+          [
+            875,
+            835
+          ],
+          [
+            1480,
+            660
+          ]
+        ],
+        "drains": [
+          [
+            [
+              500,
+              970
+            ],
+            [
+              500,
+              650
+            ],
+            [
+              530,
+              520
+            ]
+          ],
+          [
+            [
+              1160,
+              760
+            ],
+            [
+              1100,
+              600
+            ]
+          ]
+        ],
+        "steps": [
+          [
+            1080,
+            300,
+            245,
+            95
+          ]
+        ]
+      },
+      "tutorial": "两波守军分批压来。正门破阵会少一重盾，侧巷截援会少一弩手；沿砖堡两侧切入再控旗。"
+    },
+    "cc_final": {
+      "name": "鼓楼决战",
+      "chapter": "六 · 重锤镇关",
+      "seed": 22906,
+      "mood": "village",
+      "spawn": [
+        220,
+        900
+      ],
+      "roads": [
+        [
+          [
+            180,
+            940
+          ],
+          [
+            420,
+            825
+          ],
+          [
+            630,
+            700
+          ],
+          [
+            940,
+            520
+          ],
+          [
+            1220,
+            350
+          ],
+          [
+            1400,
+            190
+          ]
+        ],
+        [
+          [
+            630,
+            700
+          ],
+          [
+            780,
+            840
+          ],
+          [
+            1150,
+            810
+          ],
+          [
+            1360,
+            650
+          ]
+        ]
+      ],
+      "huts": [],
+      "props": [],
+      "objects": [
+        {
+          "id": "cc_final_camp",
+          "kind": "camp",
+          "x": 290,
+          "y": 900,
+          "label": "鼓楼前整备"
+        },
+        {
+          "id": "cc_warden",
+          "kind": "boss",
+          "x": 630,
+          "y": 700,
+          "label": "镇关都尉 · 入阵决战",
+          "boss": "warden",
+          "group": "cc_f1",
+          "need": "cc_courtyard"
+        },
+        {
+          "id": "cc_finish",
+          "kind": "finish",
+          "x": 1400,
+          "y": 190,
+          "label": "收旗 · 陈仓战报",
+          "need": "cc_boss"
+        },
+        {
+          "id": "cc_back_bastion",
+          "kind": "exit",
+          "x": 150,
+          "y": 965,
+          "label": "返回瓮城",
+          "to": "cc_bastion"
+        }
+      ],
+      "groups": [
+        {
+          "id": "cc_f1",
+          "units": [
+            [
+              "ironshield",
+              530,
+              800
+            ],
+            [
+              "crossbow",
+              710,
+              790
+            ]
+          ]
+        }
+      ],
+      "main_groups": [
+        "cc_f1"
+      ],
+      "optional_groups": [],
+      "layout": {
+        "tree_attempts": 0,
+        "rock_attempts": 0,
+        "solids": [
+          {
+            "rect": [
+              290,
+              370,
+              200,
+              145
+            ]
+          },
+          {
+            "rect": [
+              1360,
+              410,
+              210,
+              90
+            ]
+          },
+          {
+            "rect": [
+              1240,
+              850,
+              250,
+              110
+            ]
+          },
+          {
+            "rect": [
+              80,
+              140,
+              200,
+              100
+            ]
+          },
+          {
+            "rect": [
+              412.0,
+              891,
+              76.0,
+              29
+            ]
+          }
+        ],
+        "clearings": [
+          [
+            290,
+            900,
+            85,
+            70
+          ],
+          [
+            630,
+            700,
+            85,
+            70
+          ],
+          [
+            1400,
+            190,
+            85,
+            70
+          ],
+          [
+            150,
+            965,
+            85,
+            70
+          ]
+        ],
+        "surfaces": [],
+        "decor": [],
+        "landmarks": [],
+        "water": [],
+        "cc_props": [
+          {
+            "kind": "warehouse",
+            "position": [
+              390,
+              515
+            ],
+            "width": 210
+          },
+          {
+            "kind": "drum_tower",
+            "position": [
+              1470,
+              500
+            ],
+            "width": 275
+          },
+          {
+            "kind": "wall_segment",
+            "position": [
+              1365,
+              960
+            ],
+            "width": 260
+          },
+          {
+            "kind": "wall_segment",
+            "position": [
+              180,
+              240
+            ],
+            "width": 210
+          },
+          {
+            "kind": "supply_crates",
+            "position": [
+              450,
+              920
+            ],
+            "width": 95
+          }
+        ],
+        "motif": "chencang_city",
+        "lanterns": [
+          [
+            540,
+            560
+          ],
+          [
+            1420,
+            260
+          ],
+          [
+            1450,
+            690
+          ],
+          [
+            1180,
+            850
+          ]
+        ],
+        "drains": [
+          [
+            [
+              520,
+              910
+            ],
+            [
+              620,
+              770
+            ]
+          ]
+        ],
+        "steps": [
+          [
+            620,
+            200,
+            545,
+            90
+          ]
+        ]
+      },
+      "tutorial": "先击退亲卫，再 E 挑战都尉。重锤迟势明显：看清落点再侧闪，半血后的回锤结束才是长破绽。",
+      "arena": {
+        "x": 1000,
+        "y": 460,
+        "rx": 360,
+        "ry": 265
+      },
+      "boss": "warden"
+    }
+  }
+}

@@ -18,13 +18,17 @@ var spawned: Dictionary = {}
 var waiting: Array = []
 var arrow_clock = 0.0
 var arrow_warnings: Array = []
+var ranged_hazard_hold = 0.0
 var volleys_fired = 0
 var march_signals: Array = []
 var bridge_effect_left = 0.0
 
+func arrival_notice() -> String:
+	return "追兵将至"
+
 func setup(game) -> void:
 	world = game; z_index = 9
-	spawned.clear(); waiting.clear(); arrow_warnings.clear(); arrow_clock = 0
+	spawned.clear(); waiting.clear(); arrow_warnings.clear(); arrow_clock = 0; ranged_hazard_hold = 0
 	next_main(true)
 	if world.stage == "jg_bridge" and flag("jg_bridge_held") and not group_cleared("jg_bridge_extra"):
 		request_group("jg_bridge_extra")
@@ -89,7 +93,7 @@ func spawn_pending(dt: float) -> void:
 	var row = waiting[0]
 	if not row.warned:
 		row.warned = true
-		world.fx.floater(Vector2(row.units[0][1],row.units[0][2]),"追兵将至",Color("efbd97"))
+		world.fx.floater(Vector2(row.units[0][1],row.units[0][2]),arrival_notice(),Color("efbd97"))
 		# Never consume a brand-new warning in the same long frame that shows it.
 		return
 	row.left = maxf(0,row.left-maxf(0,dt))
@@ -114,7 +118,7 @@ func check_groups() -> void:
 func advance(dt: float) -> void:
 	if world.mode != "playing": return
 	if not world.active_boss.is_empty():
-		arrow_warnings.clear(); queue_redraw(); return
+		arrow_warnings.clear(); arrow_clock = 0; ranged_hazard_hold = 0; queue_redraw(); return
 	var step = maxf(0,dt)
 	spawn_pending(step); check_groups(); next_main()
 	for id in world.definition.get("optional_groups",[]):
@@ -132,21 +136,38 @@ func active_main_fight() -> bool:
 		if world.group_alive(str(id)): return true
 	return false
 
+func ranged_hazard_active() -> bool:
+	# A telegraphed array owns the ranged pressure slot through release and a
+	# short travel window. Pausing freezes this reservation with its warning.
+	return not arrow_warnings.is_empty() or ranged_hazard_hold > 0
+
+func ranged_action_busy() -> bool:
+	for enemy in world.enemies:
+		if is_instance_valid(enemy) and enemy.body_alive() and enemy.is_ranged() and not enemy.action.is_empty(): return true
+	return false
+
 func advance_arrow_array(dt: float) -> void:
-	if world.stage != "jg_signal" or flag("jg_banner") or not active_main_fight():
+	if world.mode != "playing": return
+	if world.stage != "jg_signal" or flag("jg_banner") or not world.active_boss.is_empty():
+		arrow_warnings.clear(); arrow_clock = 0; ranged_hazard_hold = 0; return
+	var step = maxf(0,dt)
+	ranged_hazard_hold = maxf(0,ranged_hazard_hold-step)
+	if not active_main_fight():
 		arrow_warnings.clear(); arrow_clock = 0; return
 	var config: Dictionary = world.definition.get("tactics",{})
 	var pending: Array = []
 	for warning in arrow_warnings:
-		warning.left -= dt
+		warning.left -= step
 		if warning.left > 0: pending.append(warning); continue
 		var attack = world.new_action("jigu_arrow_array",{"damage":float(config.get("arrow_damage",12))},warning.dir)
 		# fire_arrow and advance_arrows remain the sole projectile/hit path.
 		world.fire_arrow({"position":warning.origin-Vector2(0,-8)},attack)
 		volleys_fired += 1
+		ranged_hazard_hold = .75
 	arrow_warnings = pending
-	arrow_clock += dt
-	if arrow_clock < float(config.get("arrow_interval",7.0)) or not arrow_warnings.is_empty(): return
+	var interval = float(config.get("arrow_interval",7.0))
+	arrow_clock = minf(interval,arrow_clock+step)
+	if arrow_clock < interval or ranged_hazard_active() or ranged_action_busy(): return
 	arrow_clock = 0
 	var duration = maxf(1.2,float(config.get("arrow_warning",1.2)))
 	for point in config.get("arrow_origins",[]):
@@ -211,7 +232,7 @@ func interact_object(object: Dictionary) -> bool:
 	world.state.record(TASK_TEXT[task][1]); world.toast(TASK_TEXT[task][0])
 	var p = Vector2(object.x,object.y)
 	world.fx.add("rally",p,.7,{"radius":65.0}); world.sound.play_cue("phase")
-	if task == "jg_banner": arrow_warnings.clear(); arrow_clock = 0
+	if task == "jg_banner": arrow_warnings.clear(); arrow_clock = 0; ranged_hazard_hold = 0
 	if task in ["jg_front","jg_rear","jg_rearguard","jg_last_guard"]:
 		# A brief pennant/departure cue, not a second escort or hidden NPC timer.
 		march_signals.append({"pos":p,"left":1.1})

@@ -21,15 +21,23 @@ const PROFILES = {
 	"jg_crossbow":{"atlas":"enemy_jigu","index":3,"name":"谷道劲弩手","height":76.0},
 	"jg_ironshield":{"atlas":"enemy_jigu","index":4,"name":"山门重盾卫","height":87.0},
 	"jg_signal":{"atlas":"enemy_jigu","index":5,"name":"崖台号旗弩手","height":78.0},
+	"cc_sword":{"atlas":"enemy_chencang","index":0,"name":"关城刀卒","height":78.0},
+	"cc_spear":{"atlas":"enemy_chencang","index":1,"name":"门楼矛卫","height":83.0},
+	"cc_scout":{"atlas":"enemy_chencang","index":2,"name":"夜巡双刃","height":74.0},
+	"cc_crossbow":{"atlas":"enemy_chencang","index":3,"name":"楼台弩手","height":77.0},
+	"cc_ironshield":{"atlas":"enemy_chencang","index":4,"name":"城砖重盾卫","height":88.0},
+	"cc_orders":{"atlas":"enemy_chencang","index":5,"name":"军令强弩卫","height":79.0},
 	"boss_xiahou":{"atlas":"enemy_commanders","index":0,"name":"夏侯恩","height":100.0},
 	"boss_zhanghe":{"atlas":"enemy_commanders","index":1,"name":"张郃","height":109.0},
 	"boss_dujun":{"atlas":"enemy_commanders","index":2,"name":"铁面督军","height":108.0},
-	"boss_vanguard":{"atlas":"enemy_commanders","index":3,"name":"玄甲先锋","height":112.0}
+	"boss_vanguard":{"atlas":"enemy_commanders","index":3,"name":"玄甲先锋","height":112.0},
+	"boss_warden":{"atlas":"enemy_warden","index":0,"name":"镇关都尉","height":110.0}
 }
 const CHAPTER_KINDS = {
 	1:{"sword":"cb_sword","spear":"cb_spear","archer":"cb_archer","shield":"cb_shield","elite":"cb_elite"},
 	2:{"sword":"hs_sword","spear":"hs_spear","scout":"hs_scout","crossbow":"hs_crossbow","ironshield":"hs_ironshield"},
-	3:{"sword":"jg_sword","spear":"jg_spear","scout":"jg_scout","crossbow":"jg_crossbow","ironshield":"jg_ironshield"}
+	3:{"sword":"jg_sword","spear":"jg_spear","scout":"jg_scout","crossbow":"jg_crossbow","ironshield":"jg_ironshield"},
+	4:{"sword":"cc_sword","spear":"cc_spear","scout":"cc_scout","crossbow":"cc_crossbow","ironshield":"cc_ironshield"}
 }
 
 static func resolve(chapter: int, stage: String, kind: String, boss: String = "", group: String = "") -> Dictionary:
@@ -38,11 +46,12 @@ static func resolve(chapter: int, stage: String, kind: String, boss: String = ""
 	elif chapter == 1 and stage == "village" and kind == "sword": id = "cb_village"
 	elif chapter == 2 and stage == "hs_grain" and group == "hs_beacon_guard" and kind == "crossbow": id = "hs_beacon"
 	elif chapter == 3 and stage == "jg_signal" and group == "jg_s2" and kind == "crossbow": id = "jg_signal"
+	elif chapter == 4 and stage == "cc_beacon" and group == "cc_orders_guard" and kind == "crossbow": id = "cc_orders"
 	else: id = str(CHAPTER_KINDS.get(chapter,CHAPTER_KINDS[1]).get(kind,""))
 	# Editors and combat fixtures can instantiate any combat kind on any map.
 	# Resolve it to its actual authored family instead of falling back to old art.
 	if not PROFILES.has(id):
-		for family in [1,2,3]:
+		for family in [1,2,3,4]:
 			if CHAPTER_KINDS[family].has(kind):
 				id = CHAPTER_KINDS[family][kind]; break
 	if not PROFILES.has(id): id = "cb_sword"

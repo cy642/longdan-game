@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "image": "res://art_source/painted/chencang-source.png",
+  "source_size": [1536, 1024],
+  "alpha_component_threshold": 16,
+  "note": "Bboxes and seeds use the observed original components, not equal 512 cells. Feet and fire anchors are crop-relative. Original pixels are preserved on disk.",
+  "frames": {
+    "city_gate": {
+      "source_rect": [34, 65, 537, 452],
+      "source_seed": [184, 279],
+      "source_foot": [268, 445],
+      "source_footprint_width": 525
+    },
+    "beacon_tower": {
+      "source_rect": [587, 56, 402, 478],
+      "source_seed": [785, 367],
+      "source_foot": [203, 472],
+      "source_footprint_width": 390,
+      "source_fire": [183, 35]
+    },
+    "warehouse": {
+      "source_rect": [997, 82, 524, 423],
+      "source_seed": [1226, 303],
+      "source_foot": [263, 418],
+      "source_footprint_width": 500
+    },
+    "drum_tower": {
+      "source_rect": [72, 492, 452, 492],
+      "source_seed": [248, 823],
+      "source_foot": [228, 486],
+      "source_footprint_width": 430
+    },
+    "wall_segment": {
+      "source_rect": [560, 620, 435, 352],
+      "source_seed": [878, 841],
+      "source_foot": [217, 346],
+      "source_footprint_width": 420
+    },
+    "supply_crates": {
+      "source_rect": [1037, 621, 457, 341],
+      "source_seed": [1262, 801],
+      "source_foot": [228, 335],
+      "source_footprint_width": 440
+    }
+  }
+}

@@ -19,12 +19,14 @@ import sys
 
 
 PROP_NAMES = ("altar", "stela", "grain_rack", "lantern")
-ENEMY_ATLAS_COUNTS = {"enemy_changban": 6, "enemy_hanshui": 6, "enemy_jigu": 6, "enemy_commanders": 4}
+ENEMY_ATLAS_COUNTS = {"enemy_changban": 6, "enemy_hanshui": 6, "enemy_jigu": 6, "enemy_commanders": 4,
+                      "enemy_chencang": 6, "enemy_warden": 1}
 FORBIDDEN = {"art_source", "tests", "tools"}
 GROUND_REGIONS = (
     "mountain", "village", "temple", "house", "fork", "bridge",
     "hs_forest", "hs_grain", "hs_return", "hs_camp", "hs_river", "hs_final",
     "jg_fog", "jg_signal", "jg_pass", "jg_rearguard", "jg_bridge", "jg_final",
+    "cc_outer", "cc_beacon", "cc_street", "cc_store", "cc_bastion", "cc_final",
 )
 
 
@@ -117,8 +119,8 @@ def validate(entries, project):
             elif source.read_bytes() != payload:
                 errors.append(f"Exported JSON differs from current source: {name}")
 
-    required_json = ["data/chapter1.json", "data/chapter2.json", "data/chapter3.json", "data/map_details.json", "data/atlas.json", "data/enemy_atlas.json",
-                     "assets/maps/scenery.json", "assets/maps/hanshui_props.json", "assets/maps/jigu_props.json", "assets/props/landmarks.json",
+    required_json = ["data/chapter1.json", "data/chapter2.json", "data/chapter3.json", "data/chapter4.json", "data/map_details.json", "data/atlas.json", "data/enemy_atlas.json",
+                     "assets/maps/scenery.json", "assets/maps/hanshui_props.json", "assets/maps/jigu_props.json", "assets/maps/chencang_props.json", "assets/props/landmarks.json",
                      "assets/props/painted_markers.json"]
     required_json += [f"assets/props/{prop}.json" for prop in PROP_NAMES]
     for name in required_json:
@@ -144,14 +146,14 @@ def validate(entries, project):
     # rather than accepting only a manifest or an orphaned .import file.
     images = [f"assets/props/{prop}.png" for prop in PROP_NAMES]
     images.append("assets/props/painted_markers.png")
-    images.extend(f"assets/maps/{atlas}.png" for atlas in ("scenery", "hanshui_props", "jigu_props"))
+    images.extend(f"assets/maps/{atlas}.png" for atlas in ("scenery", "hanshui_props", "jigu_props", "chencang_props"))
     images.extend(f"assets/maps/{region}.png" for region in GROUND_REGIONS)
     enemy_manifest_entry = entries.get("data/enemy_atlas.json")
     if enemy_manifest_entry:
         try:
             enemy_manifest = json.loads(enemy_manifest_entry[0])
             if not isinstance(enemy_manifest, dict) or set(enemy_manifest) != set(ENEMY_ATLAS_COUNTS):
-                raise ValueError("expected exactly four independent enemy atlas keys")
+                raise ValueError("expected exactly six independent enemy atlas keys")
             enemy_images = set()
             for key, count in ENEMY_ATLAS_COUNTS.items():
                 info = enemy_manifest[key]
@@ -174,7 +176,7 @@ def validate(entries, project):
         # the actual remap instead of assuming the generated .ctex hash/name.
         require_texture(entries, image, errors)
 
-    for script in ("map_atmosphere", "map_details", "campaign", "tactic_director", "grain_cart", "hanshui_layout", "huangzhong_support", "painted_props", "painted_ground", "jigu_director", "jigu_layout", "enemy_roster"):
+    for script in ("map_atmosphere", "map_details", "campaign", "tactic_director", "grain_cart", "hanshui_layout", "huangzhong_support", "painted_props", "painted_ground", "jigu_director", "jigu_layout", "chencang_director", "chencang_layout", "combat_pacing", "enemy_roster"):
         name = f"scripts/{script}.gd"
         if name not in entries and not all(
                 resource in entries for resource in (name + ".remap", name + "c")):
@@ -201,8 +203,8 @@ def main():
         print(f"EXPORT_PACK_VERIFY {len(errors)} failures", file=sys.stderr)
         return 1
     print(f"EXPORT_PACK_VERIFY {len(entries)} resources, {json_count} JSON files, "
-          f"18 baked grounds, 3 scenery atlases, 4 prop textures and painted marker atlas with payloads; "
-          f"4 independent enemy atlases containing 22 profiles; "
+          f"24 baked grounds, 4 scenery atlases, 4 prop textures and painted marker atlas with payloads; "
+          f"6 independent enemy atlases containing 29 profiles; "
           f"all checksums and JSON source bytes match; "
           f"no forbidden resources; Godot {engine}; 0 failures")
     return 0

@@ -1,6 +1,11 @@
 extends "res://scripts/actor.gd"
 const EnemyRoster = preload("res://scripts/enemy_roster.gd")
 const BOSS_MOVES = {
+	"warden": [
+		[{"name":"扣步落锤","windup":1.05,"active":.18,"recovery":1.20,"range":180.0,"arc":.75,"damage":29,"lock_fraction":.32,"style":"warden_drop"}],
+		[{"name":"拦门横锤","windup":1.15,"active":.20,"recovery":1.35,"range":185.0,"arc":1.65,"damage":31,"lock_fraction":.32,"style":"warden_sweep"}],
+		[{"name":"震砖重落","windup":1.25,"active":.18,"recovery":1.40,"range":191.0,"arc":.75,"damage":32,"lock_fraction":.25,"hit_shape":"circle","hit_offset":115.0,"hit_radius":76.0,"style":"warden_quake"}],
+		[{"name":"压门回锤 · 扣步","windup":.85,"active":.20,"recovery":.20,"range":105.0,"arc":.60,"damage":23,"lunge":80.0,"lock_fraction":.25,"style":"warden_step"}, {"name":"压门回锤 · 迟势回扫","windup":.75,"active":.20,"recovery":1.45,"range":190.0,"arc":1.70,"damage":29,"lock_fraction":.25,"style":"warden_return"}]],
 	"xiahou": [
 		[{"name":"双剑 · 起手","windup":.68,"active":.13,"recovery":.22,"range":142.0,"arc":.8,"damage":22}, {"name":"双剑 · 第二剑","windup":.32,"active":.13,"recovery":1.35,"range":152.0,"arc":1.1,"damage":24}],
 		[{"name":"蓄势重斩","windup":1.14,"active":.18,"recovery":1.5,"range":168.0,"arc":.65,"damage":33,"lunge":55}],
@@ -49,13 +54,13 @@ func configure(unit_kind: String, boss: String = "") -> void:
 	# The region is authoritative for the art family. Review worlds may not
 	# expose Campaign.chapter, and restored squads keep their original kind.
 	var region = str(world.get("stage")) if is_instance_valid(world) and world.get("stage") != null else ""
-	var chapter_id = 3 if region.begins_with("jg_") else 2 if region.begins_with("hs_") else 1
+	var chapter_id = 4 if region.begins_with("cc_") else 3 if region.begins_with("jg_") else 2 if region.begins_with("hs_") else 1
 	visual_profile = EnemyRoster.resolve(chapter_id,region,kind,boss_id,group_id)
-	max_hp = float({"sword":72,"spear":91,"archer":58,"shield":115,"elite":285,"scout":75,"crossbow":65,"ironshield":140,"boss":1450 if boss in ["dujun","vanguard"] else 1350 if boss == "zhanghe" else 830}.get(kind,72))
+	max_hp = float({"sword":72,"spear":91,"archer":58,"shield":115,"elite":285,"scout":75,"crossbow":65,"ironshield":140,"boss":1500 if boss == "warden" else 1450 if boss in ["dujun","vanguard"] else 1350 if boss == "zhanghe" else 830}.get(kind,72))
 	max_hp *= .84 if world.state.difficulty == "story" else 1
 	hp = max_hp; radius = 22 if kind == "boss" else 14
 	speed = 109 if kind == "boss" else 88 if is_ranged() else 118 if kind == "scout" else 87 if kind == "ironshield" else 104
-	stagger_max = 140 if boss == "vanguard" else 135 if boss == "dujun" else 125 if kind == "boss" else 90 if kind in ["elite","ironshield"] else 65
+	stagger_max = 145 if boss == "warden" else 140 if boss == "vanguard" else 135 if boss == "dujun" else 125 if kind == "boss" else 90 if kind in ["elite","ironshield"] else 65
 	display_name = str(visual_profile.name)
 	cooldown = .6 + world.rng.randf() * .5
 
@@ -83,6 +88,7 @@ func combat_status_remaining(status: String) -> float:
 	return 0.0
 
 func ranged_slot_available() -> bool:
+	if is_instance_valid(world.get("tactics")) and world.tactics.has_method("ranged_hazard_active") and world.tactics.ranged_hazard_active(): return false
 	# A burst owns one slot through its reload, so a second archer cannot
 	# silently overlap the delayed second bolt or its recovery indication.
 	for other in world.enemies:
@@ -101,7 +107,7 @@ func start_action(target) -> void:
 	if kind == "boss":
 		if sequence.is_empty():
 			var pool = BOSS_MOVES[boss_id]
-			var count = 3 if boss_id in ["zhanghe","dujun","vanguard"] and not phase2 else pool.size()
+			var count = 3 if boss_id in ["zhanghe","dujun","vanguard","warden"] and not phase2 else pool.size()
 			sequence = pool[attack_count % count].duplicate(true); attack_count += 1
 		definition = sequence.pop_front()
 	elif kind == "scout":
@@ -150,6 +156,12 @@ func advance(dt: float) -> void:
 		world.fx.floater(position,"玄甲先锋 · 破阵回戟",Color("e8c6a0"))
 		world.toast("长戟压低！侧闪避开冲锋，迟势回扫收完再反击。")
 		world.sound.play_cue("phase"); update_visual(); return
+	if boss_id == "warden" and not phase2 and hp <= max_hp * .5:
+		phase2 = true; phase_time = 1.20; action = {}; sequence = []; attack_count = 3; cooldown = .1
+		world.fx.add("phase",position,1.20,{"radius":110.0})
+		world.fx.floater(position,"镇关都尉 · 压门回锤",Color("e7c395"))
+		world.toast("重锤压低！短步后还有迟势回锤，整套落下再进。")
+		world.sound.play_cue("phase"); update_visual(); return
 	var target = world.hero if kind == "boss" else world.nearest_friend(position, 560 if alerted else 410 if is_ranged() else 275,not is_ranged())
 	if world.rescue and group_id.begins_with("rescue"):
 		var healer = world.rescue.healer
@@ -161,7 +173,7 @@ func advance(dt: float) -> void:
 	alerted = true; facing = (target.position - position).angle()
 	var distance = position.distance_to(target.position)
 	var reach = 225 if kind == "boss" else 445 if is_ranged() else 138 if kind == "spear" else 135 if kind == "ironshield" else 88 if kind == "scout" else 78
-	if distance < reach and cooldown <= 0 and (ranged_slot_available() if is_ranged() else kind == "boss" or world.attackers_count() < 2):
+	if distance < reach and cooldown <= 0 and (ranged_slot_available() if is_ranged() else kind == "boss" or world.attackers_count() < 2) and (kind == "boss" or not sequence.is_empty() or not world.has_method("claim_enemy_attack_turn") or world.claim_enemy_attack_turn()):
 		start_action(target)
 	elif is_ranged() and distance < 150:
 		move_ground(-Vector2.from_angle(facing) * speed * dt)
@@ -200,7 +212,7 @@ func advance_action(dt: float, target) -> void:
 	if active_dt > 0:
 		if not a.fired and not is_ranged():
 			a.fired = true
-			world.fx.add("enemy_slash", position, d.active + .16, {"dir":a.dir, "radius":d.range, "arc":d.arc, "kind":kind, "lunge":d.get("lunge",0),"style":d.get("style","")})
+			world.fx.add("enemy_slash", position, d.active + .16, {"dir":a.dir, "radius":d.range, "arc":d.arc, "kind":kind, "lunge":d.get("lunge",0),"style":d.get("style",""),"hit_shape":d.get("hit_shape","sector"),"hit_offset":d.get("hit_offset",0.0),"hit_radius":d.get("hit_radius",0.0)})
 			world.sound.play_cue("enemy_heavy" if d.get("lunge",0) > 0 or d.arc > 2 else "enemy")
 		if not is_ranged():
 			var travel = d.get("lunge", 0) * active_dt / d.active
@@ -219,8 +231,8 @@ func advance_action(dt: float, target) -> void:
 							var pull_distance = minf(float(d.pull),maxf(0,friend.position.distance_to(position)-radius-friend.radius-8))
 							friend.knockback += (position-friend.position).normalized()*pull_distance*12
 	if a.t >= d.windup + d.active + d.recovery:
-		action = {}; cooldown = .01 if not sequence.is_empty() else .15 if kind == "boss" else .25
-		if not sequence.is_empty() and (kind == "scout" or boss_id in ["dujun","vanguard"]) and target and target.body_alive():
+		action = {}; cooldown = .01 if not sequence.is_empty() else world.enemy_chain_rest(self) if world.has_method("enemy_chain_rest") else .15 if kind == "boss" else .25
+		if not sequence.is_empty() and (kind == "scout" or boss_id in ["dujun","vanguard","warden"]) and target and target.body_alive():
 			# Preserve short chains at 30/60/120 Hz without losing the time
 			# after a crossed boundary, or exposing a false counter window.
 			var overflow = a.t - d.windup - d.active - d.recovery

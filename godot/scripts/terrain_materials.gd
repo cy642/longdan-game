@@ -20,7 +20,13 @@ const PROFILES = {
 	"jg_pass":{"ground":"838e89","road":"b2ad96","width":112.0,"plant":"shale","tree":"weathered","keep":.17},
 	"jg_rearguard":{"ground":"8e9183","road":"b0a58b","width":112.0,"plant":"yard","tree":"bare","keep":.19},
 	"jg_bridge":{"ground":"87958f","road":"b7ad94","width":112.0,"plant":"shale","tree":"weathered","keep":.15},
-	"jg_final":{"ground":"989885","road":"b6ad94","width":106.0,"plant":"dry","tree":"bare","keep":.10}
+	"jg_final":{"ground":"989885","road":"b6ad94","width":106.0,"plant":"dry","tree":"bare","keep":.10},
+	"cc_outer":{"ground":"354c59","road":"63777d","width":125.0,"plant":"yard","tree":"bare","keep":0.0},
+	"cc_beacon":{"ground":"334b5b","road":"687e84","width":136.0,"plant":"yard","tree":"bare","keep":0.0},
+	"cc_street":{"ground":"394e5b","road":"687b81","width":145.0,"plant":"yard","tree":"bare","keep":0.0},
+	"cc_store":{"ground":"40525b","road":"76817f","width":148.0,"plant":"yard","tree":"bare","keep":0.0},
+	"cc_bastion":{"ground":"334957","road":"62757e","width":142.0,"plant":"yard","tree":"bare","keep":0.0},
+	"cc_final":{"ground":"354a58","road":"6b7b81","width":142.0,"plant":"yard","tree":"bare","keep":0.0}
 }
 
 static func profile(stage: String) -> Dictionary:
@@ -47,6 +53,7 @@ static func ground(canvas: Node2D,stage: String,grain: Array,pools: Array) -> vo
 	# surfaces. Strong grass/leaf detail belongs to clumps, not every pixel.
 	var strength={"temple":.28,"hs_forest":.28,"hs_return":.36,"village":.34,"house":.34,"hs_camp":.34,"hs_final":.34}.get(stage,.40)
 	if stage.begins_with("jg_"): strength=.34
+	if stage.begins_with("cc_"): strength=.25
 	if Painted.paint(canvas,PackedVector2Array([Vector2.ZERO,Vector2(1600,0),Vector2(1600,1100),Vector2(0,1100)]),Painted.ground_kind(stage),base,stage,0.0,strength): return
 	canvas.draw_rect(Rect2(0,0,1600,1100),base)
 	# Broad quiet masses; fine marks accumulate in believable strips, not an

@@ -1,19 +1,19 @@
 # 龙胆：逆命三国 · Godot 电脑版
 
-当前 0.7.0（2026-10-25）重绘三章18种敌兵与4位将领，改用独立完整原画、人体尺寸标定和每帧保护区域。0.6.0 加入的第三章「箕谷断后」及三章十八区全部保留；地图、存档与战斗规则沿用现有实现。
+当前 0.8.0（2026-10-26）已实现第四章「陈仓夜袭」，共四章二十四区、24 种独立兵卒与 5 位将领。新章有正门/侧巷两条路线、调令/工匠两条支线，以及使用双手重锤的「镇关都尉」。陈仓剧情为架空逆命演绎。
 
-已运行的第三章专项与实际范围见 [第三章设计及实施对照](../docs/CHAPTER-3-JIGU.md)。完整回归、真实画面、性能、Windows/Web 导出和线上发布结果见 [开发记录](../CLOUD-POLISH.md)；不沿用历史版本的成绩。0.5.0 的 42,815 项回归、1,107 项旧地图对照和十七张截图仅是历史记录，[0.5.0 六区图](../docs/images/map-materials-0.5.0.jpg) 也只作前版画面对照。
+本轮源码 34 组回归共 89,667 项断言、0 失败；最终地图复拍 16/0、地图专项 487/0，并完成原生短样本、Windows 启动/ZIP 完整性、实际 Web PCK 的资源/角色/流程检查及浏览器基本操作。线上包核对仍待完成，不沿用旧版本发布成绩；后台浏览器节流样本不用于流畅度结论。最新状态见 [开发记录](../CLOUD-POLISH.md)，后续开发从 [当前交接](../docs/DEVELOPMENT-HANDOFF.md) 开始。
 
-枪势、战法、首玩提示、营火引导、敌人状态反馈、黄忠援射与护车玩法继续保留。制作规范见 [地图美术规范](../docs/MAP-ART-DIRECTION.md)，三章重建见 [绘画环境管线](../docs/PAINTED-ENVIRONMENT.md)，玩法见 [PLAYABILITY-PLAN.md](../docs/PLAYABILITY-PLAN.md)。可编辑关卡为 `data/chapter1.json`、`chapter2.json`、`chapter3.json`，第一章局部地标补充为 `data/map_details.json`；三章巡游入口为 `../Map-Tour.cmd`。正式构建沿用原有 Godot 存档目录。
+枪势、战法、首玩提示、营火引导、敌人状态反馈、黄忠援射与护车玩法继续保留。制作规范见 [地图美术规范](../docs/MAP-ART-DIRECTION.md)，已有绘画重建约定见 [环境管线](../docs/PAINTED-ENVIRONMENT.md)，新章合同见 [陈仓设计稿](../docs/CHAPTER-4-CHENCANG.md)。可编辑关卡为 `data/chapter1.json` 至 `chapter4.json`，第一章局部地标补充为 `data/map_details.json`；四章巡游入口为 `../Map-Tour.cmd`。正式构建沿用原有 Godot 存档目录。
 
-宣传副标题：**重生之我在三国当赵子龙**。Godot 4.7.2 / GDScript 的原生 2D 动作冒险，包含「长坂逆命」「汉水孤营」「箕谷断后」，各六区。仓库只保留这一套 Godot 游戏，在线版与 Windows 本地版共用游戏内容与开发源。
+宣传副标题：**重生之我在三国当赵子龙**。Godot 4.7.2 / GDScript 的原生 2D 动作冒险，包含「长坂逆命」「汉水孤营」「箕谷断后」「陈仓夜袭」，各六区。仓库只保留这一套 Godot 游戏，在线版与 Windows 本地版共用游戏内容与开发源。
 
 ## 直接试玩
 
 - 默认在线首页 <https://cy642.github.io/longdan-game/> 会进入 <https://cy642.github.io/longdan-game/godot-play/>，跳转保留参数/片段。在线版与 Windows 版从同一 Godot 工程导出；加载页点击「开始游戏」，使用电脑 Chrome、Edge 或 Firefox，首次需要下载引擎与素材。
 - 本地导出后可双击 `../builds/windows/Longdan.exe`，运行此程序无需安装 Godot、Python 或联网；Windows 构建包不纳入源码仓库。
 - 打开工程：在 Godot 4.7.2 中导入本目录的 `project.godot`，按 F5 运行。
-- 标题可选择三章中的任一章、普通/剧情难度，开始或继续所选章节；其他章节进度会保留。查看战报也按当前选择的章节读取。
+- 标题可选择四章中的任一章、普通/剧情难度，开始或继续所选章节；其他章节进度会保留。查看战报也按当前选择的章节读取。前三章战报可续入下一章；第四章为当前终章。
 - 快速巡览：打开 `tests/map_tour.tscn` 后按 F6，或在 Windows 使用根目录 `Map-Tour.cmd`；Tab 切章、F1–F6 切换该章六区，WASD / 方向键移动，M 打开军图。巡览不读取或写入玩家存档。
 - Windows 版和浏览器版分别保存进度，不跨设备或浏览器自动同步。
 
@@ -42,7 +42,9 @@
 
 敌人起手红区与真实命中范围一致，前段跟踪、后段锁定。弓箭和冲枪以线段 / 连续位移判定，避免跨帧穿过障碍。完整盾防的正面普通攻击保留盾兵反击，横扫、绕后或破势可创造开口。夏侯恩双剑与张郃三连突需等整套连招收完；张郃半血变招。
 
-第一章随军只在井畔营救和桥头突围参与战斗，第二章跟随护车并可在青旗守点藏兵，第三章沿用集合/守点/冲阵协助清路。单人 3.5 伤害 / 1.8 秒，最多将敌人体力压到 22%，赵云需要亲自完成击杀。正式单挑中随军负责护送。
+第一章随军只在井畔营救和桥头突围参与战斗，第二章跟随护车并可在青旗守点藏兵，第三、四章沿用集合/守点/冲阵协助清路。单人 3.5 伤害 / 1.8 秒，最多将敌人体力压到 22%，赵云需要亲自完成击杀。正式单挑中随军负责护送。
+
+0.8.0 的难度递进由 `scripts/combat_pacing.gd` 统一配置：普通敌人的整套起手共享间隔从山道 0.90 秒逐区降至鼓楼 0.26 秒，整套结束后再留额外休息；剧情难度分别增加 0.20 / 0.12 秒。Boss 绕过普通敌人起手名额，使用各自整套结束间隔。已有敌兵/将领的生命、伤害、招式前摇、生效、收招定义、锁向、闪避和同屏 2 近战/1 远程限制不变；连段内部不插等待。表格与调用约定见 [难度曲线](../docs/DIFFICULTY-CURVE.md)。
 
 脚步声使用独立的轻声通道，音量比原音效通道低 12 dB，并削弱尖锐噪声；落脚与步行姿势每 56 个世界像素同步一次。攻击移动时优先播放武器声音，扬尘也更轻。暂停中可单独关闭「脚步声」，仍能听到战斗反馈；「静音」立即停止当前声音。开关在本次游戏会话中生效。
 
@@ -67,7 +69,7 @@
 
 北山可焚毁火箭辎重，乱石归途西侧可救回张著与伤兵；支线改变后续压力、补给和战报。进入督军决战前会提示仍可回头整备。铁面督军有窄线钩拉、迟势回斧、扇区砸地及半血冲斩；新弩兵两发后才装填，第二箭使用原先锁定的方向。
 
-完成空营计并通关解锁「龙胆·回澜」，第二、三章可在暂停页切换 Q 招式；奖励写入跨章节存档，第一章数值不随之变化。第二章默认拥有青釭，仍须积满战意使用 R。汉水战报首按钮进入「箕谷断后」；新第三章承接难度、战法与已解锁回澜，已有进度恢复原检查点或战报，不覆盖其独立选择。
+完成空营计并通关解锁「龙胆·回澜」，第二至第四章可在暂停页切换 Q 招式；奖励写入跨章节存档，第一章数值不随之变化。第二章默认拥有青釭，仍须积满战意使用 R。汉水战报首按钮进入「箕谷断后」；新第三章承接难度、战法与已解锁回澜，已有进度恢复原检查点或战报，不覆盖其独立选择。
 
 ## 第三章：箕谷断后
 
@@ -75,18 +77,28 @@
 
 桥柱交互在条件完成后给出两个结果：断索减少谷口一名弩兵；留桥追加两名追兵，击退后 E 接回末队。两条均能到最终战，战报分别记录。决定前可回访支线，确认后前区关闭，界面提前说明。辎重支线在谷口营火提供一次额外行军药，领取上限四份，已领取标记入档；重复交互不重复发放。
 
-玄甲先锋普通体力 1450、破势 140，使用长戟点阵、锁向直冲和迟势横扫；半血停手变招 1.20 秒，加入冲锋后回扫，等整套收完再反击。动作使用枪将原画、连续网格姿态、暗铁甲及月牙戟附件，不是独立手绘逐帧图集。第三章具体任务与敌将为游戏演绎；18–25 分钟是设计目标，未作为普通难度人工通关实测。
+玄甲先锋普通体力 1450、破势 140，使用长戟点阵、锁向直冲和迟势横扫；半血停手变招 1.20 秒，加入冲锋后回扫，等整套收完再反击。动作使用自带完整月牙戟的独立原画、连续网格姿态与左右镜像，没有旧代码兵器附件。第三章具体任务与敌将为游戏演绎；18–25 分钟是设计目标，未作为普通难度人工通关实测。箕谷战报现在可以继续进入陈仓，已有第四章记录不会被覆盖。
 
-### 三章存档
+## 第四章：陈仓夜袭
 
-`user://longdan-godot-v2.json` 保存三章独立检查点、已清遭遇、支线、章内计策、战法与战报，以及跨章奖励；汉水另保留退军名册。第三章新增 `JIGU_FLAGS`，验证桥头选项互斥、后队先有前队、末队先有留桥、领取补给先有辎重等条件。`battle_art` 缺失时使用基础枪法，未知值拒绝读入。瞬时枪势不入档。重开所选章节保留其他章节记录。有效旧第一章 v1 和没有 JIGU 字段的旧两章 v2 继续可读；新保存仍写 v2，旧 v1 文件保留。Windows 与 Web 存档互不自动同步。
+六区按「灰砖城关 → 烽火台 → 城门内街 → 仓院 → 瓮城 → 鼓楼决战」推进。每批 2–4 人，主路和支线共用最多 8 名活敌与至少 1.2 秒来向预警。烽台交战最多三轮箭阵、每轮至多两条箭路，锁向预警至少 1.25 秒；箭阵与普通弩兵轮流占用远程攻击机会。E 熄烽后清除尚未发射的预警，已飞出的箭仍按碰撞处理。
+
+内街 E 选择正门或侧巷，可先取消观察；确认后本次路线保存，重玩本章才重选。正门一战三人并减少瓮城一名重盾；侧巷两战各两人并减少瓮城一名弩手。未选路线不出兵，不能凭空判清场。两线均需清完后在对应军旗或巷闸 E 完成军令。
+
+烽台西厢的调令阻止尚未到场的仓院援军。实际到场时写入 `cc_reserve_called`；后来补取调令仍须击退这批敌人。仓院西侧救工匠后，主目标完成才开启侧门，落脚瓮城 `(1360,890)`，正常出口仍到 `(220,900)`；两种进入方式都要完成瓮城主战斗。
+
+鼓楼先清亲卫，E 挑战会给确认与回头整备选项；仅确认 `warden:commit` 后设置 `cc_committed`，关闭回访。镇关都尉普通体力 1500、破势 145，使用落锤、横锤、圆形重落与半血扣步接迟势回锤。圆形预警使用真实圆形命中，半血过渡 1.20 秒无伤害。击败后仍须 E 收军旗才形成战报。具体城关、事件和敌将均为架空逆命剧情；18–24 分钟是设计预算。
+
+### 四章存档
+
+`user://longdan-godot-v2.json` 保存四章独立检查点、已清遭遇、支线、章内计策、战法与战报，以及跨章奖励；汉水另保留退军名册。`JIGU_FLAGS` 保留桥头、撤军与补给前提验证；`CHENCANG_FLAGS` 验证主路顺序、路线互斥、援军到场、确认决战与首领/通关条件。`battle_art` 缺失时使用基础枪法，未知值拒绝读入。瞬时枪势、攻击调度计时和箭阵队列不入档。重开所选章节保留其他章节记录。有效旧第一章 v1、没有 JIGU 字段的旧两章 v2，以及没有 CC 字段的旧三章 v2 均继续可读；新增字段保守补为未完成，新保存仍写 v2，旧 v1 文件保留。Windows 与 Web 存档互不自动同步。
 
 本轮不提升存档版本；营火访问标记追加到原有 `seen` 数组（例如 `camp:mountain`），保留旧剧情记录。玩家选择保留基础枪法后，读档不会再次被引导回已访问的营火。黄忠援射的拉弓、飞箭和冷却属于本次遭遇运行状态，不添加永久奖励或新章节存档字段。
 
 ## Godot 的结构
 
-- `scripts/enemy_roster.gd`、`data/enemy_atlas.json`、`assets/enemies/`：0.7.0 三章十八种兵卒与四位将领的独立原画。章节、行为类型及少量支线身份决定画像，行为和存档仍使用原 `kind/boss_id`。`tools/prepare_enemy_assets.py` 读取 `art_source/characters/enemy-calibration.json`，按人体尺寸、靴底、头部及刚性武器区域生成清单，不改写原 PNG；`--check` 只校验。更换原画必须重新校准并检查真实落脚，不按长枪/旗帜包围盒缩放。
-- `tests/enemy_roster_verify.gd`、`tests/enemy_roster_preview.gd`：遍历22种实际画像并检查比例/落脚/缓存独立性，以及用真实骨架生成联系表。预览使用 `-- --label=新标签` 保存到 `.qa/`，拒绝覆盖旧证据。新增原画是连续网格动作与左右镜像，不是八方向逐帧动画；旧代码装备附件已移除。
+- `scripts/enemy_roster.gd`、`data/enemy_atlas.json`、`assets/enemies/`：四章 24 种兵卒与 5 位将领，共 29 档案、六张原画图集。章节、行为类型及少量支线身份决定画像，行为和存档仍使用原 `kind/boss_id`。`tools/prepare_enemy_assets.py` 读取 `art_source/characters/enemy-calibration.json`，按人体尺寸、靴底、头部及刚性武器区域生成清单，不改写原 PNG；`--check` 只校验。邻帧裁框可重叠，但排除后的可见像素不得重复，制作工具不能删除自身像素。
+- `tests/enemy_roster_verify.gd`：遍历 29 种实际画像并检查比例、真实靴底像素、刚性脸/武器与缓存独立性；旧 NPC 保留原素材。`tests/enemy_roster_preview.gd` 保留前三章联系表入口，陈仓实景由 `chencang_preview.gd` 检查。预览使用新 `--label`，拒绝覆盖旧证据。新原画仍采用连续网格动作与左右镜像，不是八方向逐帧动画。
 - `scenes/main.tscn`：游戏入口。
 - `scenes/hero.tscn`、`scenes/enemy.tscn`：原生 `CharacterBody2D` 与地面碰撞形状。
 - `scripts/hero.gd`、`enemy.gd`、`companion.gd`：动作阶段、闪避、敌人连招、盾防与军令。
@@ -94,13 +106,16 @@
 - `scripts/terrain.gd`、`scenery.gd`：原生地形碰撞、Godot AStarGrid2D 绕障碍路径、烘焙地表与共用景物图集。
 - `scripts/hanshui_layout.gd`：第二章六区共用的美术、地形与碰撞布局；动态营门开合与路径更新由 `terrain.gd` 提供。
 - `scripts/jigu_layout.gd`、`tools/bake_jigu.gd`：第三章崖谷、横向栈道、石门、桥柱的可编辑绘制与六区离线烘焙，运行时使用独立景物图集。
+- `scripts/chencang_layout.gd`、`tools/bake_chencang.gd`：陈仓灰砖城街、瓦顶仓房、烽台、城门与鼓楼；六张地表及专用建筑图集。原图清单为 `art_source/painted/chencang-props-source.json`，仅烘焙阶段读取。
 - `scripts/painted_ground.gd`、`painted_props.gd`：仅在制作阶段读取环境原图并绘制材质/连通区域抽帧；正式运行使用烘焙结果。
-- `assets/maps/`：三章各六张 1600 × 1100 地表，以及共享景物、汉水景物、箕谷景物图集与脚底清单。树木、岩石和建筑按落脚位置排序，动态路障和桥柱状态单独更新。
+- `assets/maps/`：四章各六张 1600 × 1100 地表，以及共享景物、汉水、箕谷和陈仓景物图集与脚底清单。树木、岩石和建筑按落脚位置排序，动态路障、桥柱和烽火状态单独更新。
 - `assets/props/`：四件旧地标的新绘画像素及原契约清单，另含 `painted_markers.png/json` 的三种门楼跨度与井架。
 - `scripts/effects.gd`、`sound.gd`：战斗预警、枪芒、受击火花、残影、局部音效。
 - `scripts/world.gd`、`campaign.gd`：章节入口、剧情、目标、v2 独立进度、旧 v1 兼容、战报和奖励。
 - `scripts/tactic_director.gd`：第二章有限波次/存活上限、藏兵与门前试探、退军名册、擂鼓结果及稳定恢复阶段。
 - `scripts/jigu_director.gd`：第三章有限波次、锁向箭阵、两次撤军、军报减员、桥头双分支、一次补给与目标提示；不复用汉水粮车和黄忠援射状态。
+- `scripts/chencang_director.gd`：继承箕谷有限队列，重写陈仓目标、两条进路、调令/工匠、条件援军、瓮城减员与有限箭阵。
+- `scripts/combat_pacing.gd`：四章逐区普通敌人起手间隔及整套动作结束后的休息；世界只在正常游玩、非停帧时推进一次，不保存运行计时。
 - `scripts/huangzhong_support.gd`：北山玩家军令援射、候选目标、锁向单箭、碰撞和冷却；由战术调度创建、推进与取消。
 - `scripts/grain_cart.gd`：粮车原生碰撞、耐久与受击；路线和停靠由战术调度控制。
 - `scripts/interactable.gd`：营火、出入口、黄忠/伤兵、火箭辎重、藏兵旗、门扇和鼓台实物；粮车提示跟随车移动。
@@ -108,9 +123,10 @@
 - `data/chapter1.json`：第一章关卡与招式参数的唯一数据源，直接编辑；不再从外部 JavaScript 同步。
 - `data/chapter2.json`：汉水六区的路网、实体、支线、波次、计策坐标与初始调参。
 - `data/chapter3.json`：箕谷六区的通路、峡谷、固定敌群、交互与支线减员条件。
+- `data/chapter4.json`：陈仓六区的路网、建筑脚点、双进路、主支线敌群、侧门落脚与烽台箭阵预算。
 - `export_presets.cfg`：Windows 单文件与单线程 Web 导出设置。
 
-角色原 PNG 未修改。赵云沿用每方向两帧步行和蓄势/出枪，敌军使用现有原画与连续网格姿态；第二章装备是刚性代码配件，不是新手绘逐帧图集。弩手底图没有旧弓，独立弩身、弦和弩箭随上身瞄准；两次可见后坐对应两次发射，装填不会再次出箭。头脸与武器不做拉伸。后续仍需补敌人独立动作素材、赵云步行帧、黄忠战斗/剧情演出和完整音乐。
+角色原 PNG 保留。赵云沿用每方向两帧步行和蓄势/出枪，敌军完整兵器已绘入独立原画，没有旧代码装备附件；连续姿态保持头脸和长兵器刚性。两次弩后坐对应两次发射，装填不再出箭。后续仍需补敌人独立动作素材、赵云步行帧、黄忠战斗/剧情演出和完整音乐。
 
 ## 构建和验证
 
@@ -145,12 +161,19 @@ godot --headless --path godot --script res://tests/jigu_flow_verify.gd
 godot --headless --path godot --script res://tests/jigu_campaign_verify.gd
 godot --headless --path godot --script res://tests/vanguard_enemy_verify.gd
 godot --headless --path godot --script res://tests/vanguard_visual_verify.gd
+godot --headless --path godot --script res://tests/enemy_roster_verify.gd
+godot --headless --path godot --script res://tests/combat_pacing_verify.gd
+godot --headless --path godot --script res://tests/chencang_layout_verify.gd
+godot --headless --path godot --script res://tests/chencang_flow_verify.gd
+godot --headless --path godot --script res://tests/chencang_campaign_verify.gd
+godot --headless --path godot --script res://tests/warden_enemy_verify.gd
+godot --headless --path godot --script res://tests/warden_visual_verify.gd
 New-Item -ItemType Directory -Force builds/windows, godot-play | Out-Null
 godot --headless --path godot --export-release "Windows Desktop"
 godot --headless --path godot --export-release "Web"
 ```
 
-Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与二十八组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。新增独立敌军图集专项，保留三章流程与绘画资产检查。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程环境。两个 `.cmd` 启动器也接受引擎路径作为首参数，或使用 `GODOT_EXE` / PATH。
+Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与 34 组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。涵盖四章流程、存档、角色、地图与难度调度。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程环境；保留发行日志时另用新的日志前缀。两个 `.cmd` 启动器也接受引擎路径作为首参数，或使用 `GODOT_EXE` / PATH。
 
 输出目录为仓库的 `builds/windows/` 与 `godot-play/`。`builds/`、`.godot/`、`.qa/`、日志和本机引擎不入库。`godot-play/` 是已跟踪的 Web 导出，修改 Godot 游戏后须重新导出并与源码一起提交。现有 GitHub Pages 从 `main` 分支的仓库根目录自动发布，Pages 流程不会替你运行测试或导出 Godot。根 `index.html` 跳转至 `./godot-play/`，加载页统一显示「开始游戏」。仓库已移除旧 Canvas 页面、脚本和构建工具，只保留 Godot 游戏。
 
@@ -158,10 +181,12 @@ Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与二十八组回归
 
 ```powershell
 godot --headless --main-pack godot-play/index.pck --script "D:/gpt/longdan-game/godot/tests/painted_assets_verify.gd"
+godot --headless --main-pack godot-play/index.pck --script "D:/gpt/longdan-game/godot/tests/export_smoke.gd"
+godot --headless --main-pack godot-play/index.pck --script "D:/gpt/longdan-game/godot/tests/enemy_roster_verify.gd"
 python godot/tools/verify_export_pack.py
 ```
 
-专项覆盖十八个真实区域的缓存地表、四件旧地标契约、门楼/井图集，以及箕谷景物图集与断索状态帧，确认不触发制作侧原图加载。PCK 检查还要求必要的 JSON、图集及实际导入载荷，禁止导出原画、工具与测试。资产检查不判断美感；前两章物理基线与第三章通路仍须分别验证。
+专项覆盖二十四个真实区域的缓存地表、四件旧地标契约、门楼/井图集、箕谷断索状态和陈仓建筑脚锚/烽火状态，确认不触发制作侧原图加载。PCK 检查要求四章 JSON、24 张地表、四套景物图集及六张敌军图集的实际导入载荷，禁止导出制作原图、工具与测试。源码通过不代表导出包通过，必须针对新包再检查；资产检查也不判断美感。
 
 检查 Web 导出时，在仓库根目录执行 `python -m http.server 8767 --bind 127.0.0.1`，然后用浏览器打开 `http://127.0.0.1:8767/godot-play/`；不要直接双击 Web 导出的 HTML 文件。
 
@@ -171,6 +196,8 @@ python godot/tools/verify_export_pack.py
 
 第三章新增五套检查：`jigu_layout_verify` 检查六区碰撞/通路，`jigu_flow_verify` 检查有限波次、停箭、两次撤令、桥头双路线、支线减员和补给，`jigu_campaign_verify` 操作真实 UI 并读写隔离磁盘验证三章档案与旧档，`vanguard_enemy_verify` 检查四向命中、锁向、冲锋墙碰撞、掉帧、破势及一次半血变招，`vanguard_visual_verify` 检查固定比例、脚锚和刚性戟杆。具体已运行成绩见第三章实施对照，完整发布验收另见开发记录。
 
+第四章五套检查为 `chencang_layout_verify`、`chencang_flow_verify`、`chencang_campaign_verify`、`warden_enemy_verify`、`warden_visual_verify`。它们覆盖主/侧出口通路、未选路线不出兵、真实两路线到战报、调令到场前后、工匠侧门、至少 1.25 秒的有限箭阵及弩互斥、暂停/死亡恢复、Boss 确认后才锁回访、真实 E 收旗、三到四章衔接与旧存档，以及重锤圆形/扇形真实命中和连续姿态。`combat_pacing_verify` 另验证 24 区正常/剧情难度、同帧起手互斥、连段连续性、Boss 绕过普通名额与冻结/重配。保持原视觉阈值，不用减少断言来换通过。
+
 原生图形验收单独运行，不能加 `--headless`：
 
 ```powershell
@@ -178,6 +205,8 @@ godot --path godot --script res://tests/hanshui_visual_verify.gd -- --capture
 godot --path godot --script res://tests/hero_pose_capture.gd
 godot --path godot --script res://tests/map_identity_preview.gd -- --label=review-001
 godot --path godot --script res://tests/jigu_preview.gd -- --label=review-jigu-001
+godot --path godot --script res://tests/chencang_preview.gd -- --label=review-chencang-001
+godot --path godot --script res://tests/chencang_performance.gd -- --label=perf-chencang-001
 godot --path godot --script res://tests/playability_preview.gd
 godot --path godot res://tests/hanshui_playtest.tscn -- --qa-stage=hs_camp
 godot --path godot --script res://tests/hanshui_performance.gd
@@ -187,15 +216,19 @@ godot --path godot --script res://tests/hanshui_performance.gd
 
 第三章正常镜头使用 `jigu_preview.gd -- --label=新的标签`，覆盖六区与真实箭阵预警、桥头选择、留桥追兵、断索状态、玄甲先锋两阶段预警。脚本采用内存存档与实际安全脚点，输出截图和独立清单；它是可控场景检查，不是人工从头打通。实际捕获结果与人工审阅结论由开发记录保存。
 
-三章关卡直接维护 `data/chapter1.json`、`chapter2.json`、`chapter3.json`，不再保留旧 JavaScript 同步管线。角色原图只保存在 `assets/`；`tools/prepare_assets.py`（Pillow / NumPy）直接读取这些 PNG，重建 `data/atlas.json` 的锚点、裁切和固定比例，不复制或修改原图。提交内已包含运行用图集与元数据，日常开发无需重建。运行 `python godot/tools/prepare_assets.py --check` 只核对清单；不加 `--check` 时重建。原图来源和完整提示词见 [角色素材说明](art_source/characters/ART-NOTES.md) 与 [八方向出枪说明](art_source/characters/ATTACK-V3-NOTES.md)。
+第四章正常镜头使用 `chencang_preview.gd -- --label=新的标签`，受控场景包括六区、烽火亮/灭与箭阵、内街选择和两路线、工匠侧门及重锤扇形/圆形/二阶段。`chencang_performance.gd` 同样拒绝覆盖旧标签，输出 `.qa/chencang-performance-标签.json`；三场为六敌烽台箭阵、四敌绕墙混战与都尉二阶段，每场 0.8 秒热身、3.2 秒采样，1280×720、镜头 1.15。普通兵只延长生命维持负载，技能和物理不改；实际活敌数、发箭、阶段或持续战斗条件不满足时报告失败。原生短样本不能代表网页帧率或人工难度。
+
+性能 JSON 中的 `p95_ms/max_ms` 来自相邻 `process_frame` 的墙钟间隔；`process_p95_ms/physics_p95_ms` 是重复读取 Godot 内置监视器得到的分位数。Godot 4.7.2 每约一秒才公布此前累计的处理峰值，后者可能包含入区/热身阶段，并非逐帧处理耗时 P95。两类指标应分开呈现，保留原报告，不据其中任何一项保证 FPS。参见 [Godot 4.7.2 监视器更新源码](https://github.com/godotengine/godot/blob/4.7.2-stable/main/main.cpp#L4723-L4765)。
+
+四章关卡直接维护 `data/chapter1.json` 至 `chapter4.json`，不再保留旧 JavaScript 同步管线。角色原图只保存在 `assets/`；`tools/prepare_assets.py`（Pillow / NumPy）直接读取这些 PNG，重建 `data/atlas.json` 的锚点、裁切和固定比例，不复制或修改原图。提交内已包含运行用图集与元数据，日常开发无需重建。运行 `python godot/tools/prepare_assets.py --check` 只核对清单；不加 `--check` 时重建。原图来源和完整提示词见 [角色素材说明](art_source/characters/ART-NOTES.md) 与 [八方向出枪说明](art_source/characters/ATTACK-V3-NOTES.md)。
 
 中文字体为 Noto Sans SC 的游戏字符子集，已按 OFL 更名为 Longdan Game Sans；许可见 `assets/fonts/LICENSE.txt`。新增中文对白后需运行 `tools/subset_font.py` 重建字符子集（fonttools，首次从官方来源下载原字体并缓存）。Godot 与第三方组件许可见 `assets/licenses/`。
 
 ## 地图与性能
 
-`terrain_materials.gd` 定义十八区的土色、路宽、树种与植被密度。`painted_ground.gd` 离线混入六种原画材质；`painted_props.gd` 从透明图指定种子点抽取连通物件，按脚底和占地宽重绘景物图集。`scenery_styles.gd` 留作未覆盖物件后备。第一章局部笔触在 `map_details.gd`，第二章在 `hanshui_layout.gd`，第三章独立崖谷与木石结构在 `jigu_layout.gd`。制作要求见 [MAP-ART-DIRECTION.md](../docs/MAP-ART-DIRECTION.md)，来源及重建步骤见 [PAINTED-ENVIRONMENT.md](../docs/PAINTED-ENVIRONMENT.md)。`map_atmosphere.gd` 保持有限气氛装饰，正常镜头倍率为 1.15。
+`terrain_materials.gd` 定义二十四区的土色、路宽、树种与植被密度。`painted_ground.gd` 离线混入六种原画材质；`painted_props.gd` 从透明图指定种子点抽取连通物件，按脚底和占地宽重绘景物图集。`scenery_styles.gd` 留作未覆盖物件后备。第一章局部笔触在 `map_details.gd`，第二章在 `hanshui_layout.gd`，第三章独立崖谷与木石结构在 `jigu_layout.gd`，第四章灰砖城关与夜间建筑在 `chencang_layout.gd`。制作要求见 [MAP-ART-DIRECTION.md](../docs/MAP-ART-DIRECTION.md)，来源及重建步骤见 [PAINTED-ENVIRONMENT.md](../docs/PAINTED-ENVIRONMENT.md)。`map_atmosphere.gd` 保持有限气氛装饰，正常镜头倍率为 1.15。
 
-十八区各有一张 1600 × 1100 静态地表；共享景物、汉水道具、箕谷道具、门楼/井分别使用图集与脚底清单。当前图集尺寸和帧数以 `assets/maps/*.json`、`assets/props/painted_markers.json` 为准。源 PNG 与提示词保留在 `art_source/painted/`，运行时不加载。地图外观与实体、交互、剧情坐标分离；新增第三章用独立布局检查，前两章继续对照原物理基线。修改原图、抽帧清单或绘画代码后依次重建：
+二十四区各有一张 1600 × 1100 静态地表；共享景物、汉水道具、箕谷道具、陈仓建筑和门楼/井分别使用图集与脚底清单。当前图集尺寸和帧数以 `assets/maps/*.json`、`assets/props/painted_markers.json` 为准。源 PNG 与提示词保留在 `art_source/painted/`，运行时不加载。地图外观与实体、交互、剧情坐标分离；第三、四章用各自独立布局检查，前两章继续对照原物理基线。修改原图、抽帧清单或绘画代码后依次重建：
 
 ```powershell
 # 在仓库根目录运行。
@@ -204,11 +237,12 @@ godot --headless --path godot --editor --import --quit
 godot --path godot --script res://tools/bake_maps.gd
 godot --path godot --script res://tests/hanshui_layout_verify.gd -- --bake
 godot --path godot --script res://tools/bake_jigu.gd
+godot --path godot --script res://tools/bake_chencang.gd
 godot --headless --path godot --editor --import --quit
 godot --path godot --script res://tests/performance.gd -- --label=my-computer
 ```
 
-先生成四件地标和四帧 marker 并立即导入，再生成第一章地表/共享景物、第二章地表/汉水图集、第三章地表/箕谷图集，最后再次导入。仅改箕谷时可单独执行 `bake_jigu.gd` 后导入。不要只修补生成的 PNG，也不要把旧 Blender 输出当成当前绘画资产。`.qa/` 为本机忽略目录，**基线不随 Git 提交**；前两章修改前先保留源状态与正常镜头，修改后对照，不能覆盖既有证据。第三章另跑 `jigu_layout_verify` 和 `jigu_preview`，不向旧两章冻结基线追加伪造历史数据。
+先生成四件地标和四帧 marker 并立即导入，再生成第一章地表/共享景物、第二章地表/汉水图集、第三章地表/箕谷图集、第四章地表/陈仓图集，最后再次导入。仅改某一章时可单独执行对应烘焙脚本后导入。不要只修补生成的 PNG，也不要把旧 Blender 输出当成当前绘画资产。`.qa/` 为本机忽略目录，**基线不随 Git 提交**；前两章修改前先保留源状态与正常镜头，修改后对照，不能覆盖既有证据。第三章另跑 `jigu_layout_verify` 和 `jigu_preview`，第四章另跑 `chencang_layout_verify` 和 `chencang_preview`；不向旧两章冻结基线追加伪造历史数据。
 
 ```powershell
 godot --headless --path godot --script res://tests/map_identity_verify.gd -- --write-baseline
@@ -224,6 +258,6 @@ godot --path godot --script res://tests/map_identity_preview.gd -- --label=after
 
 ## 后续开发与已知待打磨
 
-完整设计与实施对照见 [第二章设计稿](../docs/CHAPTER-2-HANSHUI.md)、[第三章设计稿](../docs/CHAPTER-3-JIGU.md)，原两章坐标与状态机交接见 [实施方案](../docs/CHAPTER-2-PLAYABLE-PLAN.md)。下一轮需普通难度完整实玩，校准护车、藏兵鼓点、箕谷撤令/桥头选择与两位终章首领的反击窗口。汉水 25–35 分钟、箕谷 18–25 分钟仍为设计目标，尚非实测通关时间。
+设计与实施约定见 [第二章设计稿](../docs/CHAPTER-2-HANSHUI.md)、[第三章设计稿](../docs/CHAPTER-3-JIGU.md)、[第四章设计稿](../docs/CHAPTER-4-CHENCANG.md) 和 [难度曲线](../docs/DIFFICULTY-CURVE.md)。下一轮需普通难度完整实玩，校准护车、藏兵鼓点、箕谷撤令/桥头选择、陈仓两线与调令时机，以及各首领反击窗口。汉水 25–35 分钟、箕谷 18–25 分钟、陈仓 18–24 分钟均为设计目标，尚非实测通关时间。
 
 黄忠已有北山军令援射与拉弓表现，但自主移动/持续战斗 AI、三幕正式过场尚未制作；角色配件与剧情镜头仍需美术统一，完整环境音/音乐未完成。修改地图后重烘焙，新增中文后补齐字体，再导入和导出。浏览器实际帧耗时、长时间稳定性和音频听感需要独立实测；第一章过去的 WebGL 警告和软件渲染数据不得当作本轮已解决或已达标。

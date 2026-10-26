@@ -279,6 +279,62 @@ func arrow_contracts() -> void:
 	world.retry(); await settle()
 	expect(world.tactics.arrow_warnings.is_empty() and world.arrows.is_empty() and world.tactics.arrow_clock == 0,"retry discards transient arrow timers and grants fresh warning time")
 
+func arrow_slot_contracts() -> void:
+	await start_arrow_test()
+	var director = world.tactics
+	director.arrow_warnings.clear(); director.ranged_hazard_hold = 0; director.arrow_clock = 6.99
+	var bow = null
+	for enemy in world.enemies:
+		if enemy.body_alive() and enemy.kind == "crossbow" and enemy.group_id == "jg_s2": bow = enemy; break
+	expect(bow != null,"signal encounter supplies an actual production crossbow for arbitration")
+	if bow == null: return
+	bow.stun = 0; bow.cooldown = 0; bow.start_action(world.hero)
+	director.advance_arrow_array(.02)
+	expect(director.arrow_warnings.is_empty() and not director.ranged_hazard_active(),"due array defers before opening any warning while a crossbow aims")
+	bow.advance_action(.90,world.hero); bow.advance_action(.26,world.hero)
+	expect(world.arrows.size() == 2,"range arbitration does not cancel or delay either authored crossbow bolt")
+	director.advance_arrow_array(.40)
+	expect(director.arrow_warnings.is_empty() and not bow.action.is_empty(),"array also waits through the real double-shot reload")
+	bow.advance_action(1.50,world.hero)
+	expect(bow.action.is_empty(),"crossbow finishes its unchanged full action")
+	world.arrows.clear(); director.advance_arrow_array(.01)
+	expect(director.ranged_hazard_active() and not director.arrow_warnings.is_empty(),"due array receives the released ranged slot")
+	for warning in director.arrow_warnings:
+		expect(warning.left >= 1.2,"deferred array still gives its full visible warning")
+	bow.cooldown = 0; bow.advance(.01)
+	expect(bow.action.is_empty() and not bow.ranged_slot_available(),"normal crossbow AI cannot open a new double-shot under an array warning")
+	director.advance_arrow_array(1.21)
+	expect(director.arrow_warnings.is_empty() and not world.arrows.is_empty() and is_equal_approx(director.ranged_hazard_hold,.75),"released array reserves a short real projectile travel window")
+	bow.advance(.01)
+	expect(bow.action.is_empty(),"crossbow remains held during the post-release pressure reservation")
+	world.pause("pause"); var hold = director.ranged_hazard_hold
+	director.advance(30); director.advance_arrow_array(30)
+	expect(director.ranged_hazard_hold == hold and director.ranged_hazard_active(),"pause freezes the post-release reservation at both entry points")
+	world.resume(); director.advance_arrow_array(.74)
+	expect(director.ranged_hazard_active() and not bow.ranged_slot_available(),"reservation survives until its complete travel interval")
+	director.advance_arrow_array(.02)
+	expect(not director.ranged_hazard_active() and bow.ranged_slot_available(),"ranged slot becomes available after the bounded hold")
+	bow.cooldown = 0; bow.advance(.01)
+	expect(not bow.action.is_empty(),"normal crossbow AI resumes after the array instead of becoming permanently disabled")
+	await start_arrow_test(); director = world.tactics
+	director.advance_arrow_array(1.21); var emitted = director.volleys_fired
+	kill_group("jg_s2"); await use("jg_banner")
+	expect(not director.ranged_hazard_active() and director.ranged_hazard_hold == 0,"seizing the banner clears a still-running post-release reservation")
+	director.advance(60)
+	expect(director.volleys_fired == emitted,"seized banner never rearms an array after arbitration")
+	await start_arrow_test(); director = world.tactics
+	director.advance_arrow_array(1.21); hold = director.ranged_hazard_hold
+	world.hero.invincible = 0; world.hero.take_damage(10000,90204)
+	director.advance(30); director.advance_arrow_array(30)
+	expect(world.mode == "defeat" and director.ranged_hazard_hold == hold,"defeat overlay cannot consume a pending ranged reservation")
+	world.retry(); await settle()
+	expect(not world.tactics.ranged_hazard_active() and world.tactics.ranged_hazard_hold == 0,"retry creates a fresh director with no stale pressure lock")
+	await start_arrow_test(); director = world.tactics
+	director.ranged_hazard_hold = .75; world.active_boss = "vanguard"
+	director.advance(.01)
+	expect(not director.ranged_hazard_active() and director.arrow_clock == 0,"a duel cancels the environmental warning and its reservation")
+	world.active_boss = ""
+
 func save_contracts() -> void:
 	var state = Campaign.new(); state.switch_chapter(3,"normal",true)
 	var clean = state.snapshot()
@@ -297,7 +353,7 @@ func run() -> void:
 	world = MemoryWorld.new(); world.test_mode = true; world.state = MemoryCampaign.new()
 	root.add_child(world); world.set_physics_process(false); world.set_process(false)
 	await settle(); world.ui.hide_overlay()
-	await finite_wave_contracts(); await camp_threat_contracts(); await arrow_contracts()
+	await finite_wave_contracts(); await camp_threat_contracts(); await arrow_contracts(); await arrow_slot_contracts()
 	await route(true,false); await route(false,true); await route(true,true,"story")
 	expect(fingerprints() == save_before,"Jigu acceptance never rewrites player v1/v2 files")
 	print("JIGU_FLOW_VERIFY ",checks," checks; ",failures.size()," failures; maximum live enemies ",maximum_living)

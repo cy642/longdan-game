@@ -128,7 +128,7 @@ func update_pose() -> void:
 		enemy_profile = profile if profile is Dictionary else {}
 		if actor.faction == "enemy" and enemy_profile.is_empty():
 			var stage = str(actor.world.get("stage")) if actor.world else ""
-			var chapter = 3 if stage.begins_with("jg_") else 2 if stage.begins_with("hs_") else 1
+			var chapter = 4 if stage.begins_with("cc_") else 3 if stage.begins_with("jg_") else 2 if stage.begins_with("hs_") else 1
 			enemy_profile = EnemyRoster.resolve(chapter,stage,actor.kind,actor.boss_id,actor.group_id)
 			if profile is Dictionary: actor.visual_profile = enemy_profile
 		var key = "units"; var index = 1
@@ -224,6 +224,24 @@ func sample_enemy_action(a: Dictionary) -> Dictionary:
 			loaded.merge({"lean":.14*turn,"crouch":3.5,"arm":.43*turn,"reach":2.0},true)
 			strike.merge({"lean":-.19*turn,"crouch":2.2,"arm":-.54*turn,"reach":-5.0},true)
 			follow.merge({"lean":-.11*turn,"crouch":2.6,"arm":-.39*turn,"reach":-3.5},true)
+	if actor.boss_id == "warden":
+		var style = d.get("style","")
+		loaded.merge({"lean":.12,"crouch":2.2,"arm":.34,"reach":2.6},true)
+		strike.merge({"lean":-.15,"crouch":5.8,"arm":-.46,"reach":-4.0},true)
+		follow.merge({"lean":-.07,"crouch":3.4,"arm":-.24,"reach":-2.8},true)
+		if style == "warden_quake":
+			loaded.merge({"lean":.13,"crouch":1.6,"arm":.48,"reach":1.5},true)
+			strike.merge({"lean":-.18,"crouch":6.2,"arm":-.55,"reach":-3.4},true)
+			follow.merge({"lean":-.08,"crouch":4.7,"arm":-.28,"reach":-2.1},true)
+		elif style in ["warden_sweep","warden_return"]:
+			var turn = -1.0 if style == "warden_return" else 1.0
+			loaded.merge({"lean":.12*turn,"crouch":3.0,"arm":.40*turn,"reach":2.2},true)
+			strike.merge({"lean":-.16*turn,"crouch":3.0,"arm":-.46*turn,"reach":-4.0},true)
+			follow.merge({"lean":-.10*turn,"crouch":3.4,"arm":-.34*turn,"reach":-2.5},true)
+		elif style == "warden_step":
+			loaded.merge({"lean":-.03,"crouch":4.0,"arm":-.08,"reach":1.0},true)
+			strike.merge({"lean":-.20,"crouch":3.0,"arm":-.20,"reach":-5.0},true)
+			follow.merge({"lean":-.12,"crouch":3.0,"arm":-.20,"reach":-3.0},true)
 	# A small elevation adjustment follows the same locked direction as the hitbox.
 	var elevation = sin(a.dir) * .12
 	loaded.arm += elevation
@@ -236,7 +254,7 @@ func sample_enemy_action(a: Dictionary) -> Dictionary:
 		# The new full-size sword/spear commanders have wider capes and longer
 		# painted weapons. Spread their visible release over the same active
 		# window to avoid snapping the outer silhouette; hit timing is unchanged.
-		var release_fraction = .56 if actor.boss_id in ["xiahou","zhanghe"] else .42
+		var release_fraction = .54 if actor.boss_id == "warden" else .56 if actor.boss_id in ["xiahou","zhanghe"] else .42
 		return blend_pose(loaded, strike, pose_ease(t / release_fraction)) if t < release_fraction else blend_pose(strike, follow, pose_ease((t - release_fraction) / (1.0-release_fraction)))
 	var recovery = (a.t - d.windup - d.active) / maxf(.001, d.recovery)
 	# Hold the follow-through briefly, then visibly release back into guard.

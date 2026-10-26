@@ -122,13 +122,16 @@ func object_info(object: Dictionary) -> Dictionary:
 	var kind = str(object.get("kind",""))
 	var id = str(object.get("id",""))
 	var blocked: bool = world.object_blocked(object)
-	var completion_flag = {"civilians":"civilians","adou":"mother","supplies":"supplies","xiahouGate":"temple","zhangheGate":"boss","hs_huangzhong":"huangzhong","hs_zhangzhu":"wounded","hs_beacon":"beacon","hs_dujun":"dujun"}.get(id,"")
+	var completion_flag = {"civilians":"civilians","adou":"mother","supplies":"supplies","xiahouGate":"temple","zhangheGate":"boss","hs_huangzhong":"huangzhong","hs_zhangzhu":"wounded","hs_beacon":"beacon","hs_dujun":"dujun","jg_vanguard":"jg_boss","cc_warden":"cc_boss"}.get(id,"")
+	if kind in ["jigu","chencang"]: completion_flag=str(object.get("task",""))
 	var complete: bool = not completion_flag.is_empty() and world.state.flags.get(completion_flag,false)
+	if completion_flag=="route_choice": complete=world.state.flags.get("cc_route_front",false) or world.state.flags.get("cc_route_flank",false)
+	elif completion_flag=="bridge_choice": complete=world.state.flags.get("jg_bridge_cut",false) or world.state.flags.get("jg_bridge_held",false)
 	var title = str(object.get("label","地标"))
 	var status = "可交互"
 	var color = Color("c8b891")
 	match kind:
-		"huangzhong","wounded","beacon","graincart","hideflag","gate","drum","hint":
+		"huangzhong","wounded","beacon","graincart","hideflag","gate","drum","hint","jigu","chencang":
 			status="待完成" if blocked else "可交互"; color=MINT
 		"exit","finish":
 			status = "待开放" if blocked else "可通行"

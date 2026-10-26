@@ -46,6 +46,9 @@ func swept_sector(p: Vector2,direction: float,radius: float,arc: float,travel: f
 	var hull=Geometry2D.convex_hull(points)
 	draw_colored_polygon(hull,color); draw_polyline(hull,edge,1.5,true)
 
+static func circle_telegraph(origin: Vector2,direction: float,definition: Dictionary) -> Dictionary:
+	return {"center":origin+Vector2.from_angle(direction)*float(definition.get("hit_offset",0.0)),"radius":float(definition.get("hit_radius",0.0))}
+
 func _draw() -> void:
 	if not world or not is_instance_valid(world.hero): return
 	if world.mode in ["playing","pause","map"]:
@@ -70,6 +73,13 @@ func _draw() -> void:
 				var result = world.get_world_2d().direct_space_state.intersect_ray(query)
 				if not result.is_empty(): end = result.position
 				draw_line(p,end,c,48,true); draw_line(p,end,edge,1.5 if locked else .7,true)
+			elif d.get("hit_shape","") == "circle":
+				var mark = circle_telegraph(p,a.dir,d)
+				draw_circle(mark.center,mark.radius,c)
+				draw_circle(mark.center,mark.radius*progress,Color(.92,.44,.28,.09))
+				draw_arc(mark.center,mark.radius,0,TAU,56,edge,2 if locked else 1,true)
+				draw_line(mark.center+Vector2(-6,0),mark.center+Vector2(6,0),edge,1.5,true)
+				draw_line(mark.center+Vector2(0,-6),mark.center+Vector2(0,6),edge,1.5,true)
 			else:
 				var lunge = maxf(0,d.get("lunge",0)-a.travel)
 				if lunge>0: swept_sector(p,a.dir,r,d.arc,lunge,c,edge)
@@ -108,6 +118,9 @@ func _draw() -> void:
 				var c = Color(1,.69,.42,alpha) if enemy else Color(1,.86,.54,alpha) if gold else Color(.6,.95,1,alpha)
 				if enemy and str(info.get("style","")).begins_with("vanguard_"):
 					draw_vanguard_strike(p,direction,r,arc,t,alpha,str(info.style))
+					continue
+				if enemy and str(info.get("style","")).begins_with("warden_"):
+					draw_warden_strike(p,direction,r,arc,t,alpha,info)
 					continue
 				if not enemy and info.get("empowered",false) and key in ["sweep","huilan"]:
 					# A hollow cyan/gold spear arc, not an opaque flash over enemy
@@ -179,6 +192,38 @@ func draw_vanguard_strike(p: Vector2,direction: float,radius: float,arc: float,t
 			for sign in [-1,1]:
 				var edge=p+side*sign*19
 				draw_line(edge-ray*(8+24*t),edge-ray*7,Color(.64,.58,.46,alpha*.4),3,true)
+
+func draw_warden_strike(p: Vector2,direction: float,radius: float,arc: float,t: float,alpha: float,info: Dictionary) -> void:
+	# Heavy impacts use sparse masonry fragments, never a second drawn hammer.
+	# The circle uses precisely the offset/radius from the damage definition.
+	var style = str(info.get("style",""))
+	var dust = Color(.76,.62,.43,alpha*.55)
+	var light = Color(.96,.85,.61,alpha*.80)
+	if style == "warden_quake":
+		var mark = circle_telegraph(p,direction,info)
+		draw_arc(mark.center,mark.radius,0,TAU,48,Color(.84,.45,.24,alpha*.35),2,true)
+		draw_arc(mark.center,mark.radius*(.28+.72*t),0,TAU,48,dust,3 if not soft else 2,true)
+		for i in range(6):
+			var ray = Vector2.from_angle(direction+i*TAU/6)
+			var tip = mark.center+ray*mark.radius*(.38+.45*t)
+			draw_line(mark.center+ray*12,tip,dust,2,true)
+			draw_line(tip,tip+ray.rotated(.35)*7,light,1.5,true)
+	elif style in ["warden_sweep","warden_return"]:
+		var sign = -1.0 if style == "warden_return" else 1.0
+		var head = direction+sign*lerpf(-arc,arc,clampf(t*1.5,0,1))
+		var tail = head-sign*minf(.60,arc)
+		draw_arc(p+Vector2(0,-13),radius*.78,minf(head,tail),maxf(head,tail),26,dust,7 if not soft else 3,true)
+		draw_arc(p+Vector2(0,-13),radius*.85,minf(head,tail),maxf(head,tail),26,light,2,true)
+	else:
+		var impact = p+Vector2.from_angle(direction)*radius*.72
+		for i in range(5):
+			var ray = Vector2.from_angle(direction+(i-2)*.45)
+			var from = impact+ray*8
+			draw_line(from,impact+ray*(17+20*t),light if i%2 else dust,2,true)
+		if style == "warden_step":
+			var side = Vector2.from_angle(direction).orthogonal()
+			for sign in [-1,1]:
+				draw_line(p+side*sign*19,p+side*sign*19-Vector2.from_angle(direction)*24*t,dust,3,true)
 
 func draw_enemy_status(enemy) -> void:
 	var p = enemy.position

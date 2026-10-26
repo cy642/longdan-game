@@ -159,6 +159,8 @@ func verify_legacy_v2() -> void:
 	old.chapters["1"]=old.chapters["1"].duplicate(true)
 	old.chapters["1"].erase("tactics")
 	old.chapters["1"].erase("battle_art")
+	for key in Campaign.JIGU_FLAGS+Campaign.CHENCANG_FLAGS:
+		old.flags.erase(key); old.chapters["1"].flags.erase(key)
 	var file=FileAccess.open(world.state.save_path,FileAccess.WRITE)
 	file.store_string(JSON.stringify(old)); file.close()
 	await reload_from_disk(1)

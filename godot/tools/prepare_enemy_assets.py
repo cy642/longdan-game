@@ -33,6 +33,28 @@ def connected_labels(mask):
     for y,start,end,label in runs: labels[y,start:end] = root(label)
     return labels
 
+def safe_exclusion_rectangles(other, own, rectangle):
+    """Partition a neighbour's box, never clipping this sprite's opaque pixels.
+
+    Curved plume/weapon edges can interleave inside overlapping bounds even
+    though the actual alpha components never touch. Empty pieces are omitted.
+    """
+    result, pending = [], [rectangle]
+    while pending:
+        left, top, right, bottom = pending.pop()
+        if not other[top:bottom,left:right].any(): continue
+        if not own[top:bottom,left:right].any():
+            result.append([left,top,right-left,bottom-top]); continue
+        if right-left >= bottom-top and right-left > 1:
+            mid=(left+right)//2
+            pending.extend([(left,top,mid,bottom),(mid,top,right,bottom)])
+        elif bottom-top > 1:
+            mid=(top+bottom)//2
+            pending.extend([(left,top,right,mid),(left,mid,right,bottom)])
+        else:
+            raise ValueError('Two character components own the same opaque pixel')
+    return result
+
 project = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--check', action='store_true')
@@ -73,9 +95,7 @@ for key, spec in calibrations.items():
             oy,ox = np.nonzero(frame_labels == other)
             hx0,hy0 = max(0,int(ox.min())-1),max(0,int(oy.min())-1)
             hx1,hy1 = min(fw,int(ox.max())+2),min(fh,int(oy.max())+2)
-            if membership[hy0:hy1,hx0:hx1].any():
-                raise ValueError(f'{key}:{index}: neighbour exclusion would remove original pixels')
-            exclusions.append([hx0,hy0,hx1-hx0,hy1-hy0])
+            exclusions.extend(safe_exclusion_rectangles(frame_labels == other,membership,(hx0,hy0,hx1,hy1)))
         feet = calibration['feet']
         frame = {'region':[left,top,fw,fh],
                  'anchor':[round(fw*feet[0],3),round(fh*feet[1],3)],

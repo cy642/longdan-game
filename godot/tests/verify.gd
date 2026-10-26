@@ -42,8 +42,8 @@ func run() -> void:
 	await settle()
 	expect(world.definitions.size()==6,"six regions imported")
 	var atlas_keys = world.hero.visual.frames.keys(); atlas_keys.sort()
-	var expected_atlases = ["attack","chapter","enemy_changban","enemy_commanders","enemy_hanshui","enemy_jigu","hero","units","walk"]
-	expect(atlas_keys==expected_atlases,"original actors and four independent enemy atlases are native resources")
+	var expected_atlases = ["attack","chapter","enemy_changban","enemy_chencang","enemy_commanders","enemy_hanshui","enemy_jigu","enemy_warden","hero","units","walk"]
+	expect(atlas_keys==expected_atlases,"original actors and six independent enemy atlases are native resources")
 	world.dialog("测试对白","握枪起身。",[{"text":"握枪起身","detail":"开始第一章","route":"continue"}],"赵云")
 	await settle()
 	expect(world.ui.first_choice.get_global_rect().size.y>=40 and world.ui.first_choice.get_global_rect().position.y<680,"dialogue choices have a visible layout")

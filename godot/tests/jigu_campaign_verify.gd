@@ -39,7 +39,7 @@ func button_named(node: Node,text: String):
 		if found: return found
 	return null
 func chapter_picker(node: Node):
-	if node is OptionButton and node.item_count == 3 and node.get_item_text(2).contains("箕谷"): return node
+	if node is OptionButton and node.item_count == 4 and node.get_item_text(2).contains("箕谷"): return node
 	for child in node.get_children():
 		var found = chapter_picker(child)
 		if found: return found
@@ -150,9 +150,9 @@ func verify_existing_transition(completed: bool) -> void:
 	expect(same_json(world.state.chapter_record(1),first) and same_json(world.state.chapter_record(2),second),"existing checkpoint handoff preserves prior two chapters")
 	expect(not text_tree(world.ui.overlay).contains("开始新的征程？"),"resuming a third chapter never invokes restart confirmation")
 	if completed:
-		expect(world.ui.first_choice.text.begins_with("回到标题"),"third report primary action returns to title")
-		expect(not text_tree(world.ui.overlay).contains("继续征程") and not text_tree(world.ui.overlay).contains("第四章"),"final report contains no invented fourth chapter")
-		expect(not world.continue_journey() and not world.enter_next_chapter(),"completed third chapter cannot advance into chapter four")
+		expect(world.ui.first_choice.text=="继续征程 · 陈仓夜袭","completed third report exposes implemented fourth chapter")
+		expect(not text_tree(world.ui.overlay).contains("第五章"),"third report does not advertise unimplemented chapters")
+		expect(not world.enter_next_chapter(),"fourth chapter cannot start without its explicit story handoff")
 	var disk = disk_snapshot()
 	expect(same_json(disk.chapters["3"],third),"existing third chapter persists unchanged after handoff")
 	await reload(3)
@@ -198,9 +198,9 @@ func verify_independent_and_replay() -> void:
 func verify_legacy() -> void:
 	complete_hanshui("normal",true)
 	var old = world.state.snapshot().duplicate(true)
-	for key in Campaign.JIGU_FLAGS: old.flags.erase(key)
+	for key in Campaign.JIGU_FLAGS+Campaign.CHENCANG_FLAGS: old.flags.erase(key)
 	for record in old.chapters.values():
-		for key in Campaign.JIGU_FLAGS: record.flags.erase(key)
+		for key in Campaign.JIGU_FLAGS+Campaign.CHENCANG_FLAGS: record.flags.erase(key)
 	old.erase("battle_art")
 	for record in old.chapters.values(): record.erase("battle_art")
 	save_disk(old,world.state.save_path)
@@ -212,7 +212,7 @@ func verify_legacy() -> void:
 	disk_snapshot()
 	var legacy = world.state.chapter_record(1).duplicate(true)
 	legacy.merge({"version":1,"engine":"godot"})
-	for key in Campaign.HANSHUI_FLAGS+Campaign.JIGU_FLAGS: legacy.flags.erase(key)
+	for key in Campaign.HANSHUI_FLAGS+Campaign.JIGU_FLAGS+Campaign.CHENCANG_FLAGS: legacy.flags.erase(key)
 	legacy.erase("battle_art"); legacy.erase("tactics")
 	save_disk(legacy,world.state.save_path); await reload(1)
 	expect(world.state.chapter == 1 and world.state.complete and world.mode == "ending","old v1 report still restores after three-chapter expansion")
@@ -242,8 +242,8 @@ func verify_invalid_states() -> void:
 	expect(not Campaign.valid(bad),"third chapter rejects an encounter from another chapter")
 	bad = valid.duplicate(true); bad.checkpoint.stage = "hs_final"
 	expect(not Campaign.valid(bad),"third chapter rejects another chapter's checkpoint")
-	bad = valid.duplicate(true); bad.chapters["4"] = bad.chapters["3"].duplicate(true)
-	expect(not Campaign.valid(bad),"v2 rejects a nonexistent fourth chapter archive")
+	bad = valid.duplicate(true); bad.chapters["5"] = bad.chapters["3"].duplicate(true)
+	expect(not Campaign.valid(bad),"v2 rejects a nonexistent fifth chapter archive")
 	bad = valid.duplicate(true); bad.chapters["3"].flags.jg_front = false
 	expect(not Campaign.valid(bad),"invalid archived chapter is rejected even with valid active data")
 

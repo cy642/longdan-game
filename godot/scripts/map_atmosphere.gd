@@ -31,6 +31,15 @@ func configure(game, region: String, tree_positions: Array, seed_value: int) -> 
 	if jigu: leaf_color=Color("a0a394")
 	var random = RandomNumberGenerator.new()
 	random.seed = seed_value + 10391
+	if region.begins_with("cc_"):
+		theme="chencang_night"
+		# Quiet warm motes sit near authored lamps and windows. Night values
+		# are baked in the floor/architecture, never multiplied over the hero.
+		for lamp in world.definition.get("layout",{}).get("lanterns",[]):
+			for slot in range(2):
+				if drift.size()>=12: break
+				drift.append({"origin":Vector2(lamp[0]-18+slot*14,lamp[1]-8),"phase":random.randf(),"speed":random.randf_range(.025,.04),"width":random.randf_range(1.2,2.4)})
+		queue_redraw(); return
 	# Keep foliage at the edges of existing trees, away from main combat space.
 	for i in range(mini(tree_positions.size(), 8 if hanshui else 14)):
 		var tree: Dictionary = tree_positions[(i * 7) % tree_positions.size()]
@@ -153,7 +162,8 @@ func _draw() -> void:
 		drift_lines.append(p); drift_lines.append(p+Vector2(span,-.9 if theme=="hanshui_mist" else -span*.35))
 	if not drift_lines.is_empty():
 		var mist=theme in ["hanshui_mist","jigu_wind"]
-		draw_multiline(drift_lines,Color(.74,.80,.79,.13) if theme=="jigu_wind" else Color(.71,.85,.84,.16) if mist else Color(.67,.55,.37,.34),2.2 if mist else 1.2,true)
+		var tone=Color(.92,.70,.40,.25) if theme=="chencang_night" else Color(.74,.80,.79,.13) if theme=="jigu_wind" else Color(.71,.85,.84,.16) if mist else Color(.67,.55,.37,.34)
+		draw_multiline(drift_lines,tone,2.2 if mist else 1.2,true)
 	var rain_lines=PackedVector2Array()
 	for drop in drizzle:
 		var p: Vector2=drop.origin+Vector2(-fposmod(clock*17+drop.phase*70,70),fposmod(clock*85+drop.phase*180,180)-90)

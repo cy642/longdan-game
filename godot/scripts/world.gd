@@ -12,6 +12,8 @@ const Interactable = preload("res://scripts/interactable.gd")
 const MapDetails = preload("res://scripts/map_details.gd")
 const HanshuiLayout = preload("res://scripts/hanshui_layout.gd")
 const TacticDirector = preload("res://scripts/tactic_director.gd")
+const CombatPacing = preload("res://scripts/combat_pacing.gd")
+var combat_pacing = CombatPacing.new()
 var tactics
 var chapter_definitions: Dictionary={}
 var state = Campaign.new()
@@ -69,6 +71,10 @@ func _ready() -> void:
 	var jigu: Dictionary=third.StageDefinition
 	for id in jigu: jigu[id]=HanshuiLayout.apply_layout(jigu[id],id)
 	chapter_definitions[3]=jigu
+	var fourth=JSON.parse_string(FileAccess.get_file_as_string("res://data/chapter4.json"))
+	var chencang: Dictionary=fourth.StageDefinition
+	for id in chencang: chencang[id]=HanshuiLayout.apply_layout(chencang[id],id)
+	chapter_definitions[4]=chencang
 	attacks.huilan=attacks.sweep.duplicate()
 	attacks.huilan.merge({"name":"龙胆·回澜","damage":33,"stagger":65,"range":170.0,"arc":2.85},true)
 	setup_input()
@@ -161,6 +167,7 @@ func _physics_process(dt: float) -> void:
 	if hit_stop>0 and not fx.soft:
 		hit_stop = maxf(0,hit_stop-dt); return
 	state.time += dt
+	combat_pacing.advance(dt)
 	hero.advance(dt,movement_input(),keyboard_attack_held or mouse_attack_held,aim_direction())
 	if mode!="playing": return
 	for ally in allies: ally.advance(dt)
@@ -241,6 +248,9 @@ func start_game(difficulty: String = "normal", chapter_id: int = 1) -> void:
 	hero.max_hp=240 if difficulty=="story" else 200; hero.reset_combat()
 	var start=Campaign.CHAPTER_STAGES[chapter_id][0]
 	mode="playing"; enter_stage(start); ui.hide_overlay()
+	if chapter_id==4:
+		dialog("箕谷之后 · 另一条进路","撤军已经归队，赵云却不愿再把主动权留给追兵。\n\n夜色中，陈仓的城关亮起烽火。夺旗、熄烽，再从正门或侧巷打进仓院。\n\n这是你亲手选择的另一条征程；陈仓夜袭为本作架空演绎。",[{"text":"借夜入关","detail":"先清外城守军；利用墙角切弩、绕盾，再到军旗下按 E。","route":"continue"}],"赵云 · 夜袭军令")
+		return
 	if chapter_id==3:
 		dialog("箕谷 · 退令入谷","汉水之后多年，北伐军接到撤退军令。\n\n赵云留在谷中，先断敌军号旗，再让两队将士分段撤走。\n\n这一回，带走多少人、留下哪条路，都由你亲手决定。",[{"text":"入谷断后","detail":"剧情演绎 · 先清斥候，前往崖台夺旗。","route":"continue"}],"赵云 · 军令")
 		return
@@ -269,6 +279,7 @@ func resume_chapter_checkpoint(persist: bool=false) -> void:
 	if state.complete:
 		mode="ending"; ui.show_report(state.build_report()); return
 	if cp.encounter=="rescue" and not state.flags.mother: start_rescue()
+	elif cp.encounter=="warden" and not state.flags.cc_boss: begin_boss("warden")
 	elif cp.encounter=="vanguard" and not state.flags.jg_boss: begin_boss("vanguard")
 	elif cp.encounter=="dujun" and not state.flags.dujun or cp.encounter=="xiahou" and not state.flags.temple or cp.encounter=="zhanghe" and not state.flags.boss: begin_boss(cp.encounter)
 	toast("已从最近营火或入口继续，完成的命运选择都还在。")
@@ -276,12 +287,16 @@ func resume_chapter_checkpoint(persist: bool=false) -> void:
 func continue_journey() -> bool:
 	# The report is the campaign hand-off. Never route it through "new game":
 	# an existing Hanshui checkpoint or completed report must survive.
-	if mode!="ending" or state.chapter not in [1,2] or not state.complete: return false
+	if mode!="ending" or state.chapter not in [1,2,3] or not state.complete: return false
 	hero.buffer={}; clear_input(); save_progress()
 	var next_chapter=state.chapter+1
 	if not state.chapter_record(next_chapter).is_empty():
 		state.switch_chapter(next_chapter,state.difficulty,false)
 		resume_chapter_checkpoint(true)
+		return true
+	if state.chapter==3:
+		var legacy="最后一队军士也随你归来。" if state.flags.jg_last_guard else "危桥的断索替归军挡住了追兵。"
+		dialog("箕谷之后 · 夜色再起",legacy+"\n\n这一回，赵云不再只守退路。陈仓的城关亮着灯，守军还未料到夜色中的长枪。\n\n先熄烽，后断援，从自己的进路攻入内城。",[{"text":"继续征程 · 陈仓夜袭","detail":"保留箕谷战报，承接难度、战法与回澜；此段为架空逆命剧情。","route":"journey:chencang"}],"赵云 · 夜袭军令")
 		return true
 	if state.chapter==2:
 		dialog("汉水之后 · 箕谷断后","汉水军旗已经归营，征程仍未结束。\n\n多年后的箕谷，撤退的军令传入山中。赵云握枪回身：先收拢人马，再谈进退。\n\n夺取号旗、分段撤军，在危桥前决定最后一队的去留。",[{"text":"继续征程 · 箕谷断后","detail":"保留汉水战报，承接难度、战法及已解锁回澜。剧情为游戏演绎。","route":"journey:jigu"}],"军情 · 箕谷退令")
@@ -291,11 +306,11 @@ func continue_journey() -> bool:
 	return true
 
 func enter_next_chapter() -> bool:
-	if mode!="dialog" or state.chapter not in [1,2] or not state.complete: return false
+	if mode!="dialog" or state.chapter not in [1,2,3] or not state.complete: return false
 	var difficulty=state.difficulty
 	state.switch_chapter(state.chapter+1,difficulty,false)
 	resume_chapter_checkpoint(true)
-	toast("第二章 · 汉水孤营。接回黄忠，把退路布成自己的局。" if state.chapter==2 else "第三章 · 箕谷断后。先夺号旗，让将士分段撤出山谷。")
+	toast({2:"第二章 · 汉水孤营。接回黄忠，把退路布成自己的局。",3:"第三章 · 箕谷断后。先夺号旗，让将士分段撤出山谷。",4:"第四章 · 陈仓夜袭。借墙角破阵，先熄烽再断援。"}[state.chapter])
 	return true
 
 func enter_stage(id: String, spawn: Vector2 = Vector2.INF, checkpoint: bool = true) -> void:
@@ -303,6 +318,7 @@ func enter_stage(id: String, spawn: Vector2 = Vector2.INF, checkpoint: bool = tr
 	hero.spear_spirit=0
 	hero.buffer={}; hero.action={}; hero.dash_left=0; hero.invincible=.6
 	stage=id; definition=definitions[id]; active_boss=""; boss=null; rescue={}; arrows=[]; loot=[]; enemies=[]; allies=[]; civilians=[]; props=[]
+	combat_pacing.configure(stage,state.difficulty)
 	for child in actors.get_children():
 		if child==hero: continue
 		actors.remove_child(child); child.queue_free()
@@ -337,6 +353,9 @@ func enter_stage(id: String, spawn: Vector2 = Vector2.INF, checkpoint: bool = tr
 	elif state.chapter==3:
 		tactics=load("res://scripts/jigu_director.gd").new(); tactics.name="JiguDirector"; add_child(tactics); tactics.setup(self)
 		tactics.spawn_pending(0)
+	elif state.chapter==4:
+		tactics=load("res://scripts/chencang_director.gd").new(); tactics.name="ChencangDirector"; add_child(tactics); tactics.setup(self)
+		tactics.spawn_pending(0)
 	camera.position=hero.position; camera.reset_smoothing()
 	if checkpoint:
 		state.checkpoint={"stage":id,"x":hero.position.x,"y":hero.position.y,"encounter":""}; save_progress()
@@ -358,6 +377,9 @@ func new_action(key: String, data: Dictionary, direction: float) -> Dictionary:
 	return {"id":serial,"key":key,"def":data.duplicate(),"dir":direction,"t":0.0,"hits":[],"fired":false,"travel":0.0}
 
 static func attack_hits(origin: Vector2, target: Vector2, data: Dictionary, direction: float, radius: float = 0) -> bool:
+	if data.get("hit_shape","")=="circle":
+		var center=origin+Vector2.from_angle(direction)*float(data.get("hit_offset",0))
+		return center.distance_to(target)<=float(data.get("hit_radius",0))+radius
 	return origin.distance_to(target)<=data.range+radius and absf(angle_difference(direction,(target-origin).angle()))<=data.arc
 
 func melee_targets(origin, data: Dictionary, direction: float, mask: int) -> Array:
@@ -403,6 +425,14 @@ func attackers_count() -> int:
 	for enemy in enemies:
 		if enemy.body_alive() and not enemy.is_ranged() and (not enemy.sequence.is_empty() or not enemy.action.is_empty() and enemy.action.t<enemy.action.def.windup+enemy.action.def.active): count+=1
 	return count
+
+func claim_enemy_attack_turn() -> bool:
+	# Only a new normal-enemy sequence claims a turn. Combo links and boss
+	# duels keep their authored timing, and menus never run this clock.
+	return mode == "playing" and combat_pacing.claim()
+
+func enemy_chain_rest(enemy) -> float:
+	return combat_pacing.post_chain_rest(enemy.kind,enemy.boss_id)
 
 func camera_impact(strength: float) -> void:
 	shake=maxf(shake,strength)
@@ -488,6 +518,13 @@ func nearest_object() -> Dictionary:
 	if mode!="playing" or active_boss!="" or not rescue.is_empty(): return {}
 	var best=100.0; var target: Dictionary={}
 	for object in definition.objects:
+		if state.chapter==4:
+			var task=str(object.get("task",""))
+			if task!="" and state.flags.get(task,false): continue
+			if task=="route_choice" and (state.flags.cc_route_front or state.flags.cc_route_flank): continue
+			if object.kind=="boss" and state.flags.cc_boss: continue
+			if task=="cc_street_done" and not state.flags.get(str(object.get("need","")),false): continue
+			if object.id in ["cc_worker_gate","cc_side_camp"] and not state.flags.cc_workers: continue
 		if state.chapter==3:
 			var task=str(object.get("task",""))
 			if task!="" and state.flags.get(task,false): continue
@@ -514,6 +551,9 @@ func camp_threatened(object: Dictionary) -> bool:
 	return false
 
 func object_blocked(object: Dictionary) -> bool:
+	if state.chapter==4:
+		if camp_threatened(object): return true
+		return tactics.object_blocked(object) if is_instance_valid(tactics) else true
 	if state.chapter==3:
 		if camp_threatened(object): return true
 		if object.get("kind","")=="exit" and str(object.get("id","")).begins_with("jg_back") and (state.flags.jg_bridge_cut or state.flags.jg_bridge_held): return true
@@ -530,6 +570,9 @@ func object_blocked(object: Dictionary) -> bool:
 
 func interaction_text(object: Dictionary) -> String:
 	if object.is_empty(): return ""
+	if state.chapter==4:
+		if object.get("kind","")=="camp": return "先击退附近敌军，再休整。" if camp_threatened(object) else "营火整备 · 补药 / 选战法"
+		return tactics.interaction_text(object) if is_instance_valid(tactics) else "整队中"
 	if state.chapter==3:
 		if object.get("kind","")=="camp": return "先击退附近敌军，再休整。" if camp_threatened(object) else "营火整备 · 补药 / 选战法"
 		if str(object.get("id","")).begins_with("jg_back") and (state.flags.jg_bridge_cut or state.flags.jg_bridge_held): return "退路已定 · 前往谷口收军"
@@ -613,9 +656,28 @@ func interact_jigu(object: Dictionary) -> bool:
 			pending_stage={"id":object.to,"pos":spawn}; return true
 	return false
 
+func interact_chencang(object: Dictionary) -> bool:
+	if object_blocked(object): toast(interaction_text(object)); return false
+	match object.kind:
+		"chencang": return tactics.interact_object(object)
+		"boss": prepare_boss("warden"); return true
+		"finish": return finish()
+		"hint":
+			dialog("陈仓夜袭 · 军令","利用墙角切近弩手，先用 Q 或绕背破开盾阵。\n\n熄灭烽火后，可选择正门破阵或侧巷截援。烽台调令能截掉仓院援军，西院工匠能打开瓮城侧门。",[{"text":"领命前行","detail":"1 集合，2 守点，3 冲阵；军令目标靠近按 E。","route":"continue"}],"随军"); return true
+		"exit":
+			var spawn=Vector2.INF
+			if object.has("spawn_to"): spawn=Vector2(object.spawn_to[0],object.spawn_to[1])
+			elif str(object.id).begins_with("cc_back"):
+				for entry in definitions[object.to].objects:
+					if entry.get("to")==stage and not str(entry.id).begins_with("cc_back"):
+						spawn=Vector2(entry.x-55,entry.y+70); break
+			pending_stage={"id":object.to,"pos":spawn}; return true
+	return false
+
 func interact() -> bool:
 	var object=nearest_object()
 	if object.is_empty(): return false
+	if state.chapter==4 and object.kind!="camp": return interact_chencang(object)
 	if state.chapter==3 and object.kind!="camp": return interact_jigu(object)
 	if state.chapter==2 and object.kind!="camp": return interact_hanshui(object)
 	if object.kind=="camp":
@@ -674,9 +736,16 @@ func dialog(title: String, text: String, choices: Array, speaker: String) -> voi
 
 func choose_route(route: String) -> void:
 	if mode!="dialog": return
-	if route=="journey:hanshui" and state.chapter==1 or route=="journey:jigu" and state.chapter==2:
+	if route=="journey:hanshui" and state.chapter==1 or route=="journey:jigu" and state.chapter==2 or route=="journey:chencang" and state.chapter==3:
 		enter_next_chapter(); return
 	mode="playing"; ui.hide_overlay(); clear_input()
+	if route in ["chencang:front","chencang:flank"] and state.chapter==4:
+		tactics.choose_route(route=="chencang:front"); return
+	if route=="warden:commit" and state.chapter==4 and stage=="cc_final" and state.flags.cc_courtyard and is_instance_valid(tactics) and tactics.main_clear():
+		state.flags.cc_committed=true; state.record("赵云进入鼓楼决战，将退路交给随军。")
+		state.checkpoint={"stage":stage,"x":hero.position.x,"y":hero.position.y,"encounter":"warden"}
+		if not state.seen.has("warden"): state.seen.append("warden")
+		begin_boss("warden"); return
 	if route in ["jigu:cut","jigu:hold"] and state.chapter==3:
 		tactics.choose_bridge(route=="jigu:cut"); return
 	if route=="commit": state.flags.committed=true; pending_stage={"id":"bridge"}
@@ -690,6 +759,9 @@ func choose_route(route: String) -> void:
 	save_progress()
 
 func prepare_boss(id: String) -> void:
+	if id=="warden" and not state.flags.cc_committed:
+		dialog("鼓楼 · 重锤守关","镇关都尉握住长柄重锤，城砖在脚下低鸣。\n\n赵云：这一夜，进路由我们自己定。\n\n先看锤势再侧闪；圆形落点可走出，半血后短步接迟势回锤。确认迎战后进入本章最终收尾，支线请先完成。",[{"text":"迎战镇关都尉","detail":"长柄重锤，两阶段单挑；等整套收招后再进。","route":"warden:commit"},{"text":"回头整备","detail":"暂不进入决战，可以补调令或工匠支线。","route":"continue"}],"镇关都尉")
+		return
 	state.checkpoint={"stage":stage,"x":hero.position.x,"y":hero.position.y,"encounter":id}
 	if state.seen.has(id): begin_boss(id); return
 	state.seen.append(id)
@@ -712,11 +784,16 @@ func begin_boss(id: String) -> void:
 	for i in range(allies.size()):
 		allies[i].position=Vector2(1270+(i-1)*22,165+i*20) if id=="zhanghe" else Vector2(400+i*26,850)
 	for i in range(civilians.size()): civilians[i].position=Vector2(1270+(20 if i%2 else -20),260-i*28)
-	toast("夏侯恩 · 等第二剑收招再反击。" if id=="xiahou" else "铁面督军 · 钩锁后侧闪，双轮重斧等回斩。" if id=="dujun" else "玄甲先锋 · 侧闪直冲，等迟势回戟收完再还击。" if id=="vanguard" else "张郃 · 三连突后才有长破绽。"); save_progress()
+	toast("夏侯恩 · 等第二剑收招再反击。" if id=="xiahou" else "铁面督军 · 钩锁后侧闪，双轮重斧等回斩。" if id=="dujun" else "玄甲先锋 · 侧闪直冲，等迟势回戟收完再还击。" if id=="vanguard" else "镇关都尉 · 侧闪落锤，走出圆区；回锤结束后反击。" if id=="warden" else "张郃 · 三连突后才有长破绽。"); save_progress()
 
 func boss_defeated(enemy) -> void:
 	active_boss=""; arrows=[]; hero.action={}; hero.invincible=1
 	for ally in allies: ally.hp=ally.max_hp
+	if enemy.boss_id=="warden":
+		state.flags.cc_boss=true; state.checkpoint={"stage":"cc_final","x":1110.0,"y":500.0,"encounter":""}
+		state.record("镇关都尉败退，陈仓鼓楼换上了赵云的军旗。")
+		dialog("鼓楼收旗 · 夜色将尽","重锤落在城砖上，都尉退向暗处。\n\n赵云回身，城街里的脚步正在归队。\n\n这一次，长枪开出的不只是退路。",[{"text":"前往收军旗","detail":"靠近军旗按 E，结算陈仓夜袭战报。","route":"continue"}],"赵云")
+		sound.play_cue("victory"); save_progress(); return
 	if enemy.boss_id=="vanguard":
 		state.flags.jg_boss=true; state.checkpoint={"stage":"jg_final","x":1110.0,"y":500.0,"encounter":""}
 		state.record("玄甲先锋败退，箕谷撤军越过谷口。")
@@ -782,10 +859,13 @@ func retry() -> void:
 	var cp=state.checkpoint.duplicate(); hero.reset_combat(); mode="playing"
 	enter_stage(cp.stage,Vector2(cp.x,cp.y),false); state.checkpoint=cp; ui.hide_overlay()
 	if cp.encounter=="rescue": start_rescue()
-	elif cp.encounter in ["xiahou","zhanghe","dujun","vanguard"]: begin_boss(cp.encounter)
+	elif cp.encounter in ["xiahou","zhanghe","dujun","vanguard","warden"]: begin_boss(cp.encounter)
 	toast("重新握枪，已完成的救援和夺剑仍在。"); save_progress()
 
 func finish() -> bool:
+	if state.chapter==4:
+		if mode!="playing" or stage!="cc_final" or not state.flags.cc_boss or state.complete: return false
+		state.complete=true; mode="ending"; hero.buffer={}; clear_input(); save_progress(); ui.show_report(state.build_report()); sound.play_cue("victory"); return true
 	if state.chapter==3:
 		if mode!="playing" or stage!="jg_final" or not state.flags.jg_boss or state.complete: return false
 		state.complete=true; mode="ending"; hero.buffer={}; clear_input(); save_progress(); ui.show_report(state.build_report()); sound.play_cue("victory"); return true

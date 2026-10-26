@@ -5,7 +5,7 @@ const Game = preload("res://scripts/world.gd")
 const Campaign = preload("res://scripts/campaign.gd")
 const Roster = preload("res://scripts/enemy_roster.gd")
 const Enemy = preload("res://scripts/enemy.gd")
-const ATLAS_COUNTS = {"enemy_changban":6,"enemy_hanshui":6,"enemy_jigu":6,"enemy_commanders":4}
+const ATLAS_COUNTS = {"enemy_changban":6,"enemy_hanshui":6,"enemy_jigu":6,"enemy_commanders":4,"enemy_chencang":6,"enemy_warden":1}
 # chapter, region, combat kind, boss, group, independently authored profile
 const CASES = [
 	[1,"mountain","sword","","m1","cb_sword"],
@@ -29,16 +29,25 @@ const CASES = [
 	[1,"temple","boss","xiahou","boss","boss_xiahou"],
 	[1,"bridge","boss","zhanghe","boss","boss_zhanghe"],
 	[2,"hs_final","boss","dujun","boss","boss_dujun"],
-	[3,"jg_final","boss","vanguard","boss","boss_vanguard"]
+	[3,"jg_final","boss","vanguard","boss","boss_vanguard"],
+	[4,"cc_outer","sword","","cc_o1","cc_sword"],
+	[4,"cc_outer","spear","","cc_o1","cc_spear"],
+	[4,"cc_beacon","scout","","cc_b1","cc_scout"],
+	[4,"cc_outer","crossbow","","cc_o2","cc_crossbow"],
+	[4,"cc_outer","ironshield","","cc_o2","cc_ironshield"],
+	[4,"cc_beacon","crossbow","","cc_orders_guard","cc_orders"],
+	[4,"cc_final","boss","warden","boss","boss_warden"]
 ]
 const PROFILE_ORDER = {
 	"enemy_changban":["cb_sword","cb_spear","cb_archer","cb_shield","cb_elite","cb_village"],
 	"enemy_hanshui":["hs_sword","hs_spear","hs_scout","hs_crossbow","hs_ironshield","hs_beacon"],
 	"enemy_jigu":["jg_sword","jg_spear","jg_scout","jg_crossbow","jg_ironshield","jg_signal"],
-	"enemy_commanders":["boss_xiahou","boss_zhanghe","boss_dujun","boss_vanguard"]
+	"enemy_commanders":["boss_xiahou","boss_zhanghe","boss_dujun","boss_vanguard"],
+	"enemy_chencang":["cc_sword","cc_spear","cc_scout","cc_crossbow","cc_ironshield","cc_orders"],
+	"enemy_warden":["boss_warden"]
 }
 const KIND_HP = {"sword":72,"spear":91,"archer":58,"shield":115,"elite":285,"scout":75,"crossbow":65,"ironshield":140}
-const BOSS_HP = {"xiahou":830,"zhanghe":1350,"dujun":1450,"vanguard":1450}
+const BOSS_HP = {"xiahou":830,"zhanghe":1350,"dujun":1450,"vanguard":1450,"warden":1500}
 class MemoryCampaign extends Campaign:
 	func read_save() -> Dictionary: return {}
 	func save() -> bool: return true
@@ -143,7 +152,7 @@ func verify_manifest() -> bool:
 	if not raw is Dictionary: expect(false,"enemy atlas is a runtime dictionary"); return false
 	manifest = raw
 	var keys = manifest.keys(); keys.sort(); var expected = ATLAS_COUNTS.keys(); expected.sort()
-	expect(keys==expected,"new metadata contains exactly four independent enemy atlases")
+	expect(keys==expected,"new metadata contains exactly six independent enemy atlases")
 	var paths: Dictionary = {}; var all_valid = true
 	for key in ATLAS_COUNTS:
 		var info: Dictionary = manifest.get(key,{})
@@ -240,6 +249,8 @@ func selection_boundaries() -> void:
 	expect(Roster.resolve(2,"hs_forest","crossbow","","hs_beacon_guard").id=="hs_crossbow","beacon group name alone does not leak across regions")
 	expect(Roster.resolve(3,"jg_signal","crossbow","","jg_s1").id=="jg_crossbow","signal specialist requires the authored second group")
 	expect(Roster.resolve(3,"jg_fog","crossbow","","jg_s2").id=="jg_crossbow","signal specialist never leaks to fog encounters")
+	expect(Roster.resolve(4,"cc_beacon","crossbow","","cc_b2").id=="cc_crossbow","orders specialist requires its real optional guard group")
+	expect(Roster.resolve(4,"cc_outer","crossbow","","cc_orders_guard").id=="cc_crossbow","orders specialist never leaks outside beacon region")
 	world.load_chapter(1); world.state.reset("normal",1); world.mode="playing"; world.enter_stage("mountain",Vector2.INF,false)
 	var first = world.spawn_enemy("sword",Vector2(850,900),"binding-check")
 	var original = first.visual_profile.duplicate(true)
@@ -264,7 +275,7 @@ func run() -> void:
 	root.add_child(world); world.set_process(false); world.set_physics_process(false); await settle()
 	for row in CASES: await verify_case(row)
 	selection_boundaries()
-	expect(seen_profiles.size()==22 and seen_frames.size()==22,"all eighteen chapter soldiers and four commanders have distinct frame mappings")
+	expect(seen_profiles.size()==29 and seen_frames.size()==29,"all twenty-four chapter soldiers and five commanders have distinct frame mappings")
 	expect(fingerprints()==before,"enemy roster verification never rewrites player save files")
 	print("ENEMY_ROSTER_VERIFY ",checks," checks; ",failures.size()," failures; profiles=",seen_profiles.size()," distinct_frames=",seen_frames.size())
 	world.queue_free(); await process_frame; await process_frame
