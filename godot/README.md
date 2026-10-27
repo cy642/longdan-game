@@ -1,8 +1,8 @@
 # 龙胆：逆命三国 · Godot 电脑版
 
-当前 0.8.0（2026-10-26）已实现第四章「陈仓夜袭」，共四章二十四区、24 种独立兵卒与 5 位将领。新章有正门/侧巷两条路线、调令/工匠两条支线，以及使用双手重锤的「镇关都尉」。陈仓剧情为架空逆命演绎。
+当前开发版 0.9.0（2026-10-27）聚焦「第一章品质样板」，保留四章二十四区、24 种独立兵卒与 5 位将领。本轮新增赵云连续网格动作、接触音色与火花、可靠晚输入，以及长坂站位、六区地面痕迹和剧情演出。第四章「陈仓夜袭」的两路线、两支线与重锤首领继续保留；陈仓剧情为架空逆命演绎。
 
-本轮源码 34 组回归共 89,667 项断言、0 失败；最终地图复拍 16/0、地图专项 487/0，并完成原生短样本、Windows 启动/ZIP 完整性、实际 Web PCK 的资源/角色/流程检查及浏览器基本操作。0.8.0 已发布，线上包大小与 SHA-256 和本地一致；预览浏览器的稀疏采样不用于流畅度结论，完整人工通关与长时前台帧率仍待实玩校准。最新状态见 [开发记录](../CLOUD-POLISH.md)，后续开发从 [当前交接](../docs/DEVELOPMENT-HANDOFF.md) 开始。
+0.9.0 已完成38组整合回归（109,411/0、无脚本错误）、后续收尾专项、17张地图／11张品质场景、动作前后各140帧、三场原生有效短样本，以及Windows启动／ZIP和最终实际PCK验证；浏览器与线上包核对仍待补，不沿用0.8.0发布成绩。首章 10–15 分钟是体验目标；连续网格动作不等于新绘独立八方向逐帧素材，完整人工通关和长时前台帧率仍待实玩校准。最新状态见 [开发记录](../CLOUD-POLISH.md)，后续开发从 [当前交接](../docs/DEVELOPMENT-HANDOFF.md) 和 [首章制作标准](../docs/CHAPTER-1-QUALITY-SLICE.md) 开始。
 
 枪势、战法、首玩提示、营火引导、敌人状态反馈、黄忠援射与护车玩法继续保留。制作规范见 [地图美术规范](../docs/MAP-ART-DIRECTION.md)，已有绘画重建约定见 [环境管线](../docs/PAINTED-ENVIRONMENT.md)，新章合同见 [陈仓设计稿](../docs/CHAPTER-4-CHENCANG.md)。可编辑关卡为 `data/chapter1.json` 至 `chapter4.json`，第一章局部地标补充为 `data/map_details.json`；四章巡游入口为 `../Map-Tour.cmd`。正式构建沿用原有 Godot 存档目录。
 
@@ -95,7 +95,15 @@
 
 本轮不提升存档版本；营火访问标记追加到原有 `seen` 数组（例如 `camp:mountain`），保留旧剧情记录。玩家选择保留基础枪法后，读档不会再次被引导回已访问的营火。黄忠援射的拉弓、飞箭和冷却属于本次遭遇运行状态，不添加永久奖励或新章节存档字段。
 
+[第一章六区实景](../docs/images/changban-0.9.0.jpg) · [赵云动作动态对照](../docs/images/zhaoyun-motion-0.9.0.gif)。后者为7秒／20FPS的归格动作采样，不是实战或新绘逐帧素材。
+
 ## Godot 的结构
+
+- `scripts/hero_motion.gd`、`actor_visual.gd`：赵云方向帧的脚锚、上半身刚性变换、交替腿步和连续出枪；不改人物密度或攻击判定。`hero_snapshot()` 为闪避后像提供独立 Mesh，之后的动作不修改既有后像。
+- `scripts/hero.gd`、`combat_feedback.gd`：0.14 秒输入缓冲按实际合法边界消费，最多分割一次当前物理步；无效输入不覆盖已接受动作。接触分类只控制表现，不修改原伤害／气力／精准窗口。`enemy.gd` 在实际伤害后、击败事件之前调用 `Hero.contact_feedback`，随军／环境保留独立路径。
+- `scripts/changban_combat.gd`：仅第一章普通兵的肩侧、枪距、弓手遮挡与移位；原目标选择、进攻人数和共享起手间隔继续生效，不新增存档字段。
+- `scripts/changban_direction.gd`、`interface.gd`：首次入区地名、接近遭遇提示和剧情结果字幕；不阻断操控、不改变缩放或主路任务，运行提示不写进度。
+- `scripts/changban_presentation.gd`、`data/map_details.json`：首章六区静态地面痕迹及限量动态烟尘／落叶／水光／暖灯；随既有旗标更新，暂停、死亡和顿帧冻结。`tools/bake_changban.gd` 只重烘焙第一章六地表，保留其他章节与共享图集。
 
 - `scripts/enemy_roster.gd`、`data/enemy_atlas.json`、`assets/enemies/`：四章 24 种兵卒与 5 位将领，共 29 档案、六张原画图集。章节、行为类型及少量支线身份决定画像，行为和存档仍使用原 `kind/boss_id`。`tools/prepare_enemy_assets.py` 读取 `art_source/characters/enemy-calibration.json`，按人体尺寸、靴底、头部及刚性武器区域生成清单，不改写原 PNG；`--check` 只校验。邻帧裁框可重叠，但排除后的可见像素不得重复，制作工具不能删除自身像素。
 - `tests/enemy_roster_verify.gd`：遍历 29 种实际画像并检查比例、真实靴底像素、刚性脸/武器与缓存独立性；旧 NPC 保留原素材。`tests/enemy_roster_preview.gd` 保留前三章联系表入口，陈仓实景由 `chencang_preview.gd` 检查。预览使用新 `--label`，拒绝覆盖旧证据。新原画仍采用连续网格动作与左右镜像，不是八方向逐帧动画。
@@ -168,12 +176,16 @@ godot --headless --path godot --script res://tests/chencang_flow_verify.gd
 godot --headless --path godot --script res://tests/chencang_campaign_verify.gd
 godot --headless --path godot --script res://tests/warden_enemy_verify.gd
 godot --headless --path godot --script res://tests/warden_visual_verify.gd
+godot --headless --path godot --script res://tests/hero_motion_verify.gd
+godot --headless --path godot --script res://tests/combat_feedback_verify.gd
+godot --headless --path godot --script res://tests/changban_direction_verify.gd
+godot --headless --path godot --script res://tests/changban_presentation_verify.gd
 New-Item -ItemType Directory -Force builds/windows, godot-play | Out-Null
 godot --headless --path godot --export-release "Windows Desktop"
 godot --headless --path godot --export-release "Web"
 ```
 
-Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与 34 组回归：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。涵盖四章流程、存档、角色、地图与难度调度。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程环境；保留发行日志时另用新的日志前缀。两个 `.cmd` 启动器也接受引擎路径作为首参数，或使用 `GODOT_EXE` / PATH。
+Windows 可用根目录 `Run-Checks.ps1` 一次执行导入与38组回归套件：`./Run-Checks.ps1 -Engine "引擎可执行文件路径"`；Linux/macOS 可运行 `./Run-Checks.sh /path/to/godot`。涵盖四章流程、存档、角色、地图、难度调度及第一章品质样板。`-Engine` 省略时先读取环境变量 `GODOT_EXE`，再寻找 PATH 中的 `godot` / `godot4`。输出写入 `.qa/`，缓存与存档使用 `.qa/runtime/`，仅修改当前进程环境；保留发行日志时另用新的日志前缀。两个 `.cmd` 启动器也接受引擎路径作为首参数，或使用 `GODOT_EXE` / PATH。检查脚本在退出码为0但日志含SCRIPT ERROR／ERROR时仍判失败。
 
 输出目录为仓库的 `builds/windows/` 与 `godot-play/`。`builds/`、`.godot/`、`.qa/`、日志和本机引擎不入库。`godot-play/` 是已跟踪的 Web 导出，修改 Godot 游戏后须重新导出并与源码一起提交。现有 GitHub Pages 从 `main` 分支的仓库根目录自动发布，Pages 流程不会替你运行测试或导出 Godot。根 `index.html` 跳转至 `./godot-play/`，加载页统一显示「开始游戏」。仓库已移除旧 Canvas 页面、脚本和构建工具，只保留 Godot 游戏。
 

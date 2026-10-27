@@ -36,6 +36,7 @@ function Invoke-GodotCheck {
         $ErrorActionPreference = $savedErrorPreference
     }
     if ($engineExitCode -ne 0) { throw "Godot failed with exit code ${engineExitCode}; see .qa/$LogName" }
+    if (Select-String -LiteralPath (Join-Path $qaDir $LogName) -Pattern "SCRIPT ERROR:|^ERROR:" -Quiet) { throw "Godot logged an engine/script error; see .qa/$LogName" }
 }
 
 try {
@@ -47,7 +48,7 @@ try {
     New-Item -ItemType Directory -Path $env:APPDATA,$env:LOCALAPPDATA,$env:TEMP -Force | Out-Null
     $godotProject = Join-Path $projectRoot 'godot'
     Invoke-GodotCheck -Arguments @('--headless','--path',$godotProject,'--editor','--import','--quit') -LogName 'import.log'
-    foreach ($suite in @('verify','hero_scale_verify','audio_verify','map_verify','map_view_verify','atmosphere_verify','theme_atmosphere_verify','enemy_animation_verify','hanshui_layout_verify','hanshui_world_layout_verify','hanshui_enemy_verify','hanshui_visual_verify','hanshui_flow_verify','combat_loop_verify','battle_art_verify','hanshui_pacing_verify','chapter_progression_verify','first_minutes_verify','combat_clarity_verify','huangzhong_support_verify','scenery_occlusion_verify','painted_assets_verify','jigu_layout_verify','jigu_flow_verify','jigu_campaign_verify','vanguard_enemy_verify','vanguard_visual_verify','enemy_roster_verify','combat_pacing_verify','chencang_layout_verify','chencang_flow_verify','chencang_campaign_verify','warden_enemy_verify','warden_visual_verify')) {
+    foreach ($suite in @('verify','hero_scale_verify','audio_verify','map_verify','map_view_verify','atmosphere_verify','theme_atmosphere_verify','enemy_animation_verify','hanshui_layout_verify','hanshui_world_layout_verify','hanshui_enemy_verify','hanshui_visual_verify','hanshui_flow_verify','combat_loop_verify','battle_art_verify','hanshui_pacing_verify','chapter_progression_verify','first_minutes_verify','combat_clarity_verify','huangzhong_support_verify','scenery_occlusion_verify','painted_assets_verify','jigu_layout_verify','jigu_flow_verify','jigu_campaign_verify','vanguard_enemy_verify','vanguard_visual_verify','enemy_roster_verify','combat_pacing_verify','chencang_layout_verify','chencang_flow_verify','chencang_campaign_verify','warden_enemy_verify','warden_visual_verify','hero_motion_verify','combat_feedback_verify','changban_presentation_verify','changban_direction_verify')) {
         Invoke-GodotCheck -Arguments @('--headless','--path',$godotProject,'--script',"res://tests/$suite.gd") -LogName "$suite.log"
     }
 } finally {

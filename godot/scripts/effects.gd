@@ -5,6 +5,7 @@ var entries: Array = []
 var labels: Array = []
 var font: Font
 var soft = false
+const STATUS_TEXT = {"phase":"变招 · 留意新式","break":"破势 · 追击","shield":"盾防已破","recovery":"收招 · 反击","guard":"稳势 · 抗轻击"}
 
 func _ready() -> void:
 	font = load("res://assets/fonts/NotoSansSC-Regular.otf")
@@ -13,10 +14,70 @@ func add(type: String, p: Vector2, duration: float, info: Dictionary = {}) -> vo
 	entries.append({"type":type,"pos":p,"life":duration,"total":duration,"info":info})
 
 func floater(p: Vector2, message: String, color: Color = Color("fff0bb")) -> void:
-	labels.append({"pos":p+Vector2(0,-78),"text":message,"color":color,"life":.9})
+	var owner = feedback_actor(p)
+	# These states already have persistent readable plates and timers. A
+	# second identical shout on top of the damage number adds no information.
+	if is_instance_valid(owner):
+		var status=owner.combat_status()
+		if message=="破盾" and status=="shield" or message=="破势 · 反击" and status=="break" or message=="稳住阵脚" and status=="guard": return
+	for entry in labels:
+		if entry.text==message and entry.life>.78 and entry.get("source",p+Vector2(1000,0)).distance_to(p)<8: return
+	var base=p+Vector2(0,-enemy_body_height(owner)-49 if is_instance_valid(owner) else -78)
+	var at=base
+	var line_height=font.get_height(15)+7 if font else 25.0
+	# Start above the actor's status/HP band, then use at most three rows and
+	# nearby columns. This keeps same-hit text separate without a large panel.
+	for slot in range(12):
+		var column=0.0 if slot<3 else -64.0 if slot<6 else 64.0 if slot<9 else 0.0
+		at=base+Vector2(column,-float(slot%3)*line_height-(line_height*3 if slot>=9 else 0.0))
+		var bounds=floater_bounds(at,message); var occupied=false
+		for entry in labels:
+			if entry.life>.08 and bounds.intersects(floater_bounds(entry.pos,str(entry.text)).grow(2)): occupied=true; break
+		if not occupied and is_instance_valid(world):
+			for enemy in world.enemies:
+				if enemy.body_alive() and bounds.intersects(enemy_header_bounds(enemy).grow(3)): occupied=true; break
+		if not occupied: break
+	labels.append({"pos":at,"source":p,"text":message,"color":color,"life":.9})
+
+func feedback_actor(at: Vector2):
+	if not is_instance_valid(world): return null
+	var closest=null; var distance=8.0
+	for enemy in world.enemies:
+		if not is_instance_valid(enemy) or not enemy.body_alive(): continue
+		var candidate=enemy.position.distance_to(at)
+		if candidate<distance: closest=enemy; distance=candidate
+	return closest
+
+func enemy_body_height(enemy) -> float:
+	return float(enemy.visual_profile.get("height",84.0 if enemy.kind in ["boss","elite"] else 65.0))
+
+func floater_bounds(at: Vector2,message: String) -> Rect2:
+	var width=font.get_string_size(message,HORIZONTAL_ALIGNMENT_LEFT,-1,15).x if font else message.length()*15.0
+	var ascent=font.get_ascent(15) if font else 15.0
+	var height=font.get_height(15) if font else 20.0
+	return Rect2(at+Vector2(-width*.5-3,-ascent-3),Vector2(width+6,height+6))
+
+func enemy_header_bounds(enemy) -> Rect2:
+	var height=enemy_body_height(enemy); var text=str(STATUS_TEXT.get(enemy.combat_status(),""))
+	if text.is_empty() and enemy.hp>=enemy.max_hp and enemy.stagger<=0: return Rect2(enemy.position,Vector2.ZERO)
+	var width=maxf(40,font.get_string_size(text,HORIZONTAL_ALIGNMENT_LEFT,-1,12).x+12) if font else 108.0
+	var top=-height-37 if not text.is_empty() else -height-13
+	return Rect2(enemy.position+Vector2(-width*.5,top),Vector2(width,-height-3-top))
+
+func contact(p: Vector2, direction: float, profile: Dictionary, lethal: bool = false) -> void:
+	var info = profile.duplicate()
+	info.dir = direction; info.lethal = lethal
+	add("contact",p,float(profile.life),info)
 
 func ghost(actor) -> void:
 	if soft: return
+	if actor.visual.has_method("hero_snapshot"):
+		var snapshot: Dictionary = actor.visual.hero_snapshot()
+		if not snapshot.is_empty():
+			var transform: Transform2D = snapshot.transform
+			transform.origin += actor.position
+			add("ghost",actor.position,.22,{"mesh":snapshot.mesh,"texture":snapshot.texture,"transform":transform})
+			return
 	var body = actor.visual.body
 	add("ghost",actor.position,.22,{"texture":body.texture,"offset":body.position,"scale":body.scale,"rotation":actor.visual.rotation})
 
@@ -106,6 +167,8 @@ func _draw() -> void:
 		var p = e.pos; var t = 1-e.life/e.total; var alpha = 1-t; var info = e.info
 		var r = float(info.get("radius",50)); var direction = float(info.get("dir",0)); var arc = float(info.get("arc",.7))
 		match e.type:
+			"contact":
+				draw_contact(p,direction,r,t,alpha,str(info.get("style","light")))
 			"fire_warning":
 				draw_circle(p,r,Color(.9,.32,.18,.13)); draw_arc(p,r,0,TAU,40,Color(1,.58,.3,.8),2,true)
 				draw_arc(p,r*(.2+.8*t),0,TAU,40,Color(1,.7,.3,.8),2,true)
@@ -156,15 +219,42 @@ func _draw() -> void:
 			"dust":
 				for i in range(3): draw_circle(p+Vector2(i*4-4,-t*8),r*(.25+.35*t),Color(.88,.81,.59,alpha*.19))
 			"ghost":
-				draw_set_transform(p+info.offset,info.rotation,info.scale)
-				draw_texture(info.texture,Vector2.ZERO,Color(.59,.92,.96,alpha*.23))
-				draw_set_transform(Vector2.ZERO)
+				if info.has("mesh"):
+					draw_mesh(info.mesh,info.texture,info.transform,Color(.59,.92,.96,alpha*.23))
+				else:
+					draw_set_transform(p+info.offset,info.rotation,info.scale)
+					draw_texture(info.texture,Vector2.ZERO,Color(.59,.92,.96,alpha*.23))
+					draw_set_transform(Vector2.ZERO)
 	for label in labels:
 		var alpha = minf(1,label.life/.25)
 		var width = font.get_string_size(label.text,HORIZONTAL_ALIGNMENT_LEFT,-1,15).x
 		var p = label.pos-Vector2(width/2,0)
 		draw_string_outline(font,p,label.text,HORIZONTAL_ALIGNMENT_LEFT,-1,15,3,Color(.08,.15,.15,alpha))
 		draw_string(font,p,label.text,HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color(label.color,alpha))
+
+func draw_contact(p: Vector2, direction: float, radius: float, t: float, alpha: float, style: String) -> void:
+	# Tight directional contact marks stay on the target. Unlike attack trails,
+	# they never appear on an empty swing or cover the enemy's ground warning.
+	var color = Color("a9eff0")
+	if style == "guard": color=Color("b2c3ce")
+	elif style in ["heavy","break"]: color=Color("edcc89")
+	elif style == "counter": color=Color("b9fff3")
+	color.a=alpha*.88
+	var normal=Vector2.from_angle(direction); var across=normal.orthogonal()
+	var expansion=.2+.8*t; var width=1.2 if soft else 2.0
+	if style == "guard":
+		var center=p-normal*3
+		draw_arc(center,radius*.7,direction+PI-.85,direction+PI+.85,12,color,width,true)
+		draw_line(center-across*radius*.42,center+across*radius*.42,Color(color,alpha*.45),width,true)
+	else:
+		draw_line(p-normal*radius*.45*expansion,p+normal*radius*.55*expansion,color,width,true)
+		for i in range(4 if soft else 6):
+			var angle=direction+PI+(float(i)/(3.0 if soft else 5.0)-.5)*2.25
+			var ray=Vector2.from_angle(angle)
+			var distance=radius*(.2+float(i%3)*.18)*expansion
+			draw_line(p+ray*distance,p+ray*(distance+radius*.22*(1-t)),color,width,true)
+		if style in ["counter","break"]:
+			draw_arc(p,radius*(.3+.5*t),direction-.95,direction+.95,18,Color(color,alpha*.6),width,true)
 
 func draw_vanguard_strike(p: Vector2,direction: float,radius: float,arc: float,t: float,alpha: float,style: String) -> void:
 	# Narrow steel edges and sparse red sparks identify the long halberd. The
@@ -227,7 +317,7 @@ func draw_warden_strike(p: Vector2,direction: float,radius: float,arc: float,t: 
 
 func draw_enemy_status(enemy) -> void:
 	var p = enemy.position
-	var body_height = float(enemy.visual_profile.get("height",84.0 if enemy.kind in ["boss","elite"] else 65.0))
+	var body_height = enemy_body_height(enemy)
 	var bar_y = -body_height-11.0
 	# Only the nameplate is culled; a distant bow can still telegraph into
 	# the viewport. This avoids redrawing offscreen health/text every frame.
@@ -241,7 +331,7 @@ func draw_enemy_status(enemy) -> void:
 		if enemy.stagger_shield <= 0:
 			draw_rect(Rect2(p+Vector2(-18,bar_y+5),Vector2(36*clampf(enemy.stagger/enemy.stagger_max,0,1),2)),Color("efcf83"))
 	var status = enemy.combat_status()
-	var text = {"phase":"变招 · 留意新式","break":"破势 · 追击","shield":"盾防已破","recovery":"收招 · 反击","guard":"稳势 · 抗轻击"}.get(status,"")
+	var text = STATUS_TEXT.get(status,"")
 	var tint = Color("e8d398") if status not in ["guard","recovery"] else Color("e6ae72") if status == "guard" else Color("a7e1d1")
 	if text!="" and font:
 		var size = font.get_string_size(text,HORIZONTAL_ALIGNMENT_LEFT,-1,12).x

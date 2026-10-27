@@ -1,5 +1,6 @@
 extends "res://scripts/actor.gd"
 const EnemyRoster = preload("res://scripts/enemy_roster.gd")
+const ChangbanCombat = preload("res://scripts/changban_combat.gd")
 const BOSS_MOVES = {
 	"warden": [
 		[{"name":"扣步落锤","windup":1.05,"active":.18,"recovery":1.20,"range":180.0,"arc":.75,"damage":29,"lock_fraction":.32,"style":"warden_drop"}],
@@ -173,8 +174,10 @@ func advance(dt: float) -> void:
 	alerted = true; facing = (target.position - position).angle()
 	var distance = position.distance_to(target.position)
 	var reach = 225 if kind == "boss" else 445 if is_ranged() else 138 if kind == "spear" else 135 if kind == "ironshield" else 88 if kind == "scout" else 78
-	if distance < reach and cooldown <= 0 and (ranged_slot_available() if is_ranged() else kind == "boss" or world.attackers_count() < 2) and (kind == "boss" or not sequence.is_empty() or not world.has_method("claim_enemy_attack_turn") or world.claim_enemy_attack_turn()):
+	if distance < reach and cooldown <= 0 and ChangbanCombat.attack_lane(self,target) and (ranged_slot_available() if is_ranged() else kind == "boss" or world.attackers_count() < 2) and (kind == "boss" or not sequence.is_empty() or not world.has_method("claim_enemy_attack_turn") or world.claim_enemy_attack_turn()):
 		start_action(target)
+	elif ChangbanCombat.advance_spacing(self,target,dt):
+		pass
 	elif is_ranged() and distance < 150:
 		move_ground(-Vector2.from_angle(facing) * speed * dt)
 	elif distance > reach * .68:
@@ -243,6 +246,9 @@ func take_hit(damage: float, direction: float, knock: float, source: String, poi
 	if hp <= 0 or phase_time > 0 or (world.active_boss != "" and world.boss != self): return
 	var armored = kind in ["shield", "elite","ironshield"] and shield_broken <= 0
 	var blocked = armored and absf(angle_difference(facing, direction + PI)) < 1.15 and not break_shield
+	var player_feedback=source=="player" and is_instance_valid(world.hero) and world.hero.has_method("contact_feedback")
+	var broke_shield=armored and break_shield
+	var broke_poise=false
 	if blocked:
 		damage *= .24; poise *= .45; world.fx.floater(position, "盾挡", Color("b9cdd4"))
 	if armored and break_shield:
@@ -252,7 +258,7 @@ func take_hit(damage: float, direction: float, knock: float, source: String, poi
 	var actual = minf(maxf(0, hp - floor_hp), damage)
 	if actual <= 0: return
 	hp = maxf(floor_hp, hp - actual); hurt_flash = .16; alerted = true
-	if source != "ally": world.fx.add("impact", position + Vector2(0,-24), .25, {"dir": direction, "gold": break_shield})
+	if source != "ally" and not player_feedback: world.fx.add("impact", position + Vector2(0,-24), .25, {"dir": direction, "gold": break_shield})
 	if source == "player": world.hero.rage = minf(100, world.hero.rage + 4)
 	if kind != "boss" and not blocked:
 		knockback += Vector2.from_angle(direction) * knock
@@ -268,11 +274,14 @@ func take_hit(damage: float, direction: float, knock: float, source: String, poi
 	if stagger_shield <= 0:
 		stagger += poise
 		if stagger >= stagger_max:
+			broke_poise=true
 			stagger = 0; stun = 2.1 if kind == "boss" else 1.3; stagger_shield = 4.4; action = {}; sequence = []; cooldown = 1.2
 			poise_break_left = stun
-			world.fx.add("break",position,.5,{"radius":65.0}); world.fx.floater(position,"破势 · 反击",Color("f6d89d")); world.sound.play_cue("break")
+			world.fx.add("break",position,.5,{"radius":65.0}); world.fx.floater(position,"破势 · 反击",Color("f6d89d"))
+			if not player_feedback: world.sound.play_cue("break")
 	if visual: visual.react_to_hit(direction, blocked, hp <= 0)
 	world.fx.floater(position,str(int(round(actual))),Color("a7c6b0") if source == "ally" else Color("fff0bb"))
+	if player_feedback: world.hero.contact_feedback(self,direction,actual,blocked,broke_shield,broke_poise,hp<=0)
 	if hp <= 0:
 		action = {}; sequence = []; collision_layer = 0
 		world.state.kills += 1; world.hero.rage = minf(100,world.hero.rage + 8)
@@ -283,4 +292,4 @@ func take_hit(damage: float, direction: float, knock: float, source: String, poi
 			world.toast("盾阵已破，靠近粮草按 E 点火。"); world.save_progress()
 		elif world.rng.randf() < .22: world.loot.append({"pos":position,"life":35.0})
 		world.check_groups()
-	else: world.sound.play_cue("hit")
+	elif not player_feedback: world.sound.play_cue("hit")

@@ -1,5 +1,6 @@
 extends "res://scripts/actor.gd"
 ## Explicit windup / active / recovery with one buffered deliberate input.
+const CombatFeedback = preload("res://scripts/combat_feedback.gd")
 const BUFFER = .14
 var qi = 100.0
 var rage = 0.0
@@ -51,23 +52,34 @@ func attack_direction(aim: float) -> float:
 	return (combo_target.position - position).angle() if is_instance_valid(combo_target) else facing
 
 func request(kind_name: String, move: Vector2 = Vector2.ZERO, aim: float = INF) -> bool:
-	buffer = {}
-	if world.mode != "playing": return false
-	if perform(kind_name, move, aim): return true
-	var wait = 0.0
-	if not action.is_empty():
-		var d = action.def
-		wait = d.windup + d.active - action.t if kind_name == "dash" else d.windup + d.active + d.recovery - action.t
-	if kind_name == "dash": wait = maxf(wait, maxf(dash_left, dash_cd))
-	else: wait = maxf(wait, maxf(dash_left, sweep_cd if kind_name == "sweep" else 0))
+	if world.mode != "playing": buffer = {}; return false
+	if perform(kind_name, move, aim): buffer = {}; return true
+	var wait = input_wait(kind_name)
 	var resource = kind_name == "attack" or kind_name == "dash" and qi >= 16 or kind_name == "sweep" and qi >= 30 or kind_name == "sword" and world.state.flags.sword and rage >= 100
 	if resource and wait > 0 and wait <= BUFFER:
 		buffer = {"kind": kind_name, "move": move, "aim": aim, "left": BUFFER}
 		return true
+	# A rejected request (for example Q with no qi) must not silently erase
+	# a valid late dodge/attack. Only a newly accepted deliberate input replaces it.
 	if kind_name != "attack" and feedback_left <= 0:
 		var reason=unavailable_reason(kind_name)
 		if reason!="": world.toast(reason); feedback_left=.75
 	return false
+
+func input_wait(kind_name: String) -> float:
+	var wait = 0.0
+	if not action.is_empty():
+		var d = action.def
+		if kind_name != "dash": wait = d.windup + d.active + d.recovery - action.t
+		elif action.t >= d.windup and action.t < d.windup+d.active: wait = d.windup+d.active-action.t
+	if kind_name == "dash":
+		wait = maxf(wait, maxf(dash_left, dash_cd))
+		if not action.is_empty():
+			var ready_time = action.t+wait
+			if ready_time >= action.def.windup and ready_time < action.def.windup+action.def.active:
+				wait = action.def.windup+action.def.active-action.t
+	else: wait = maxf(wait, maxf(dash_left, sweep_cd if kind_name == "sweep" else 0))
+	return maxf(0.0,wait)
 
 func unavailable_reason(kind_name: String) -> String:
 	# A single read-only explanation drives both failed input and the HUD.
@@ -133,20 +145,44 @@ func perform(kind_name: String, move: Vector2, aim: float) -> bool:
 	if empowered: action.empowered = true
 	return true
 
+func age_buffer(dt: float) -> void:
+	if buffer.is_empty(): return
+	# Remember a legal boundary crossed during this physics step. At a dropped
+	# frame, the ready instant can be inside BUFFER even if the frame ends later.
+	# Evaluate before cooldowns/actions advance; the input does not gain time.
+	buffer.frame_ready = input_wait(str(buffer.kind)) <= minf(maxf(0,dt),maxf(0,float(buffer.left)))+.000001
+	buffer.left -= dt
+	if buffer.left < 0 and not buffer.frame_ready: buffer = {}
+
 func consume_buffer(dt: float) -> void:
 	if buffer.is_empty(): return
-	buffer.left -= dt
-	if buffer.left < 0:
+	if dt > 0: age_buffer(dt)
+	if buffer.is_empty(): return
+	if buffer.left < 0 and not buffer.get("frame_ready",false):
 		buffer = {}; return
 	var b = buffer.duplicate()
 	if perform(b.kind, b.move, b.aim): buffer = {}
 
 func advance(dt: float, move: Vector2, held_attack: bool, aim: float) -> void:
+	if visual: visual.advance_time(dt)
+	# Split at most once at the queued input's legal boundary. A slow frame
+	# cannot skip the last chance to dodge, or cancel an active strike early.
+	if not buffer.is_empty():
+		var ready = input_wait(str(buffer.kind))
+		if ready > .000001 and ready < dt-.000001 and ready <= float(buffer.left)+.000001:
+			advance_step(ready,move,held_attack,aim)
+			if world.mode == "playing" and hp > 0: advance_step(dt-ready,move,held_attack,aim)
+			return
+	advance_step(dt,move,held_attack,aim)
+
+func advance_step(dt: float, move: Vector2, held_attack: bool, aim: float) -> void:
+	var ready_at_start = not buffer.is_empty() and input_wait(str(buffer.kind)) <= .000001
+	age_buffer(dt)
 	tick_common(dt)
 	for key in ["combo_left", "sweep_cd", "dash_cd", "dash_left", "invincible", "counter_left", "feedback_left"]:
 		set(key, maxf(0, float(get(key)) - dt))
 	dash_age += dt; qi = minf(100, qi + dt * (0 if dash_left > 0 else 17))
-	consume_buffer(dt)
+	if action.is_empty() and ready_at_start: consume_buffer(0)
 	if action.is_empty():
 		if is_finite(aim): facing = aim
 		elif move.length() > .1: facing = move.angle()
@@ -167,7 +203,25 @@ func advance(dt: float, move: Vector2, held_attack: bool, aim: float) -> void:
 	if held_attack and buffer.is_empty(): perform("attack", move, aim)
 	advance_action(dt)
 	consume_buffer(0)
+	if not buffer.is_empty():
+		buffer.erase("frame_ready")
+		if buffer.left < 0: buffer = {}
 	update_visual()
+
+func contact_feedback(enemy, direction: float, amount: float, blocked: bool, broke_shield: bool, broke_poise: bool, lethal: bool) -> void:
+	if amount <= 0 or not is_instance_valid(enemy): return
+	var key = str(action.get("key","thrust1"))
+	var profile = CombatFeedback.contact(key,blocked,broke_shield,broke_poise)
+	world.fx.contact(enemy.position+Vector2(0,-26),direction,profile,lethal)
+	# A wide sweep can touch several hitboxes in the same frame. Give it one
+	# contact voice, plus at most one upgrade if a later hit breaks a guard.
+	var rank = int(profile.rank)
+	if action.is_empty(): world.sound.play_contact(str(profile.cue)); return
+	var previous = int(action.get("contact_rank",0))
+	if previous == 0 or rank > previous and not action.get("contact_upgraded",false):
+		world.sound.play_contact(str(profile.cue))
+		if previous > 0: action.contact_upgraded = true
+		action.contact_rank = rank
 
 func advance_action(dt: float) -> void:
 	if action.is_empty(): return

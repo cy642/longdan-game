@@ -38,6 +38,11 @@ var theme_resource: Theme
 var support_panel: Control
 var support_text: Label
 var support_clock=0.0
+var scene_stamp: VBoxContainer
+var scene_heading: Label
+var scene_detail: Label
+var scene_stamp_left=0.0
+var scene_stamp_total=1.0
 
 func _ready() -> void:
 	layer=20; font=load("res://assets/fonts/NotoSansSC-Regular.otf")
@@ -128,6 +133,13 @@ func build_hud() -> void:
 	rescue_bar=bar(hud,"a9cdad",6); dock(rescue_bar,Control.PRESET_CENTER_TOP,Rect2(-160,146,320,6))
 	marker=Control.new(); marker.mouse_filter=Control.MOUSE_FILTER_IGNORE; hud.add_child(marker)
 	marker_label=label("◆",marker,19,"f5d184"); marker_label.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	scene_stamp=VBoxContainer.new(); scene_stamp.mouse_filter=Control.MOUSE_FILTER_IGNORE; hud.add_child(scene_stamp)
+	dock(scene_stamp,Control.PRESET_CENTER_TOP,Rect2(-260,86,520,64))
+	scene_heading=label("",scene_stamp,25,"f1dfb7"); scene_heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	scene_detail=label("",scene_stamp,14,"c5d2bd"); scene_detail.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	for line in [scene_heading,scene_detail]:
+		line.add_theme_color_override("font_shadow_color",Color("122827")); line.add_theme_constant_override("shadow_outline_size",5)
+	scene_stamp.visible=false
 
 func hide_overlay() -> void:
 	if is_instance_valid(overlay):
@@ -294,10 +306,17 @@ func toast(text: String) -> void:
 	toast_text.text=text; toast_left=4.5
 
 func stage_changed() -> void:
-	toast_left=0; support_clock=0; support_panel.visible=false; mini_map.queue_redraw()
+	toast_left=0; scene_stamp_left=0; support_clock=0; support_panel.visible=false; mini_map.queue_redraw()
+
+func show_scene_stamp(title: String, detail: String, duration: float=3.4) -> void:
+	scene_heading.text=title; scene_detail.text=detail
+	scene_stamp_total=maxf(.5,duration); scene_stamp_left=scene_stamp_total
 
 func refresh(dt: float) -> void:
 	if not world.hero: return
+	if world.mode=="playing": scene_stamp_left=maxf(0,scene_stamp_left-dt)
+	scene_stamp.visible=scene_stamp_left>0 and world.mode=="playing" and world.active_boss.is_empty()
+	scene_stamp.modulate.a=minf(1,minf((scene_stamp_total-scene_stamp_left)/.25,scene_stamp_left/.65))
 	var hero=world.hero; var playing=world.mode in ["playing","pause","map","dialog","defeat","camp"]
 	hud.visible=playing
 	hp_text.text=str(int(ceil(hero.hp)))+" / "+str(int(hero.max_hp)); hp_bar.value=hero.hp/hero.max_hp*100

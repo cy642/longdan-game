@@ -13,7 +13,11 @@ const MapDetails = preload("res://scripts/map_details.gd")
 const HanshuiLayout = preload("res://scripts/hanshui_layout.gd")
 const TacticDirector = preload("res://scripts/tactic_director.gd")
 const CombatPacing = preload("res://scripts/combat_pacing.gd")
+const ChangbanDirection = preload("res://scripts/changban_direction.gd")
+const ChangbanPresentation = preload("res://scripts/changban_presentation.gd")
 var combat_pacing = CombatPacing.new()
+var chapter_direction = ChangbanDirection.new()
+var chapter_presentation
 var tactics
 var chapter_definitions: Dictionary={}
 var state = Campaign.new()
@@ -179,6 +183,8 @@ func _physics_process(dt: float) -> void:
 	advance_arrows(dt); advance_props(dt); advance_rescue(dt); advance_loot(dt)
 	if is_instance_valid(tactics) and mode=="playing": tactics.advance(dt)
 	fx.advance(dt)
+	if is_instance_valid(chapter_presentation): chapter_presentation.advance(dt)
+	chapter_direction.advance(dt)
 
 func _process(dt: float) -> void:
 	if not is_instance_valid(hero): return
@@ -241,6 +247,7 @@ func detach_tactics(capture: bool=true) -> void:
 
 func start_game(difficulty: String = "normal", chapter_id: int = 1) -> void:
 	detach_tactics()
+	chapter_direction.reset()
 	var saved=state.read_save()
 	if not saved.is_empty(): state.restore(saved)
 	state.switch_chapter(chapter_id,difficulty,true)
@@ -318,6 +325,7 @@ func enter_stage(id: String, spawn: Vector2 = Vector2.INF, checkpoint: bool = tr
 	hero.spear_spirit=0
 	hero.buffer={}; hero.action={}; hero.dash_left=0; hero.invincible=.6
 	stage=id; definition=definitions[id]; active_boss=""; boss=null; rescue={}; arrows=[]; loot=[]; enemies=[]; allies=[]; civilians=[]; props=[]
+	chapter_presentation=null
 	combat_pacing.configure(stage,state.difficulty)
 	for child in actors.get_children():
 		if child==hero: continue
@@ -347,6 +355,9 @@ func enter_stage(id: String, spawn: Vector2 = Vector2.INF, checkpoint: bool = tr
 			for i in range(3): spawn_civil("civil",hero.position+Vector2(-45+i*25,65),i)
 		if state.flags.mother: spawn_civil("mother",hero.position+Vector2(-50,100),3)
 	fx.entries=[]; fx.labels=[]; hit_stop=0; shake=0
+	if state.chapter==1:
+		chapter_presentation=ChangbanPresentation.new(); chapter_presentation.name="ChangbanPresentation"
+		actors.add_child(chapter_presentation); chapter_presentation.setup(self)
 	if state.chapter==2:
 		tactics=TacticDirector.new(); tactics.name="TacticDirector"; add_child(tactics); tactics.setup(self)
 		tactics.spawn_pending(0)
@@ -359,7 +370,9 @@ func enter_stage(id: String, spawn: Vector2 = Vector2.INF, checkpoint: bool = tr
 	camera.position=hero.position; camera.reset_smoothing()
 	if checkpoint:
 		state.checkpoint={"stage":id,"x":hero.position.x,"y":hero.position.y,"encounter":""}; save_progress()
-	if ui: ui.stage_changed()
+	if ui:
+		ui.stage_changed()
+		chapter_direction.enter(self)
 	if mode!="menu": toast(definition.tutorial)
 
 func spawn_enemy(kind: String, p: Vector2, group: String = "extra", boss_name: String = ""):

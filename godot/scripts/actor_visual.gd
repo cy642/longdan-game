@@ -2,6 +2,7 @@ extends Node2D
 ## Frames exclude neighboring sprites and retain one authored model scale and boot pivot.
 const FrameTexture = preload("res://scripts/frame_texture.gd")
 const EnemyRoster = preload("res://scripts/enemy_roster.gd")
+const HeroMotion = preload("res://scripts/hero_motion.gd")
 const WALK = [12, 2, 0, 2, 4, 6, 8, 10]
 const WINDUP = [12, 2, 0, 2, 12, 10, 8, 10]
 const STRIKE = [5, 3, 1, 3, 5, 7, 9, 7]
@@ -38,6 +39,11 @@ var death_start = -1.0
 var death_pose: Dictionary = neutral_pose()
 var death_direction = 1.0
 var enemy_equipment: Node2D
+var hero_rig: Polygon2D
+var hero_rig_data: Dictionary = {}
+var hero_rig_frame = ""
+var hero_move_amount = 0.0
+var hero_pose: Dictionary = {}
 
 static func neutral_pose() -> Dictionary:
 	return {"lean":0.0, "crouch":0.0, "arm":0.0, "reach":0.0, "stride":0.0, "lift":0.0, "guard":0.0}
@@ -109,20 +115,18 @@ func update_pose() -> void:
 	if hero:
 		if actor.hp <= 0:
 			set_frame("hero", 7, cos(actor.facing) >= 0, true)
+			body.visible=true
+			if hero_rig: hero_rig.visible=false
 		elif not actor.action.is_empty() and actor.action.key != "heal":
 			var a = actor.action; var def = a.def
 			var active_pose = a.t >= def.windup and a.t < def.windup + def.active + def.recovery * .55
 			set_frame("attack", STRIKE[direction] if active_pose else WINDUP[direction], STRIKE_FLIP[direction] if active_pose else WINDUP_FLIP[direction], true)
-			# Actor movement already moves the boots and shadow together. A second
-			# visual-only lunge detached the feet from their ground contact.
-			if a.key in ["sweep", "huilan", "sword", "thrust2"]:
-				rotation = sin(a.t / (def.windup + def.active + def.recovery) * TAU) * .065
+			update_hero_pose()
 		else:
-			var step = int(actor.walk_distance / actor.HERO_STEP_DISTANCE) % 2 if actor.moving else 0
-			set_frame("walk", WALK[direction] + step, direction == 1, true)
-			# No idle vertical bob: planted boots remain at the same ground position.
-			rotation = sin(actor.walk_distance / 18) * .022 if actor.moving else 0
-			if actor.dash_left > 0: rotation = -.08
+			# A distance-driven leg cycle replaces whole-character frame flipping.
+			# Keeping one anatomical base avoids a different face/boot jump per step.
+			set_frame("walk", WALK[direction], direction == 1, true)
+			update_hero_pose()
 	else:
 		var profile = actor.get("visual_profile")
 		enemy_profile = profile if profile is Dictionary else {}
@@ -163,6 +167,30 @@ func update_pose() -> void:
 	var carrying=actor.faction=="hero" and actor.world.state.flags.adou
 	if carrying!=baby_visible:
 		baby_visible=carrying; queue_redraw()
+
+func update_hero_pose() -> void:
+	var frame=str(last_frame[0])+":"+str(last_frame[1])
+	if hero_rig==null:
+		hero_rig=Polygon2D.new(); hero_rig.name="ArticulatedZhaoyun"; add_child(hero_rig)
+	if frame!=hero_rig_frame:
+		hero_rig_frame=frame
+		hero_rig_data=HeroMotion.build(str(last_frame[0]),int(last_frame[1]),atlas_data[last_frame[0]])
+		hero_rig.texture=hero_rig_data.texture; hero_rig.uv=hero_rig_data.uv; hero_rig.polygons=hero_rig_data.polygons
+	var target=1.0 if actor.moving and actor.action.is_empty() and actor.dash_left<=0 else 0.0
+	# advance_time is fed once by the hero's actual simulation tick. Preview
+	# callers can sample deterministic poses without advancing that clock.
+	if pose_delta>0: hero_move_amount=lerpf(hero_move_amount,target,1-exp(-18*pose_delta))
+	elif animation_time==0: hero_move_amount=target
+	hero_pose=HeroMotion.sample(actor,hero_move_amount)
+	hero_rig.scale=body.scale; hero_rig.position=Vector2.ZERO
+	hero_rig.polygon=HeroMotion.deform(hero_rig_data,hero_pose,current_scale)
+	hero_rig.visible=true; body.visible=false; pose_delta=0
+
+func hero_snapshot() -> Dictionary:
+	if hero_rig==null or not hero_rig.visible: return {}
+	# A snapshot owns its vertex buffer, so a later step cannot deform an old
+	# dash trail. Effects can draw it in one call without GPU readback.
+	return {"mesh":HeroMotion.snapshot_mesh(hero_rig_data,hero_rig.polygon),"texture":hero_rig.texture,"transform":hero_rig.transform}
 
 func _draw() -> void:
 	if actor == null: return

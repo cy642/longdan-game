@@ -16,6 +16,7 @@ const SHADER_CODE="""
 shader_type canvas_item;
 render_mode unshaded;
 uniform vec2 world_phase = vec2(0.0);
+uniform float local_litter_scale = 1.0;
 uniform vec3 average_colors[6];
 varying vec2 ground_position;
 varying vec4 primitive_color;
@@ -37,6 +38,7 @@ void fragment() {
 		if (kind == 2) { span = 420.0; }
 		if (kind == 3) { span = 285.0; }
 		if (kind == 4 || kind == 5) { span = 440.0; }
+		if (kind == 5) { span *= local_litter_scale; }
 		vec2 p = ground_position + world_phase;
 		vec2 q = p / span;
 		// Mirror repeat closes an imperfect source edge without rectangular
@@ -77,6 +79,9 @@ static func _bind(canvas: Node2D, stage: String) -> void:
 	var material=ShaderMaterial.new(); material.shader=paint_shader
 	var seed_value=absi(stage.hash())
 	material.set_shader_parameter("world_phase",Vector2(seed_value%719,(seed_value/23)%631))
+	# First-chapter local ground litter should read as foot-sized leaves.
+	# Other chapters retain their authored source scale, including bamboo beds.
+	material.set_shader_parameter("local_litter_scale",.45 if stage in ["mountain","village","temple","house","fork","bridge"] else 1.0)
 	material.set_shader_parameter("average_colors",averages)
 	canvas.material=material
 	canvas.texture_filter=CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS

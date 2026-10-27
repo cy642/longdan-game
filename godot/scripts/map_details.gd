@@ -78,6 +78,11 @@ func _attach_rendered_prop() -> void:
 		var parsed = JSON.parse_string(FileAccess.get_file_as_string(manifest_path))
 		if parsed is Dictionary: prop_frames = parsed.get("props", {})
 	var kind: String = landmark.get("kind", "")
+	# The mountain's waystone keeps its original ground anchor and circle
+	# collider. Reuse the finished weathered stone image at the old cairn's
+	# height instead of falling back to the early flat polygon prototype.
+	var cairn_scale=.8 if kind=="cairn" else 1.0
+	if kind=="cairn": kind="stela"
 	if not prop_frames.has(kind): return
 	var frame: Dictionary = prop_frames[kind]
 	if not ResourceLoader.exists(frame.image): return
@@ -86,8 +91,8 @@ func _attach_rendered_prop() -> void:
 	rendered_prop.centered = false
 	rendered_prop.texture = load(frame.image)
 	rendered_prop.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	rendered_prop.scale = Vector2.ONE * float(frame.scale)
-	rendered_prop.position = Vector2(frame.draw_offset[0],frame.draw_offset[1])
+	rendered_prop.scale = Vector2.ONE * float(frame.scale) * cairn_scale
+	rendered_prop.position = Vector2(frame.draw_offset[0],frame.draw_offset[1]) * cairn_scale
 	add_child(rendered_prop)
 
 func _attach_painted_marker() -> bool:
@@ -140,6 +145,7 @@ func _draw() -> void:
 	var details: Dictionary = definition.get("map_details", {})
 	if stage == "mountain": _mountain_shelves()
 	if stage == "bridge": _shoreline()
+	_story_materials(details)
 	_war_ground()
 	for surface in details.get("surfaces", []): _surface(surface)
 	_worn_paths(details)
@@ -162,6 +168,39 @@ func _poly(points: Array, color: Color) -> void:
 
 func _oval(center: Vector2, radius: float, squash: float, color: Color) -> void:
 	draw_set_transform(center,0,Vector2(1,squash)); draw_circle(Vector2.ZERO,radius,color); draw_set_transform(Vector2.ZERO)
+
+func _story_materials(details: Dictionary) -> void:
+	# Broad authored material masses belong to the offline ground bake. They
+	# tell each place's use without adding opaque props or changing navigation.
+	for patch in details.get("story_materials",[]):
+		var outline=_points(patch.polygon)
+		var tone=Color(str(patch.tone))
+		var kind={"mud":Painted.MUD,"stone":Painted.SLATE,"litter":Painted.LITTER,"grass":Painted.GRASS}.get(str(patch.kind),Painted.DRY)
+		if not Painted.paint(self,outline,kind,tone,stage,float(patch.get("feather",22)),float(patch.get("detail",.46))):
+			draw_colored_polygon(outline,Color(tone,.24))
+	# Only the freight field gets cultivation lines. A few interrupted rows
+	# preserve a clear central fighting lane instead of a uniform grass carpet.
+	if stage=="fork":
+		for field in details.get("harvest_rows",[]):
+			var start=Vector2(field[0],field[1]); var length=float(field[2]); var angle=float(field[3])
+			var direction=Vector2.from_angle(angle); var normal=direction.orthogonal()
+			for row in range(7):
+				var a=start+normal*row*19
+				for segment in range(6):
+					var b=a+direction*(segment*length/6)
+					var offset=sin(segment*1.7+row)*3
+					draw_line(b+normal*offset,b+direction*(length/6-9)+normal*(offset+1),Color("766b50",.20),3,true)
+					if (segment+row)%3==0:
+						for stalk in range(3):
+							var p=b+direction*(8+stalk*4)
+							draw_line(p,p+Vector2(stalk-2,-5-stalk%2*2),Color("b8a473",.48),1.2,true)
+	# These short marks lead toward a side courtyard or an evacuation bank;
+	# no marker is sampled randomly and no scene gets the same scatter pattern.
+	for trace in details.get("story_traces",[]):
+		var points=_points(trace.points)
+		if points.size()<2: continue
+		var color=Color(str(trace.get("tone","514b3c")),float(trace.get("alpha",.16)))
+		draw_polyline(points,color,float(trace.get("width",3)),true)
 
 func _war_ground() -> void:
 	# Chapter-one battle damage is paint on the ground, never an unmarked solid.

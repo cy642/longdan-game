@@ -15,7 +15,23 @@
         {"id":"ridge_cairn","label":"望乡石","kind":"cairn","position":[650,738],"colliders":[{"circle":[0,0,18]}]},
         {"id":"ridge_banner","label":"山脊营地","kind":"banner","position":[1270,263],"tone":"679083","colliders":[{"circle":[0,0,7]}]},
         {"id":"mountain_waypost","label":"荒村","kind":"waypost","position":[1230,357],"direction":1,"colliders":[{"circle":[0,0,6]}]}
-      ]
+      ],
+      "story_materials": [
+        {"kind":"stone","tone":"7f816c","polygon":[[30,195],[220,143],[408,205],[546,330],[467,396],[240,329],[54,346]],"feather":28,"detail":0.44},
+        {"kind":"litter","tone":"8e8063","polygon":[[1050,530],[1162,435],[1420,448],[1536,575],[1453,695],[1250,660]],"feather":28,"detail":0.44},
+        {"kind":"grass","tone":"969477","polygon":[[660,72],[903,57],[1100,105],[1193,171],[1022,227],[786,185]],"feather":28,"detail":0.44}
+      ],
+      "story_traces": [
+        {"points":[[602,776],[625,758],[650,748]],"tone":"655e49","alpha":0.25,"width":4}
+      ],
+      "presentation": {
+        "theme": "ridge_wind",
+        "landmark": [650,738],
+        "emitters": [
+          {"kind":"leaves","position":[459,300],"span":[140,48],"count":7},
+          {"kind":"dust","position":[993,265],"span":[125,35],"count":5}
+        ]
+      }
     },
     "village": {
       "roads": [],
@@ -30,7 +46,25 @@
         {"id":"rescue_awning","label":"救援庭院","kind":"aid_awning","position":[238,434],"colliders":[{"rect":[-37,-17,75,26]}]},
         {"id":"village_gateway","label":"荒村主街","kind":"gateway","position":[964,542],"span":152,"tone":"777e65","colliders":[{"circle":[-76,0,8]},{"circle":[76,0,8]}]},
         {"id":"rescue_waypost","label":"西巷","kind":"waypost","position":[547,640],"direction":-1,"colliders":[{"circle":[0,0,6]}]}
-      ]
+      ],
+      "story_materials": [
+        {"kind":"mud","tone":"726b5c","polygon":[[60,230],[204,184],[315,224],[377,323],[325,385],[168,378],[48,321]],"feather":28,"detail":0.44},
+        {"kind":"litter","tone":"80755f","polygon":[[1070,395],[1245,380],[1437,455],[1490,581],[1384,654],[1173,625],[1110,541]],"feather":28,"detail":0.44},
+        {"kind":"dry","tone":"b8a98a","polygon":[[190,397],[273,370],[359,392],[425,456],[357,510],[244,496],[180,446]],"feather":28,"detail":0.44}
+      ],
+      "story_traces": [
+        {"points":[[330,419],[365,471],[405,515],[447,551]],"tone":"625442","alpha":0.2,"width":5}
+      ],
+      "presentation": {
+        "theme": "village_aftermath",
+        "landmark": [335,416],
+        "milestone": "civilians",
+        "emitters": [
+          {"kind":"smoke","position":[250,310],"span":[26,90],"count":5,"dim_after":"civilians"},
+          {"kind":"ash","position":[1188,500],"span":[60,80],"count":7},
+          {"kind":"lamp","position":[250,433],"span":[53,23],"count":1,"bright_after":"civilians"}
+        ]
+      }
     },
     "temple": {
       "roads": [[[1040,560],[1080,450]]],
@@ -45,7 +79,24 @@
         {"id":"temple_altar","label":"破庙祭坛","kind":"altar","position":[1055,334],"colliders":[{"rect":[-52,-22,104,36]}]},
         {"id":"temple_sidegate","label":"荒村侧门","kind":"gateway","position":[315,434],"span":126,"tone":"648379","broken":true,"colliders":[{"circle":[-63,0,8]},{"circle":[63,0,8]}]},
         {"id":"temple_stela","label":"旧碑","kind":"stela","position":[695,380],"colliders":[{"rect":[-19,-13,38,24]}]}
-      ]
+      ],
+      "story_materials": [
+        {"kind":"grass","tone":"65796b","polygon":[[42,188],[295,144],[518,219],[604,380],[512,499],[373,371],[140,344]],"feather":28,"detail":0.44},
+        {"kind":"litter","tone":"788471","polygon":[[700,234],[951,170],[1213,221],[1337,350],[1238,437],[1120,327],[875,308]],"feather":28,"detail":0.44},
+        {"kind":"grass","tone":"71836f","polygon":[[600,670],[772,673],[1000,745],[1176,708],[1256,812],[1003,881],[762,799]],"feather":28,"detail":0.44}
+      ],
+      "story_traces": [
+        {"points":[[513,716],[471,634],[468,547],[429,489]],"tone":"607762","alpha":0.19,"width":5}
+      ],
+      "presentation": {
+        "theme": "silent_court",
+        "landmark": [1055,334],
+        "milestone": "temple",
+        "emitters": [
+          {"kind":"leaves","position":[718,383],"span":[130,70],"count":6},
+          {"kind":"dust","position":[1055,340],"span":[120,55],"count":5,"dim_after":"temple"}
+        ]
+      }
     },
     "house": {
       "roads": [],
@@ -60,7 +111,25 @@
         {"id":"well_hoist","label":"旧宅井庭","kind":"well_hoist","position":[1070,472],"colliders":[{"circle":[-30,0,5]},{"circle":[47,0,5]}]},
         {"id":"house_lantern","label":"旧宅","kind":"lantern","position":[1207,526],"colliders":[{"circle":[0,0,7]}]},
         {"id":"house_ancestral_stone","label":"旧宅前庭","kind":"stela","position":[381,282],"colliders":[{"rect":[-19,-13,38,24]}]}
-      ]
+      ],
+      "story_materials": [
+        {"kind":"mud","tone":"7b8171","polygon":[[1025,445],[1110,438],[1200,484],[1218,548],[1125,578],[1006,530]],"feather":28,"detail":0.44},
+        {"kind":"litter","tone":"897c64","polygon":[[239,186],[392,164],[556,255],[545,392],[428,443],[302,365]],"feather":28,"detail":0.44},
+        {"kind":"dry","tone":"b1a186","polygon":[[763,602],[922,565],[1020,657],[1033,768],[930,824],[773,746]],"feather":28,"detail":0.44}
+      ],
+      "story_traces": [
+        {"points":[[1087,484],[1100,510],[1135,530],[1161,542]],"tone":"63756b","alpha":0.29,"width":5}
+      ],
+      "presentation": {
+        "theme": "well_shelter",
+        "landmark": [1135,530],
+        "milestone": "mother",
+        "emitters": [
+          {"kind":"water","position":[1096,523],"span":[48,16],"count":4},
+          {"kind":"lamp","position":[1207,524],"span":[83,33],"count":1,"bright_after":"mother"},
+          {"kind":"cloth","position":[1160,547],"span":[25,8],"count":1,"bright_after":"mother"}
+        ]
+      }
     },
     "fork": {
       "roads": [],
@@ -75,7 +144,29 @@
         {"id":"grain_rack","label":"粮道营地","kind":"grain_rack","position":[1450,930],"colliders":[{"rect":[-46,-20,92,32]}]},
         {"id":"fork_waypost","label":"北桥 / 粮营","kind":"double_waypost","position":[819,732],"colliders":[{"circle":[0,0,7]}]},
         {"id":"camp_standard","label":"粮营","kind":"banner","position":[1130,834],"tone":"a17b52","colliders":[{"circle":[0,0,7]}]}
-      ]
+      ],
+      "story_materials": [
+        {"kind":"dry","tone":"9c8b63","polygon":[[139,196],[420,138],[611,219],[651,343],[541,463],[289,401],[115,303]],"feather":28,"detail":0.44},
+        {"kind":"dry","tone":"b7a57a","polygon":[[884,112],[1114,86],[1378,143],[1518,256],[1404,371],[1147,297],[946,302]],"feather":28,"detail":0.44},
+        {"kind":"mud","tone":"89785b","polygon":[[1050,719],[1215,634],[1418,688],[1542,819],[1474,1007],[1236,983],[1085,853]],"feather":28,"detail":0.44}
+      ],
+      "story_traces": [
+        {"points":[[1294,903],[1289,855],[1248,801],[1190,751]],"tone":"66563c","alpha":0.26,"width":6}
+      ],
+      "harvest_rows": [
+        [170,245,300,0.24],
+        [1100,138,225,0.38]
+      ],
+      "presentation": {
+        "theme": "grain_and_embers",
+        "landmark": [1275,774],
+        "milestone": "supplies",
+        "emitters": [
+          {"kind":"chaff","position":[1192,817],"span":[110,46],"count":7,"stop_after":"supplies"},
+          {"kind":"smoke","position":[1342,825],"span":[42,120],"count":6,"only_after":"supplies"},
+          {"kind":"ash","position":[1309,842],"span":[77,73],"count":7,"only_after":"supplies"}
+        ]
+      }
     },
     "bridge": {
       "roads": [],
@@ -90,7 +181,25 @@
         {"id":"bridge_pavilion","label":"北桥桥头","kind":"gateway","position":[1268,351],"span":212,"tone":"668a7b","colliders":[{"circle":[-106,0,9]},{"circle":[106,0,9]}]},
         {"id":"bridge_mooring","label":"滨水石桩","kind":"mooring","position":[1025,318],"colliders":[{"circle":[0,0,17]}]},
         {"id":"bridge_camp_lantern","label":"桥前营地","kind":"lantern","position":[390,973],"colliders":[{"circle":[0,0,7]}]}
-      ]
+      ],
+      "story_materials": [
+        {"kind":"mud","tone":"72877c","polygon":[[31,288],[255,291],[533,311],[759,291],[1017,297],[1138,328],[1036,370],[801,362],[588,381],[315,348],[64,357]],"feather":28,"detail":0.44},
+        {"kind":"grass","tone":"7b8b79","polygon":[[156,622],[356,549],[496,618],[476,738],[321,808],[177,743]],"feather":28,"detail":0.44},
+        {"kind":"litter","tone":"92977e","polygon":[[1204,425],[1378,409],[1562,475],[1561,669],[1414,706],[1240,609]],"feather":28,"detail":0.44}
+      ],
+      "story_traces": [
+        {"points":[[1029,316],[1071,323],[1109,326]],"tone":"647b70","alpha":0.31,"width":4}
+      ],
+      "presentation": {
+        "theme": "river_rearguard",
+        "landmark": [1268,351],
+        "milestone": "boss",
+        "emitters": [
+          {"kind":"water","position":[985,224],"span":[105,32],"count":6},
+          {"kind":"water","position":[1440,191],"span":[96,30],"count":5},
+          {"kind":"leaves","position":[843,358],"span":[97,27],"count":5,"dim_after":"boss"}
+        ]
+      }
     }
   }
 }

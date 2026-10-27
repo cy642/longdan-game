@@ -176,7 +176,7 @@ def validate(entries, project):
         # the actual remap instead of assuming the generated .ctex hash/name.
         require_texture(entries, image, errors)
 
-    for script in ("map_atmosphere", "map_details", "campaign", "tactic_director", "grain_cart", "hanshui_layout", "huangzhong_support", "painted_props", "painted_ground", "jigu_director", "jigu_layout", "chencang_director", "chencang_layout", "combat_pacing", "enemy_roster"):
+    for script in ("map_atmosphere", "map_details", "campaign", "tactic_director", "grain_cart", "hanshui_layout", "huangzhong_support", "painted_props", "painted_ground", "jigu_director", "jigu_layout", "chencang_director", "chencang_layout", "combat_pacing", "enemy_roster", "hero_motion", "combat_feedback", "changban_combat", "changban_direction", "changban_presentation"):
         name = f"scripts/{script}.gd"
         if name not in entries and not all(
                 resource in entries for resource in (name + ".remap", name + "c")):
