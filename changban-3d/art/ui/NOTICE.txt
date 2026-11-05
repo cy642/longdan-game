@@ -1,0 +1,6 @@
+Longdan Field Sans and Longdan Field Serif are font subsets derived from
+Noto Sans CJK SC and Noto Serif CJK SC by the Noto CJK project, respectively.
+Source: https://github.com/notofonts/noto-cjk
+Copyright 2014–2024 Adobe. Licensed under the SIL Open Font License 1.1;
+see OFL.txt. The character models, landscape, effects and sound design are
+authored for this playable 3D study.

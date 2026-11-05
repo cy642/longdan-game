@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1b2423">
+<title>龙胆：逆命三国 · 长坂坡 3D</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#192320;color:#f7e8ce;font:18px "Microsoft YaHei",sans-serif}canvas{display:block;width:100%;height:100%;outline:0}#entry{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(ellipse at 68% 40%,#50594c 0,#27352f 38%,#16201f 80%)}section{width:min(500px,84vw)}small{color:#d6b585;letter-spacing:.15em}h1{font:normal clamp(48px,7vw,90px) "STKaiti","KaiTi",serif;margin:.25em 0}p{color:#e0d6c1}progress{accent-color:#cbaa72;width:100%;height:6px}button{color:#fff1d7;background:#824633;border:1px solid #c6a376;cursor:pointer;padding:.7em 2em;font:inherit}#err{white-space:pre-wrap;color:#ffceb0}button:disabled{opacity:.65}
+</style>
+$GODOT_HEAD_INCLUDE
+<canvas id="canvas" tabindex="0" aria-label="长坂坡三维战场"></canvas>
+<div id="entry"><section><small>龙胆 · 逆命三国</small><h1>长坂坡</h1><p id="status">正在载入第一关…</p><progress id="bar"></progress><p id="err" role="alert"></p><button id="retry" hidden>重新载入</button><noscript>请开启 JavaScript 进入游戏。</noscript></section></div>
+<script src="$GODOT_URL"></script>
+<script>
+const canvas=document.querySelector('canvas'), statusLine=document.querySelector('#status'), bar=document.querySelector('#bar');
+function fit(){const w=innerWidth,h=innerHeight,r=Math.min(devicePixelRatio||1,1.25,1600/Math.max(w,h));canvas.width=Math.max(1,Math.round(w*r));canvas.height=Math.max(1,Math.round(h*r))}
+fit();addEventListener('resize',fit);
+const config=$GODOT_CONFIG;config.canvasResizePolicy=0;
+config.onProgress=(done,total)=>{if(total>0){bar.max=total;bar.value=done;statusLine.textContent='正在载入第一关 · '+Math.min(100,Math.round(done/total*100))+'%'}};
+async function run(){try{const missing=Engine.getMissingFeatures({threads:$GODOT_THREADS_ENABLED});if(missing.length)throw Error('此试玩需要 WebGL 2，请打开浏览器硬件加速，或使用 Windows 试玩包。');
+const engine=new Engine(config);await engine.startGame({canvas});fit();document.querySelector('#entry').remove();canvas.focus()
+}catch(e){document.querySelector('#err').textContent=String(e.message||e);document.querySelector('#retry').hidden=false;statusLine.textContent='战场载入失败'}}
+document.querySelector('#retry').onclick=()=>location.reload();canvas.addEventListener('contextmenu',e=>e.preventDefault());run();
+</script>
+</html>
