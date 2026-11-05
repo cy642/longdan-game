@@ -47,12 +47,18 @@ func _ready() -> void:
 
 func _process(dt: float) -> void:
 	time += dt
+	var camera := get_viewport().get_camera_3d()
 	for i in COUNT:
 		var start := seeds[i]
 		var x := fposmod(start.x+time*1.35,28.0)-14.0
 		var y := 0.12+fposmod(start.y-time*0.21,6.0)
 		var z := start.z+0.45*sin(time*0.75+start.x)
 		var basis := Basis.from_euler(Vector3(time*1.7+start.z,time+start.y,start.x+time*1.37))
+		if camera:
+			# A few grains drift across the road. Near the lens a centimetre of
+			# chaff would fill the screen, so ease it out before it gets there.
+			var distance := camera.global_position.distance_to(Vector3(x,y,z))
+			basis = basis.scaled(Vector3.ONE*maxf(.001,smoothstep(1.6,3.7,distance)))
 		multimesh.set_instance_transform(i,Transform3D(basis,Vector3(x,y,z)))
 	for i in SMOKE_COUNT:
 		var age := fposmod(time*0.115 + float(i)/SMOKE_COUNT,1.0)

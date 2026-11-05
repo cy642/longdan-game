@@ -11,6 +11,10 @@ const START := Vector3(0.0, 0.0, 14.0)
 const RESCUE := Vector3(1.65, 0.0, -0.52)
 const NORTH_LIP := -24.2
 const EXIT := Vector3(0.0, 0.0, -25.0)
+const DRAGON_RECHARGE := 7.5
+const RIPOSTE_WINDOW := 1.0
+const PERFECT_STEP := 0.13
+const RUN_SPEED := 4.7
 
 class Fighter:
 	var body: Node3D
@@ -56,12 +60,21 @@ var contacted := false
 var dash_dir := Vector3.FORWARD
 var dash_cooldown := 0.0
 var heavy_cooldown := 0.0
+var dragon_cooldown := 0.0
+var dragon_strokes := 0
+var riposte_window := 0.0
+var riposte_target: Fighter
+var dodge_start := Vector3.ZERO
+var motion_clock := 0.0
+var aim_from := 0.0
+var aim_to := 0.0
 var invincible := 0.0
 var hit_pause := 0.0
 var stride := 0.0
 var link := 0
 var link_time := 0.0
 var move_dir := Vector3.ZERO
+var ground_velocity := Vector3.ZERO
 var focus: Fighter
 var lesson := ""
 var lesson_time := 0.0
@@ -108,11 +121,20 @@ func restart() -> void:
 	link_time = 0.0
 	dash_cooldown = 0.0
 	heavy_cooldown = 0.0
+	dragon_cooldown = 0.0
+	dragon_strokes = 0
+	riposte_window = 0.0
+	riposte_target = null
+	dodge_start = START
+	motion_clock = 0.0
+	aim_from = 0.0
+	aim_to = 0.0
 	invincible = 0.0
 	hit_pause = 0.0
 	pending = ""
 	pending_time = 0.0
 	move_dir = Vector3.ZERO
+	ground_velocity = Vector3.ZERO
 	stride = 0.0
 	last_threat = 0.80
 	transfer_time = 1.0
@@ -159,6 +181,8 @@ func _physics_process(dt: float) -> void:
 	move_dir = Vector3(axis.x, 0, axis.y).rotated(Vector3.UP, camera_yaw)
 	if Input.is_action_just_pressed("dodge"):
 		_queue("dodge")
+	elif Input.is_action_just_pressed("dragon"):
+		_queue("dragon")
 	elif Input.is_action_just_pressed("heavy"):
 		_queue("heavy")
 	elif Input.is_action_just_pressed("attack"):
@@ -167,8 +191,11 @@ func _physics_process(dt: float) -> void:
 		hit_pause -= dt
 		return
 	invincible = maxf(0.0, invincible - dt)
+	motion_clock += dt * 2.1
 	dash_cooldown = maxf(0.0, dash_cooldown - dt)
 	heavy_cooldown = maxf(0.0, heavy_cooldown - dt)
+	dragon_cooldown = maxf(0.0, dragon_cooldown - dt)
+	riposte_window = maxf(0.0, riposte_window - dt)
 	last_threat = maxf(0.0, last_threat - dt)
 	link_time = maxf(0.0, link_time - dt)
 	lesson_time = maxf(0.0, lesson_time - dt)
@@ -181,6 +208,7 @@ func _physics_process(dt: float) -> void:
 			if pending_time <= 0.0:
 				pending = ""
 	_advance_hero(dt)
+	_trace_spear(dt)
 	for e in foes:
 		if terminal:
 			break
@@ -191,14 +219,20 @@ func _physics_process(dt: float) -> void:
 	fx.advance(dt)
 
 func _queue(which: String) -> void:
+	if which == "dragon" and dragon_cooldown > 0.17:
+		return
 	if which == "heavy" and heavy_cooldown > 0.17:
 		return
 	if which == "dodge" and dash_cooldown > 0.17:
 		return
 	pending = which
 	pending_time = 0.17
+	if which == "attack" and action == "dodge" and riposte_window > 0.0:
+		pending_time = maxf(pending_time, duration - elapsed + 0.05)
 
 func _can_begin(which: String) -> bool:
+	if which == "dragon" and dragon_cooldown > 0.0:
+		return false
 	if which == "heavy" and heavy_cooldown > 0.0 or which == "dodge" and dash_cooldown > 0.0:
 		return false
 	if action == "idle":
@@ -206,17 +240,40 @@ func _can_begin(which: String) -> bool:
 	return which == "dodge" and action in ["attack","heavy"] and contacted and elapsed >= duration * 0.56
 
 func _begin(which: String) -> void:
-	action = which
+	action = "riposte" if which == "attack" and riposte_window > 0.0 else which
 	elapsed = 0.0
 	contacted = false
+	aim_from = hero.rotation.y
+	aim_to = aim_from
+	ground_velocity = Vector3.ZERO
 	match action:
 		"dodge":
+			dodge_start = hero.position
 			dash_dir = move_dir.normalized() if move_dir.length() > 0.05 else _front(hero)
 			hero.rotation.y = _heading(dash_dir)
 			duration = 0.32
 			invincible = 0.24
 			dash_cooldown = 0.59
 			sound.play("dodge")
+		"dragon":
+			duration = 0.98
+			dragon_strokes = 0
+			dragon_cooldown = DRAGON_RECHARGE
+			_aim_weapon(5.0)
+			fx.dragon_coil(hero.position, hero.rotation.y)
+			sound.play("coil")
+			_note("游龙回锋", duration)
+		"riposte":
+			duration = 0.43
+			riposte_window = 0.0
+			if riposte_target and riposte_target.health > 0.0 and hero.position.distance_to(riposte_target.body.position) <= 4.0:
+				focus = riposte_target
+				aim_to = _heading(riposte_target.body.position - hero.position)
+			else:
+				_aim_weapon(3.8)
+			riposte_target = null
+			sound.play("swish")
+			_note("回马枪", duration + 0.34)
 		"attack", "heavy":
 			duration = 0.63 if action == "heavy" else 0.37
 			if action == "heavy":
@@ -225,30 +282,60 @@ func _begin(which: String) -> void:
 				link = 0
 			link = link + 1 if action == "attack" else 0
 			link_time = duration + 0.52
-			var aim := move_dir.normalized() if move_dir.length() > 0.05 else _front(hero)
-			var target := _pick_target(aim)
-			if target:
-				aim = (target.body.position - hero.position).normalized()
-				focus = target
-			hero.rotation.y = _heading(aim)
+			_aim_weapon(3.65)
 			sound.play("swish")
+
+func _aim_weapon(reach: float) -> void:
+	var aim := move_dir.normalized() if move_dir.length() > 0.05 else _front(hero)
+	var target := _pick_target(aim, reach)
+	if target:
+		aim = (target.body.position - hero.position).normalized()
+		focus = target
+	aim_to = _heading(aim)
 
 func _advance_hero(dt: float) -> void:
 	var walking := 0.0
 	if action == "idle":
-		var motion := move_dir * (4.7 * dt)
+		var acceleration := 47.0 if move_dir.length_squared() > 0.001 else 59.0
+		ground_velocity = ground_velocity.move_toward(move_dir * RUN_SPEED, acceleration * dt)
+		var motion := ground_velocity * dt
 		if motion.length_squared() > 0.00001:
-			hero.rotation.y = lerp_angle(hero.rotation.y, _heading(move_dir), 1.0 - exp(-18.0 * dt))
+			hero.rotation.y = lerp_angle(hero.rotation.y, _heading(ground_velocity), 1.0 - exp(-18.0 * dt))
+			var origin := hero.position
 			_move_hero(motion)
-			walking = move_dir.length()
-			stride += motion.length() * 5.3
-		hero_model.pose("idle", 0.0, stride, walking)
+			var travelled := origin.distance_to(hero.position)
+			walking = clampf(travelled / (RUN_SPEED * dt), 0.0, 1.0)
+			stride += travelled * 5.3
+			if travelled < motion.length() * 0.5:
+				ground_velocity = (hero.position - origin) / dt
+		hero_model.pose("idle", motion_clock, stride, walking)
 		return
+	var old_phase := elapsed / duration
 	elapsed = minf(elapsed + dt, duration)
 	var phase := elapsed / duration
+	if action in ["attack","heavy","dragon","riposte"]:
+		hero.rotation.y = lerp_angle(aim_from, aim_to, smoothstep(0.0,0.30,phase))
 	match action:
 		"dodge":
 			_move_hero(dash_dir * dt * (11.8 - 7.6 * phase))
+		"dragon":
+			# Integrate each authored burst up to its contact before checking the hit.
+			# A wide frame can cross both windows without hitting twice at the end.
+			var cursor := old_phase
+			for contact: float in [0.34, 0.64]:
+				if cursor < contact and phase >= contact:
+					_dragon_step(cursor, contact)
+					_dragon_contact(dragon_strokes == 0)
+					dragon_strokes += 1
+					cursor = contact
+			_dragon_step(cursor, phase)
+		"riposte":
+			var travel := smoothstep(0.12, 0.37, phase) - smoothstep(0.12, 0.37, old_phase)
+			_move_hero(_front(hero) * travel * 0.90, 1.12)
+			if not contacted and phase >= 0.37:
+				contacted = true
+				fx.return_thrust(hero.position, hero.rotation.y)
+				_resolve_contact(3.12, 0.59, 34.0, true, Color("fff2b9"))
 		"attack", "heavy":
 			if phase >= 0.22 and phase <= 0.57:
 				var speed := 3.5 if action == "heavy" else 2.6
@@ -262,11 +349,42 @@ func _advance_hero(dt: float) -> void:
 		action = "idle"
 
 func _player_contact(heavy: bool) -> void:
-	var face := _front(hero)
 	var reach := 3.05 if heavy else 2.62
 	var angle := 0.99 if heavy else 0.91
+	var damage := 30.0 if heavy else (20.0 if link % 3 == 0 else 15.0)
+	_resolve_contact(reach, angle, damage, heavy, Color("f1c46c") if heavy else Color("bbf5ff"))
+
+func _trace_spear(dt: float) -> void:
+	var cutting := action in ["attack","heavy","riposte","dragon"] and elapsed >= duration*0.16 and elapsed < duration*0.71
+	if not cutting and fx.blade_history.is_empty():
+		return
+	var tint := Color("d4f5ff") if action == "attack" else Color("a2e6ed")
+	if action == "riposte":
+		tint = Color("fff0b5")
+	# Both points are on the animated silver head, in weapon space. A body turn
+	# or interrupted thrust leaves the old stroke behind in world space.
+	var weapon: Node3D = hero_model.steel
+	fx.trace_blade(weapon.to_global(Vector3(0.0,0.0,-1.785)), weapon.to_global(Vector3(0.063,0.025,-1.49)), tint, dt, cutting)
+
+func _dragon_step(a: float, b: float) -> void:
+	var approach := smoothstep(0.12, 0.34, b) - smoothstep(0.12, 0.34, a)
+	var lunge := smoothstep(0.46, 0.64, b) - smoothstep(0.46, 0.64, a)
+	# Keep room for the spear to reach the target instead of driving the breastplate
+	# into the enemy between the sweep and the return thrust.
+	_move_hero(_front(hero) * (approach * 0.72 + lunge * 1.34), 1.36)
+
+func _dragon_contact(sweep: bool) -> void:
+	fx.dragon_cut(hero.position, hero.rotation.y, sweep)
+	sound.play("sweep" if sweep else "point")
+	if sweep:
+		_resolve_contact(2.70, 1.56, 16.0, true, Color("81ddd9"))
+	else:
+		contacted = true
+		_resolve_contact(3.28, 0.55, 23.0, true, Color("e5fbff"), true)
+
+func _resolve_contact(reach: float, angle: float, damage: float, heavy: bool, color: Color, dragon_finish := false) -> void:
+	var face := _front(hero)
 	var cue := ""
-	fx.strike(hero.position, hero.rotation.y, heavy)
 	for e in foes:
 		if e.health <= 0.0:
 			continue
@@ -284,7 +402,6 @@ func _player_contact(heavy: bool) -> void:
 		var breaks := blocks and heavy
 		if breaks:
 			e.guard_open = 2.1
-		var damage := 30.0 if heavy else (20.0 if link % 3 == 0 else 15.0)
 		e.health = maxf(0.0, e.health - damage)
 		var armor := e.kind == "commander" and e.state in ["windup","swing"]
 		if e.health <= 0.0:
@@ -294,7 +411,9 @@ func _player_contact(heavy: bool) -> void:
 			e.cooldown = maxf(e.cooldown, 0.30)
 		if not armor:
 			e.body.position = _bounds(e.body.position + face * (0.24 if heavy else 0.09))
-		fx.contact(contact_pos, face, Color("f1c46c") if heavy else Color("bbf5ff"), heavy)
+		fx.contact(contact_pos, face, color, heavy)
+		if dragon_finish:
+			fx.dragon_impact(contact_pos, hero.rotation.y)
 		if breaks:
 			_note("破盾！趁盾兵失衡追击。", 1.45)
 			cue = "break"
@@ -305,7 +424,7 @@ func _player_contact(heavy: bool) -> void:
 		hit_pause = 0.042 if heavy or cue == "break" else 0.025
 		updated.emit()
 
-func _pick_target(aim: Vector3) -> Fighter:
+func _pick_target(aim: Vector3, reach: float) -> Fighter:
 	var target: Fighter = null
 	var best := INF
 	for e in foes:
@@ -313,7 +432,7 @@ func _pick_target(aim: Vector3) -> Fighter:
 			continue
 		var delta := e.body.position - hero.position
 		var dist := delta.length()
-		if dist > 3.65 or dist > 0.8 and aim.dot(delta.normalized()) < 0.20:
+		if dist > reach or dist > 0.8 and aim.dot(delta.normalized()) < 0.20:
 			continue
 		var score := dist + (1.0 - aim.dot(delta.normalized())) * 0.87
 		if score < best:
@@ -321,15 +440,21 @@ func _pick_target(aim: Vector3) -> Fighter:
 			target = e
 	return target
 
-func _move_hero(motion: Vector3) -> void:
+func _move_hero(motion: Vector3, striking_distance := 0.54) -> void:
+	if motion.length_squared() < 0.0000001:
+		return
 	var dest := _bounds(hero.position + motion)
 	for e in foes:
 		if e.health <= 0.0:
 			continue
+		var previous := hero.position - e.body.position
 		var delta := dest - e.body.position
 		var dist := delta.length()
-		if dist > 0.0001 and dist < 0.54:
-			dest = e.body.position + delta * (0.54 / dist)
+		var separation := clampf(previous.length(), 0.54, striking_distance)
+		if striking_distance > 0.54 and delta.dot(previous) <= 0.0 and previous.length_squared() > 0.0001:
+			dest = e.body.position + previous.normalized() * separation
+		elif dist > 0.0001 and dist < separation:
+			dest = e.body.position + delta * (separation / dist)
 	hero.position = _bounds(dest)
 
 func _bounds(point: Vector3) -> Vector3:
@@ -390,12 +515,18 @@ func _advance_foe(e: Fighter, dt: float) -> void:
 			if not e.connected and e.clock >= e.duration * 0.18:
 				e.connected = true
 				fx.strike(e.body.position, e.body.rotation.y, e.swing_heavy, Color("ffc683"))
-				if _in_sector(_front(e.body), delta, e.reach, e.angle):
-					if invincible > 0.0:
-						if action == "dodge":
-							_note("避开了！转身回枪。", 1.25)
-					else:
-						_damage_hero(e.power, e.body.position)
+				var facing := _front(e.body)
+				var threatened := _in_sector(facing, delta, e.reach, e.angle)
+				if action == "dodge" and invincible > 0.0:
+					var started_in_arc := _in_sector(facing, dodge_start - e.body.position, e.reach, e.angle)
+					if elapsed <= PERFECT_STEP and (threatened or started_in_arc):
+						riposte_window = RIPOSTE_WINDOW
+						riposte_target = e
+						fx.perfect_step(dodge_start, _heading(e.body.position - dodge_start))
+						sound.play("parry")
+						_note("避锋！按 J 回马枪。", RIPOSTE_WINDOW)
+				elif threatened:
+					_damage_hero(e.power, e.body.position)
 			if e.clock >= e.duration:
 				_set_enemy_state(e, "recover", 0.70 if e.kind == "commander" else 0.48)
 		"recover","hurt":
@@ -427,9 +558,11 @@ func _walk_enemy(e: Fighter, delta: Vector3, dist: float, attack_distance: float
 			desired += apart / space * (1.10 - space) * 1.68
 	var speed := 2.4 if e.kind == "guard" else (1.98 if e.kind == "shield" else 2.18)
 	var motion := desired.limit_length(1.0) * dt * speed
+	var origin := e.body.position
 	e.body.position = _bounds(e.body.position + motion)
-	e.move_weight = clampf(motion.length() / (dt * speed), 0.0, 1.0)
-	e.stride += motion.length() * 5.0
+	var travelled := origin.distance_to(e.body.position)
+	e.move_weight = clampf(travelled / (dt * speed), 0.0, 1.0)
+	e.stride += travelled * 5.0
 
 func _attack_slot_free() -> bool:
 	for other in foes:
@@ -468,7 +601,7 @@ func _pose_enemy(e: Fighter) -> void:
 		"swing": e.model.pose(swing, 0.29 + phase * 0.49, e.stride, 0.0)
 		"recover": e.model.pose(swing, 0.78 + phase * 0.22, e.stride, 0.0)
 		"hurt", "down": e.model.pose(e.state, phase, e.stride, 0.0)
-		_: e.model.pose("idle", 0.0, e.stride, e.move_weight)
+		_: e.model.pose("idle", motion_clock + float(e.slot), e.stride, e.move_weight)
 
 func _set_enemy_state(e: Fighter, state: String, time: float) -> void:
 	if is_instance_valid(e.cue):
@@ -482,6 +615,8 @@ func _damage_hero(amount: float, source: Vector3) -> void:
 	if terminal or invincible > 0.0:
 		return
 	hp = maxf(0.0, hp - amount)
+	riposte_window = 0.0
+	riposte_target = null
 	invincible = 0.47
 	var direction := (hero.position - source).normalized()
 	fx.contact(hero.position + Vector3.UP * 1.15, direction, Color("f38c6b"), true)
@@ -491,6 +626,7 @@ func _damage_hero(amount: float, source: Vector3) -> void:
 		_end(false)
 		return
 	action = "hurt"
+	ground_velocity = Vector3.ZERO
 	elapsed = 0.0
 	duration = 0.23
 	contacted = false
@@ -563,6 +699,8 @@ func _end(won: bool) -> void:
 	ending_won = won
 	ending_timer = 0.42 if won else 0.59
 	pending = ""
+	riposte_window = 0.0
+	riposte_target = null
 	if won:
 		sound.play("clear")
 		hero_model.pose("idle", 0.0, stride, 0.0)
@@ -601,6 +739,8 @@ func objective_text() -> String:
 func status_text() -> String:
 	if can_interact():
 		return "按 E 从乡民手中接过阿斗"
+	if riposte_window > 0.0:
+		return "避锋！按 J 回马枪。"
 	if lesson_time > 0.0:
 		return lesson
 	match stage:

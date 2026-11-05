@@ -2,7 +2,7 @@ config_version=5
 
 [application]
 config/name="龙胆：逆命三国 · 长坂坡 3D"
-config/version="0.1.0"
+config/version="0.2.0"
 run/main_scene="res://longdan.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://art/ui/longdan.svg"

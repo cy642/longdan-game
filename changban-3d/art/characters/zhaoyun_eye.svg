@@ -6,10 +6,10 @@
       <stop offset="1" stop-color="#e7e3d7"/>
     </linearGradient>
     <linearGradient id="iris" x1="0" y1="0" x2=".16" y2="1" gradientUnits="objectBoundingBox">
-      <stop stop-color="#1f334d"/><stop offset=".45" stop-color="#285979"/>
-      <stop offset=".8" stop-color="#3c91ae"/><stop offset="1" stop-color="#70bfc7"/>
+      <stop stop-color="#182744"/><stop offset=".40" stop-color="#205c89"/>
+      <stop offset=".76" stop-color="#289ac5"/><stop offset="1" stop-color="#80dce3"/>
     </linearGradient>
-    <path id="eye" d="M15 86 C43 76 60 57 89 51 C117 43 151 48 177 39 C172 52 165 69 153 82 C135 101 111 108 85 105 C55 102 34 92 15 86Z"/>
+    <path id="eye" d="M15 86 C43 76 60 53 89 46 C117 40 151 46 177 39 C172 54 165 76 153 88 C133 110 111 115 85 110 C55 107 34 94 15 86Z"/>
     <clipPath id="lid"><use href="#eye"/></clipPath>
   </defs>
   <!-- A hand-shaped upper lid slopes toward the nose. The iris disappears
@@ -18,12 +18,12 @@
   <path d="M18 65 C48 50 68 29 103 19 C125 12 150 13 164 14 C142 15 122 18 105 22 C75 30 47 51 23 67Z" fill="#ab6747"/>
   <use href="#eye" fill="url(#sclera)"/>
   <g clip-path="url(#lid)">
-    <ellipse cx="98" cy="70" rx="43" ry="47" fill="#26394e"/>
-    <ellipse cx="98" cy="69" rx="38.5" ry="43.5" fill="url(#iris)"/>
+    <ellipse cx="98" cy="70" rx="47" ry="51" fill="#243548"/>
+    <ellipse cx="98" cy="69" rx="42" ry="48" fill="url(#iris)"/>
     <ellipse cx="99" cy="68" rx="18" ry="28" fill="#1d3147"/>
     <path d="M69 85 Q79 95 90 96 M110 97 Q120 95 126 88" fill="none" stroke="#7db9c3" stroke-width="2.6"/>
-    <ellipse cx="84" cy="62" rx="7.4" ry="5.3" fill="#e2ebdf"/>
-    <circle cx="111" cy="87" r="2.6" fill="#b6d9d2"/>
+    <ellipse cx="83" cy="61" rx="9" ry="6.5" fill="#fffbec"/>
+    <circle cx="114" cy="90" r="3.6" fill="#d5f6ef"/>
   </g>
   <path d="M14 87 C34 77 54 52 87 44 C116 36 153 46 181 33 C178 39 176 44 171 50 C145 54 118 47 92 53 C59 59 39 80 19 87Z" fill="#30354a"/>
   <path d="M150 86 Q160 76 172 53 C167 75 155 91 139 97 Q113 114 84 107 Q60 105 43 98 C75 107 118 111 150 86Z" fill="#81675d"/>

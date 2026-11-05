@@ -6,6 +6,60 @@ var vertices := PackedVector3Array()
 var normals := PackedVector3Array()
 var colors := PackedColorArray()
 static var paint: StandardMaterial3D
+var inked := false
+var textured_positions := PackedVector3Array()
+var textured_normals := PackedVector3Array()
+var textured_uv := PackedVector2Array()
+var textured_tint := PackedColorArray()
+static var illustrated: StandardMaterial3D
+static var ink_material: StandardMaterial3D
+static var atlas_material: StandardMaterial3D
+const HAIR := Vector2(0,0)
+const SILVER := Vector2(1,0)
+const WEAVE := Vector2(0,1)
+const SILK := Vector2(1,1)
+
+func _atlas_uv(tile: Vector2, local: Vector2, hair_sheet: bool) -> Vector2:
+	var coord := local.clamp(Vector2.ZERO,Vector2.ONE)
+	if tile == HAIR and not hair_sheet:
+		# The square contains several locks. Each sculpted lock takes a single
+		# broad highlight, so the bang reads as one brushstroke at game scale.
+		coord.x = lerpf(.25,.48,coord.x)
+	return (tile + Vector2(.012,.012) + coord*.976)*.5
+
+func painted_grid(points: Array, width: int, height: int, tile: Vector2, outward: Vector3, hair_sheet := false) -> void:
+	# Contiguous rows, edges included. Curvature and grazing-angle light come from
+	# the model, while the illustrated pigment remains anchored to its surface.
+	var start := textured_positions.size()
+	for row in height-1:
+		for col in width-1:
+			var a := row*width+col
+			var order := [a,a+1,a+width,a+1,a+width+1,a+width]
+			if (points[a+1]-points[a]).cross(points[a+width]-points[a]).dot(outward) > 0:
+				order = [a,a+width,a+1,a+1,a+width,a+width+1]
+			for idx: int in order:
+				var x := idx%width
+				var y := floori(float(idx)/width)
+				var du: Vector3 = points[y*width+mini(width-1,x+1)]-points[y*width+maxi(0,x-1)]
+				var dv: Vector3 = points[mini(height-1,y+1)*width+x]-points[maxi(0,y-1)*width+x]
+				var normal := du.cross(dv).normalized()
+				if normal.dot(outward)<0:
+					normal = -normal
+				textured_positions.append(points[idx])
+				textured_normals.append(normal if normal.length_squared()>.1 else outward.normalized())
+				textured_uv.append(_atlas_uv(tile,Vector2(float(x)/(width-1),float(y)/(height-1)),hair_sheet))
+				textured_tint.append(Color("#c6d4e2") if tile == HAIR else Color.WHITE)
+	assert(textured_positions.size() > start)
+
+func _ink() -> StandardMaterial3D:
+	if ink_material == null:
+		ink_material = StandardMaterial3D.new()
+		ink_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		ink_material.cull_mode = BaseMaterial3D.CULL_FRONT
+		ink_material.grow = true
+		ink_material.grow_amount = .0038
+		ink_material.albedo_color = Color("#48374a")
+	return ink_material
 
 func triangle(a: Vector3, b: Vector3, c: Vector3, outward: Vector3, color: Color) -> void:
 	var normal := (b-a).cross(c-a)
@@ -39,7 +93,33 @@ func bake() -> ArrayMesh:
 		paint.vertex_color_is_srgb = true
 		paint.roughness = 0.72
 		paint.metallic_specular = 0.37
-	mesh.surface_set_material(0, paint)
+	if inked:
+		if illustrated == null:
+			illustrated = paint.duplicate() as StandardMaterial3D
+			illustrated.roughness = .88
+			illustrated.metallic_specular = .12
+			illustrated.next_pass = _ink()
+		mesh.surface_set_material(0,illustrated)
+	else:
+		mesh.surface_set_material(0,paint)
+	if not textured_positions.is_empty():
+		var overlay := []
+		overlay.resize(Mesh.ARRAY_MAX)
+		overlay[Mesh.ARRAY_VERTEX] = textured_positions
+		overlay[Mesh.ARRAY_NORMAL] = textured_normals
+		overlay[Mesh.ARRAY_TEX_UV] = textured_uv
+		overlay[Mesh.ARRAY_COLOR] = textured_tint
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,overlay)
+		if atlas_material == null:
+			atlas_material = StandardMaterial3D.new()
+			atlas_material.albedo_texture = preload("res://art/characters/zhaoyun-pigment.png")
+			atlas_material.vertex_color_use_as_albedo = true
+			atlas_material.vertex_color_is_srgb = true
+			atlas_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+			atlas_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+			atlas_material.roughness = .87
+			atlas_material.metallic_specular = .14
+		mesh.surface_set_material(mesh.get_surface_count()-1,atlas_material)
 	return mesh
 
 # Courses specify height, horizontal radius, front-to-back radius and Z offset.
@@ -116,12 +196,13 @@ func blade(path: Array, widths: Array, axis: Vector3, ridge: Vector3, color: Col
 				triangle(previous[j],ring[next],ring[j],outward,color)
 		previous = ring
 
-func lock(path: Array, widths: Array, across: Vector3, outside: Vector3, color: Color) -> void:
+func lock(path: Array, widths: Array, across: Vector3, outside: Vector3, color: Color, pigment := false) -> void:
 	# Rounded, flattened locks. Orient each cross-section along the actual
 	# curve so the hair can sweep sideways without folding into a flat wedge.
-	const SIDES := 8
+	const SIDES := 12
 	var prev: Array[Vector3] = []
 	var prev_n: Array[Vector3] = []
+	var painted := []
 	for i in path.size():
 		var at: Vector3 = path[i]
 		var tangent: Vector3 = (path[mini(i+1,path.size()-1)]-path[maxi(i-1,0)]).normalized()
@@ -132,6 +213,12 @@ func lock(path: Array, widths: Array, across: Vector3, outside: Vector3, color: 
 		var w: float = widths[i]
 		var ring: Array[Vector3] = []
 		var ring_n: Array[Vector3] = []
+		if pigment:
+			# A curved front for each separate lock, down to its narrowing tip.
+			for j in 9:
+				var t := lerpf(-1.0,1.0,float(j)/8.0)
+				var crest := sqrt(maxf(0.0,1.0-t*t))*.43
+				painted.append(at + wide*t*w + raised*(crest*w+.0018))
 		for j in SIDES:
 			var a := TAU*j/SIDES
 			ring.append(at + (wide*cos(a)+raised*sin(a)*.43)*w)
@@ -150,6 +237,8 @@ func lock(path: Array, widths: Array, across: Vector3, outside: Vector3, color: 
 					colors.append(color)
 		prev = ring
 		prev_n = ring_n
+	if pigment:
+		painted_grid(painted,9,path.size(),HAIR,outside)
 
 func shaft(a: Vector3, b: Vector3, ra: float, rb: float, color: Color, sides := 8) -> void:
 	var along := (b-a).normalized()

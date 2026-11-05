@@ -9,7 +9,7 @@
 </style>
 $GODOT_HEAD_INCLUDE
 <canvas id="canvas" tabindex="0" aria-label="长坂坡三维战场"></canvas>
-<div id="entry"><section><small>龙胆 · 逆命三国</small><h1>长坂坡</h1><p id="status">正在载入第一关…</p><progress id="bar"></progress><p id="err" role="alert"></p><button id="retry" hidden>重新载入</button><noscript>请开启 JavaScript 进入游戏。</noscript></section></div>
+<div id="entry"><section><small>龙胆 · 逆命三国 · 3D 0.2.0</small><h1>长坂坡</h1><p id="status">正在载入第一关…</p><progress id="bar"></progress><p id="err" role="alert"></p><button id="retry" hidden>重新载入</button><noscript>请开启 JavaScript 进入游戏。</noscript></section></div>
 <script src="$GODOT_URL"></script>
 <script>
 const canvas=document.querySelector('canvas'), statusLine=document.querySelector('#status'), bar=document.querySelector('#bar');
@@ -18,7 +18,14 @@ fit();addEventListener('resize',fit);
 const config=$GODOT_CONFIG;config.canvasResizePolicy=0;
 config.onProgress=(done,total)=>{if(total>0){bar.max=total;bar.value=done;statusLine.textContent='正在载入第一关 · '+Math.min(100,Math.round(done/total*100))+'%'}};
 async function run(){try{const missing=Engine.getMissingFeatures({threads:$GODOT_THREADS_ENABLED});if(missing.length)throw Error('此试玩需要 WebGL 2，请打开浏览器硬件加速，或使用 Windows 试玩包。');
-const engine=new Engine(config);await engine.startGame({canvas});fit();document.querySelector('#entry').remove();canvas.focus()
+const engine=new Engine(config),pack=config.executable+'.pck';
+await Promise.all([engine.init(config.executable),(async()=>{
+  const response=await fetch(pack+'?v=0.2.0',{cache:'no-cache'});
+  if(!response.ok)throw Error('关卡载入失败 ('+response.status+')');
+  await engine.preloadFile(await response.arrayBuffer(),pack);
+})()]);
+await engine.start({canvas,args:['--main-pack',pack,...config.args]});
+fit();document.querySelector('#entry').remove();canvas.focus()
 }catch(e){document.querySelector('#err').textContent=String(e.message||e);document.querySelector('#retry').hidden=false;statusLine.textContent='战场载入失败'}}
 document.querySelector('#retry').onclick=()=>location.reload();canvas.addEventListener('contextmenu',e=>e.preventDefault());run();
 </script>

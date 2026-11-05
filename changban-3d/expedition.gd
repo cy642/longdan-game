@@ -19,7 +19,7 @@ var camera_length := 5.6
 func _enter_tree() -> void:
 	var keys := {
 		"move_left":[KEY_A],"move_right":[KEY_D],"move_forward":[KEY_W],"move_back":[KEY_S],
-		"attack":[KEY_J],"heavy":[KEY_K,KEY_Q],"dodge":[KEY_SPACE],"interact":[KEY_E],
+		"attack":[KEY_J],"heavy":[KEY_K,KEY_Q],"dragon":[KEY_R],"dodge":[KEY_SPACE],"interact":[KEY_E],
 		"turn_left":[KEY_LEFT],"turn_right":[KEY_RIGHT]
 	}
 	for action in keys:
@@ -53,14 +53,8 @@ func _ready() -> void:
 	_title_camera()
 
 func _setup_light() -> void:
-	var material := ProceduralSkyMaterial.new()
-	material.sky_top_color = Color("#749aa9")
-	material.sky_horizon_color = Color("#f8d9ad")
-	material.sky_curve = 0.25
-	material.ground_horizon_color = Color("#e1c6a4")
-	material.ground_bottom_color = Color("#819086")
-	material.sun_angle_max = 13.0
-	material.sun_curve = 0.10
+	var material := ShaderMaterial.new()
+	material.shader = preload("res://art/landscape/daybreak.gdshader")
 	var sky := Sky.new()
 	sky.sky_material = material
 	var env := Environment.new()
@@ -161,12 +155,10 @@ func _input(event: InputEvent) -> void:
 	elif drag and event is InputEventMouseMotion:
 		yaw = wrapf(yaw - event.relative.x*0.005,-PI,PI)
 		pitch = clampf(pitch + event.relative.y*0.003,0.12,0.78)
-		battle.camera_yaw = yaw
 
 func _physics_process(delta: float) -> void:
 	if mode == "play":
 		yaw = wrapf(yaw - Input.get_axis("turn_left","turn_right")*1.85*delta,-PI,PI)
-		battle.camera_yaw = yaw
 		_follow_camera(delta)
 		hud.update_battle(battle,camera,delta)
 	elif mode == "title":
@@ -176,7 +168,7 @@ func _physics_process(delta: float) -> void:
 func _title_camera() -> void:
 	var h: Vector3 = battle.hero.global_position
 	var side := sin(elapsed*0.17)*0.28
-	camera.position = h + Vector3(3.05 + side,2.15,3.9)
+	camera.position = h + Vector3(2.95 + side,2.11,3.72)
 	# The title leaves the right-hand side open for the hero and the road beyond.
 	var aim := h + Vector3.UP*1.13
 	var forward := camera.position.direction_to(aim)
@@ -185,18 +177,23 @@ func _title_camera() -> void:
 	battle.hero.rotation.y = atan2(h.x-camera.position.x,h.z-camera.position.z) + 0.37
 	# A held guard at the chapter opening. Both feet remain planted.
 	var model = battle.hero_model
-	model.pose("idle",0,0,0)
-	model.body.position.y += sin(elapsed*1.65)*0.012
-	model.head.rotation.y = sin(elapsed*0.63)*0.045
-	model.silk.rotation.x = -0.09 + sin(elapsed*2.5)*0.07
+	model.pose("idle",elapsed*1.65,0,0)
+	model.head.rotation.y += sin(elapsed*0.63)*0.045
+	model.silk.rotation.x += -0.09 + sin(elapsed*2.5)*0.07
 	camera.fov = 44.0
 
 func _follow_camera(dt: float, instant := false) -> void:
-	camera.fov = 56.0
+	var target_fov := 56.0
+	if battle.action == "dragon":
+		var phase: float = battle.elapsed / battle.duration
+		target_fov -= 2.0*sin(PI*clampf(phase/.33,0,1))
+		target_fov += 3.2*sin(PI*clampf((phase-.33)/.67,0,1))
+	camera.fov = target_fov if instant else lerpf(camera.fov,target_fov,1.0-exp(-15.*dt))
 	var behind := Vector3(sin(yaw),0,cos(yaw))
-	var target: Vector3 = battle.hero.global_position + Vector3.UP*1.20 - behind*0.38
+	var right := Vector3(behind.z,0,-behind.x)
+	var target: Vector3 = battle.hero.global_position + Vector3.UP*1.20 - behind*0.38 + right*.28
 	focus = target if instant else focus.lerp(target,1.0-exp(-13.0*dt))
-	var offset := behind*cos(pitch) + Vector3.UP*sin(pitch)
+	var offset := (behind*cos(pitch) + Vector3.UP*sin(pitch) + right*.16).normalized()
 	var query := PhysicsRayQueryParameters3D.create(focus,focus + offset*distance,2)
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	var allowed := distance
@@ -204,4 +201,7 @@ func _follow_camera(dt: float, instant := false) -> void:
 		allowed = maxf(0.65,focus.distance_to(hit.position)-0.22)
 	camera_length = allowed if instant or allowed < camera_length else lerpf(camera_length,allowed,1.0-exp(-5.0*dt))
 	camera.position = focus + offset*camera_length
-	camera.look_at(focus - behind*0.65,Vector3.UP)
+	camera.look_at(focus - behind*0.65 + right*.24,Vector3.UP)
+	# The shoulder camera looks slightly across the player. WASD follows the
+	# actual view direction even during an orbit or when near a house wall.
+	battle.camera_yaw = atan2(camera.basis.z.x,camera.basis.z.z)

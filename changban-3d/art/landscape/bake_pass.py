@@ -8,6 +8,7 @@ import struct
 
 import numpy as np
 from PIL import Image, ImageDraw
+from painted_surfaces import architecture_atlas, foliage_atlas, meadow_atlas, field_brush, uv_patch
 
 HERE = Path(__file__).resolve().parent
 R = random.Random(185)
@@ -28,11 +29,16 @@ def river_center(x):
 def ground_height(x, z):
     side = max(0, min(1, (abs(x) - 8) / 17))
     hills = side * (1.6 + 1.35 * sin(z*.149 + x*.19) + .65 * cos(x*.45 + z*.093))
+    # The battle lane stays level; its shoulders taper into eroded grassy hollows.
+    shoulder = max(0, min(1, (abs(x)-7.3)/4.3))
+    hills += shoulder * (.44*sin(x*.87+z*.23) + .22*cos(z*.81-x*.19) +
+                        .25*math.exp(-((x-12)/4)**2)*sin(z*.47))
     hills += min(1, max(0, (-z-29)/16)) * (1.72 + 1.12*cos(x*.23-z*.12) + .63*sin(x*.41+z*.21))
     bank = abs(z - float(river_center(x)))
     if bank >= 5.2:
         return hills * min(1, (bank - 5.2)/3)
-    return -3.1 * min(1, (5.2-bank)/1.9)
+    slope = min(1, (5.2-bank)/2.4)
+    return -3.1 * slope*slope*(3-2*slope)
 
 
 def painted_ground():
@@ -55,12 +61,16 @@ def painted_ground():
     wagon = np.exp(-((distance-1.16-.085*np.sin(z*.83)-.15*broad)/.11)**2) * path
     wagon *= np.clip(.65 + 1.1*mid + .32*np.sin(z*1.7+x*2.6), .18, 1)
     wheel_lip = np.exp(-((distance-1.34-.085*np.sin(z*.83)-.15*broad)/.085)**2) * wagon
+    well_track = np.exp(-((z-1.4+.34*np.sin(x*.77))/.98)**2)*np.clip((-x-.6)/1.4,0,1)*np.clip((x+6.6)/1.5,0,1)
+    path = np.maximum(path, (.78+.32*mid)*well_track)
+    charred = np.exp(-((x+9.6)/3.2)**2-((z+1.7)/4.2)**2)
+    damp = .24 * np.exp(-((x+5.35)/2.1)**2-((z-1.2)/2.1)**2)
     colors = []
     for i in range(3):
         grassy = (99,115,81)[i]+(41,42,26)[i]*broad+25*mid+12*fine+stripes*(16,17,8)[i]
-        dusty = (155,128,93)[i]+39*broad+23*mid+13*fine-31*wagon+13*wheel_lip
+        dusty = (151,125,91)[i]+39*broad+23*mid+13*fine-31*wagon+13*wheel_lip
         shore = (121,123,103)[i]+35*broad+23*mid+11*fine
-        colors.append((grassy*(1-path)+dusty*path)*(1-bank)+bank*shore)
+        colors.append(((grassy*(1-path)+dusty*path)*(1-bank)+bank*shore)*(1-.46*charred-damp))
     surface = Image.fromarray(np.uint8(np.clip(np.stack(colors,axis=-1),0,255)))
     pen = ImageDraw.Draw(surface, "RGBA")
     def pt(x,z):
@@ -114,6 +124,11 @@ class Batch:
     def quad(self,a,b,c,d,color):
         self.triangle(a,b,c,color)
         self.triangle(a,c,d,color)
+    def faced(self,points,uvs,color=(1,1,1)):
+        for ids in ((0,1,2),(0,2,3)):
+            self.triangle(*[points[k] for k in ids],color,[uvs[k] for k in ids])
+    def patch(self,points,name,u0=0,v0=0,u1=1,v1=1):
+        self.faced(points,[uv_patch(name,u,v) for u,v in ((u0,v0),(u0,v1),(u1,v1),(u1,v0))])
     def beam(self,a,b,r1,r2,col,sides=7, twist=0):
         a,b=vec(a),vec(b)
         w=unit(b-a)
@@ -141,6 +156,7 @@ class Batch:
     def lump(self,center,radii,col,rings=3,segs=8,jag=.19):
         cx,cy,cz=center
         rx,ry,rz=radii
+        start=len(self.norm)
         contour=[]
         phase=R.random()*pi
         for ri in range(1,rings+1):
@@ -157,6 +173,14 @@ class Batch:
             self.triangle((cx,cy-ry,cz),contour[-1][i],contour[-1][j],tone(col,-.16))
             for k in range(rings-1):
                 self.quad(contour[k][i],contour[k][j],contour[k+1][j],contour[k+1][i],tone(col,R.uniform(-.12,.12)))
+        # Carry rounded volume through triangulation: hand-painted hollows
+        # come from broad planes, rather than flashing triangular silhouettes.
+        inverse=np.reciprocal(np.maximum(np.square(radii),1.e-5))
+        positions=np.asarray(self.pos[start:])-np.asarray(center)
+        gradients=positions*inverse
+        gradients/=np.maximum(np.linalg.norm(gradients,axis=1)[:,None],1.e-7)
+        mixed=gradients*.77+np.asarray(self.norm[start:])*.23
+        self.norm[start:]=list(mixed/np.maximum(np.linalg.norm(mixed,axis=1)[:,None],1.e-7))
 
 
 class Gltf:
@@ -166,7 +190,10 @@ class Gltf:
                 'scenes':[{'name':'Changban Landscape','nodes':[]}],'nodes':[],'meshes':[],
                 'buffers':[{}],'bufferViews':[],'accessors':[], 'materials':[], 'textures':[], 'images':[]}
         self.g['materials']=[{'name':name, 'doubleSided':True,'pbrMetallicRoughness':{'metallicFactor':0,'roughnessFactor':.94}} for name in
-                             ['Hand-painted forms','Painted terrain','Eastern river cloth','Lacquered water','Silhouette mountains','Banner writing']]
+                             ['Hand-painted forms','Painted terrain','Eastern river cloth','Lacquered water','Silhouette mountains','Banner writing',
+                              'Painted village surfaces','Painted leaf sprays','Painted grasses']]
+        self.g['materials'][7].update({'alphaMode':'MASK','alphaCutoff':.42})
+        self.g['materials'][8].update({'alphaMode':'MASK','alphaCutoff':.36})
         self.g['materials'][4]['extensions']={'KHR_materials_unlit':{}}
         self.g['extensionsUsed']=['KHR_materials_unlit']
         self.g['samplers']=[{'wrapS':33071,'wrapT':33071,'minFilter':9987,'magFilter':9729}]
@@ -193,13 +220,27 @@ class Gltf:
         return len(self.g['accessors'])-1
     def add(self,b):
         if not b.pos: return
-        attrs={'POSITION':self.attr(b.pos,3,bounds=True),'NORMAL':self.attr(b.norm,3)}
-        if b.material not in (1,5):
-            attrs['COLOR_0']=self.attr([[round(v*255) for v in color]+[255] for color in b.color],4,'u1')
-        if b.uv: attrs['TEXCOORD_0']=self.attr(b.uv,2)
+        # Weld vertices only when normal, UV and paint agree. Batched foliage,
+        # plaster walls and riverbanks can then share their edge vertices.
+        arrays = [np.asarray(b.pos,'f4'),np.asarray(b.norm,'f4')]
+        painted = b.material not in (1,5,6,7,8)
+        if painted: arrays.append(np.rint(np.asarray(b.color)*255).clip(0,255))
+        if b.uv:
+            if len(b.uv)!=len(b.pos): raise ValueError('Incomplete UVs: '+b.name)
+            arrays.append(np.asarray(b.uv,'f4'))
+        points, inverse = np.unique(np.concatenate(arrays,axis=1).astype('f4'),return_inverse=True,axis=0)
+        attrs={'POSITION':self.attr(points[:,:3],3,bounds=True),'NORMAL':self.attr(points[:,3:6],3)}
+        if painted:
+            colors=np.column_stack((points[:,6:9],np.full(len(points),255)))
+            attrs['COLOR_0']=self.attr(colors,4,'u1')
+        if b.uv: attrs['TEXCOORD_0']=self.attr(points[:,-2:],2)
+        small = len(points)<65536
+        index = len(self.g['accessors'])
+        self.g['accessors'].append({'bufferView':self.view(inverse.astype('<u2' if small else '<u4').tobytes()),
+                                    'componentType':5123 if small else 5125,'count':len(b.pos),'type':'SCALAR'})
         self.g['scenes'][0]['nodes'].append(len(self.g['nodes']))
         self.g['nodes'].append({'name':b.name,'mesh':len(self.g['meshes'])})
-        self.g['meshes'].append({'name':b.name,'primitives':[{'attributes':attrs,'material':b.material}]})
+        self.g['meshes'].append({'name':b.name,'primitives':[{'attributes':attrs,'indices':index,'material':b.material}]})
     def save(self):
         while len(self.data)%4: self.data.append(0)
         self.g['buffers'][0]['byteLength']=len(self.data)
@@ -271,58 +312,101 @@ def mountains(g):
 
 def boulder(b,x,z,s):
     y=ground_height(x,z)
-    b.lump((x,y+s*.21,z),(s*1.35,s*.64,s*.85),R.choice(ROCKS),rings=2,segs=7,jag=.26)
-    if s>.7:
-        b.lump((x+s*.24,y+s*.55,z+.04),(s*.71,s*.29,s*.60),lin('899054'),rings=2,segs=7,jag=.19)
+    b.lump((x,y+s*.17,z),(s*1.25,s*.64,s*.87),R.choice(ROCKS),rings=4,segs=11,jag=.13)
+    if s>.9:
+        b.lump((x+s*.67,y+s*.075,z+.15*s),(s*.64,s*.32,s*.46),lin('868976'),rings=3,segs=9,jag=.13)
 
 
-def broadleaf(b,x,z,s,autumn):
+def leaf_spray(leaves,center,width,height,angle,patch,droop):
+    """Convex five-point leaf fans intersect around a volume, with no camera-facing substitution."""
+    across=vec((cos(angle),0,sin(angle)))
+    depth=vec((-sin(angle),0,cos(angle)))
+    ahead=vec(center)
+    def point(u,v):
+        bulge=(1-(u*2-1)**2)*(.18+.24*(1-(v*2-1)**2))
+        return ahead + across*(u-.5)*width + depth*(bulge*width+droop*(v-.5)) + vec((0,(.5-v)*height,0))
+    def uv(u,v): return ((patch%2+.013+u*.974)/2,(patch//2+.013+v*.974)/2)
+    for j in range(2):
+        for k in range(2):
+            u,v=j/2,k/2
+            coords=[(u,v),(u,v+.5),(u+.5,v+.5),(u+.5,v)]
+            start=len(leaves.norm)
+            leaves.faced([point(a,b) for a,b in coords],[uv(a,b) for a,b in coords])
+            # Crown facing stays upward at the top, bending outward around the side.
+            for n in range(start,len(leaves.norm)):
+                leaves.norm[n]=unit(depth*.39+vec((0,.91,0)))
+
+
+def crown(leaves,at,spread,height,angle,patch):
+    for j in range(4):
+        turn=angle+j*pi*.5
+        along=vec((cos(turn),0,sin(turn)))
+        leaf_spray(leaves,vec(at)+along*.18*spread,spread,height,turn+pi*.5,patch,.19*spread)
+    leaf_spray(leaves,vec(at)+vec((0,height*.17,0)),spread*.80,height*.85,angle+pi*.25,patch,.34*spread)
+
+
+def tussock(blades,x,y,z,width,height,patch):
+    angle=R.uniform(0,pi)
+    for j in range(2):
+        theta=angle+j*pi*.5
+        across=vec((cos(theta),0,sin(theta)))*width*.5
+        wind=vec((.062,0,.027))
+        root=vec((x,y-.018,z))
+        top=root+vec((0,height,0))+wind
+        coords=[(0,0),(0,1),(1,1),(1,0)]
+        uv=[((patch%2+.009+u*.982)/2,(patch//2+.009+v*.982)/2) for u,v in coords]
+        begin=len(blades.norm)
+        blades.faced([top-across,root-across,root+across,top+across],uv)
+        blades.norm[begin:]=[vec((0,1,0))]*(len(blades.norm)-begin)
+
+
+def broadleaf(b,leaves,x,z,s,autumn):
     y=ground_height(x,z)
     angle=R.uniform(0,2*pi)
-    tilt=vec((cos(angle)*s*.49,0,sin(angle)*s*.49))
-    base=vec((x,y-.06,z))
-    mid=base+vec((0,s*1.68,0))+tilt*.25
-    crown=base+vec((0,s*3.2,0))+tilt
-    b.beam(base,mid,.31*s,.16*s,BARK,8)
-    b.beam(mid,crown,.18*s,.077*s,BARK_LIGHT,7)
-    for i in range(4):
-        ang=angle+i*1.55
-        b.beam(base+vec((0,s*.38,0)),base+vec((s*.65*cos(ang),.05,s*.65*sin(ang))),.22*s,.045*s,BARK,6)
-    leaf=FOLIAGE[autumn]
-    for i in range(6):
-        ang=angle+i*2.399
-        length=(1.35+.30*cos(i*2.7))*s
-        elbow=mid+tilt*.53+vec((cos(ang)*length*.47,s*(.46+i*.105),sin(ang)*length*.47))
-        tip=mid+tilt*.84+vec((cos(ang)*length,s*(.95+i*.17),sin(ang)*length))
-        b.beam(mid,elbow,.125*s,.077*s,BARK,6)
-        b.beam(elbow,tip,.082*s,.042*s,BARK_LIGHT,6)
-        shade=tone(leaf,R.uniform(-.14,.20))
-        b.lump(tip+vec((0,s*.34,0)),(1.25*s,.71*s,1.17*s),shade,rings=2,segs=8,jag=.20)
-        # Irregular canopy edges and small leaf fans give broad crowns a brush-like edge.
-        for j in range(4):
-            az=ang+j*1.81
-            edge=tip+vec((s*cos(az)*.99,s*(.32+.17*sin(j)),s*sin(az)*.94))
-            b.lump(edge,(.46*s,.31*s,.46*s),tone(shade,.10),rings=1,segs=5,jag=.18)
-    b.lump(crown+vec((0,s*.53,0)),(1.35*s,.80*s,1.31*s),tone(leaf,.12),rings=2,segs=8)
+    tilt=vec((cos(angle)*s*.57,0,sin(angle)*s*.57))
+    root=vec((x,y-.08,z))
+    lower=root+vec((0,s*.80,0))-tilt*.18
+    mid=root+vec((0,s*1.73,0))+tilt*.31
+    crown_center=mid+vec((0,s*1.32,0))+tilt*.76
+    b.beam(root,lower,.34*s,.22*s,BARK,11)
+    b.beam(lower,mid,.235*s,.15*s,BARK,10)
+    b.beam(mid,crown_center,.17*s,.073*s,BARK_LIGHT,9)
+    for j in range(6):
+        th=angle+j*1.08
+        offset=vec((cos(th),0,sin(th)))
+        b.beam(root+offset*s*.15+vec((0,s*.63,0)),root+offset*s*.79+vec((0,.03,0)),.17*s,.033*s,BARK,7)
+    patch=1 if autumn in (1,2,3) else (3 if autumn==4 else 0)
+    for i in range(7):
+        th=angle+i*2.399
+        length=(1.34+.46*cos(i*2.7))*s
+        out=vec((cos(th),0,sin(th)))
+        elbow=mid+tilt*.53+out*length*.53+vec((0,s*(.31+i*.12),0))
+        tip=mid+tilt*.78+out*length+vec((0,s*(.95+i*.15),0))
+        b.beam(mid,elbow,.115*s,.077*s,BARK,8)
+        b.beam(elbow,tip,.088*s,.033*s,BARK_LIGHT,7)
+        twig=tip+out*.40*s+vec((0,.25*s,0))
+        b.beam(tip,twig,.039*s,.013*s,BARK,6)
+        crown(leaves,tip+vec((0,s*.30,0)),2.05*s,1.18*s,th,patch)
+    crown(leaves,crown_center+vec((0,s*.51,0)),2.27*s,1.28*s,angle+.54,patch)
 
 
-def conifer(b,x,z,s):
+def conifer(b,leaves,x,z,s):
     y=ground_height(x,z)
-    sign=R.choice([-1,1])
-    last=vec((x,y,z))
-    for k in range(4):
-        tip=vec((x+sign*.17*k*s,y+(k+1)*1.02*s,z+.09*k*s))
-        b.beam(last,tip,s*(.22-.042*k),s*(.17-.04*k),BARK,7)
+    sign=R.choice([-1,1]);last=vec((x,y,z))
+    for k in range(5):
+        tip=vec((x+sign*.16*k*s,y+(k+1)*.87*s,z+.085*k*s))
+        b.beam(last,tip,s*(.23-.038*k),s*(.18-.036*k),BARK,8)
         last=tip
-        for j in range(3):
-            angle=j*2*pi/3+k*1.29
-            length=s*(1.78-.34*k)
-            elbow=tip+vec((cos(angle)*length*.62,.19*s,sin(angle)*length*.62))
-            end=tip+vec((cos(angle)*length,.37*s,sin(angle)*length))
-            b.beam(tip,elbow,.09*s,.050*s,BARK,5)
-            b.beam(elbow,end,.053*s,.022*s,BARK_LIGHT,5)
-            b.lump(end,(length*.86,.38*s,length*.72),lin(['4b6556','526f5b','647c61','728466'][k]),rings=2,segs=7,jag=.24)
-    b.lump(last+vec((0,s*.40,0)),(.86*s,.48*s,.77*s),lin('728467'),rings=2,segs=7)
+        for j in range(4):
+            th=j*pi*.5+k*1.29
+            length=s*(1.64-.255*k)
+            out=vec((cos(th),0,sin(th)))
+            elbow=tip+out*length*.55+vec((0,.12*s,0))
+            end=tip+out*length+vec((0,.34*s,0))
+            b.beam(tip,elbow,.078*s,.041*s,BARK,7)
+            b.beam(elbow,end,.045*s,.021*s,BARK_LIGHT,6)
+            crown(leaves,end,1.8*length,1.04*s,th,2)
+    crown(leaves,last+vec((0,s*.37,0)),1.30*s,1.32*s,.30,2)
 
 
 def flora(g):
@@ -336,27 +420,25 @@ def flora(g):
         if abs(z-float(river_center(x)))>6:
             near.append((x,z,R.uniform(.84,1.53),R.randrange(6)))
     for index in range(0,len(near),6):
-        b=Batch('Autumn canopy %02d'%index)
+        b=Batch('Elder wood trunk and boughs %02d'%index)
+        leaves=Batch('Painted canopy %02d'%index,7)
         for ti,(x,z,s,palette) in enumerate(near[index:index+6]):
-            if (ti+index)%4==0: conifer(b,x,z,s*1.24)
-            else: broadleaf(b,x,z,s,palette)
-        g.add(b)
+            if (ti+index)%4==0: conifer(b,leaves,x,z,s*1.24)
+            else: broadleaf(b,leaves,x,z,s,palette)
+        g.add(b);g.add(leaves)
     for sign in (-1,1):
         for band in range(4):
-            b=Batch('Grass and scree %d %d'%(sign,band))
+            b=Batch('Meadow blades %d %d'%(sign,band),8)
+            stones=Batch('Weathered stone %d %d'%(sign,band))
             for i in range(34):
                 x=sign*R.uniform(7.4,38);z=R.uniform(-48+band*21,-27+band*21)
                 size=R.uniform(.26,1.05)*(1.75 if abs(x)>13 else 1.)
-                boulder(b,x,z,size)
+                boulder(stones,x,z,size)
             for i in range(280):
                 x=sign*R.uniform(2.9,22);z=R.uniform(-48+band*21,-27+band*21)
                 if abs(x-float(road_center(z)))<3.1 or abs(z-float(river_center(x)))<5.2: continue
-                h=ground_height(x,z); col=lin(R.choice(['a9a260','a99a57','929450','c2ac67']))
-                for j in range(R.randint(3,6)):
-                    t=R.uniform(-pi,pi);p=vec((x+R.uniform(-.13,.13),h-.035,z+R.uniform(-.13,.13)))
-                    w=vec((cos(t)*.040,0,sin(t)*.040))
-                    b.triangle(p-w,p+w,p+vec((R.uniform(-.12,.12),R.uniform(.18,.42),R.uniform(-.11,.11))),col)
-            g.add(b)
+                tussock(b,x,ground_height(x,z),z,R.uniform(.38,.69),R.uniform(.24,.51),R.randrange(4))
+            g.add(b);g.add(stones)
 
 
 def ripple(b,x,z,length,wide):
@@ -418,100 +500,187 @@ def bridge(g):
     g.add(b)
 
 
-def roof_y(x,z,h,hw,hl):
-    xx=abs(x)/hw
-    return h+1.20*(1-xx)**1.48+.25*xx**4*(.2+.8*(abs(z)/hl)**3)
+def roof_y(xx,zz,h,hw,hl):
+    # Sag at mid-slope, with a real overhanging fascia and swept-up gable tips.
+    fr=abs(xx)/hw
+    return h + 1.55*(1-fr)**1.72 + .34*fr**4*(.15+.85*(abs(zz)/hl)**3)
+
+
+def tiled_roof(frame, painted, p, hw, hl, h, burnt):
+    rw,rl=hw+.54,hl+.55
+    courses, bays=6,15
+    def roof(s,fr,n,off=0):
+        return vec(p(s*rw*fr,roof_y(s*rw*fr,n,h,rw,rl)+off,n))
+    for side in (-1,1):
+        # Continuous rectified painted tile courses wrap both sloping surfaces.
+        # Missing sections follow irregular stepped lines through the damaged roof.
+        for row in range(courses):
+            f0,f1=row/courses,(row+1)/courses
+            for bay in range(bays):
+                v0,v1=bay/bays,(bay+1)/bays
+                z0,z1=(v0*2-1)*rl,(v1*2-1)*rl
+                if burnt and ((side>0 and bay>3+(row*2)%4) or
+                              (side<0 and bay>9+(row//2)%3 and row<5)): continue
+                corners=[roof(side,f0,z0),roof(side,f1,z0),roof(side,f1,z1),roof(side,f0,z1)]
+                painted.patch(corners,'tile',v0,f0,v1,f1)
+                if row==courses-1:
+                    # Dark bed of clay just inside the rounded ends.
+                    frame.quad(corners[1],corners[2],corners[2]+vec((0,-.09,0)),corners[1]+vec((0,-.09,0)),lin('51483b'))
+        for zz in (-rl,rl):
+            for k in range(courses):
+                a=roof(side,k/courses,zz); b=roof(side,(k+1)/courses,zz)
+                frame.beam(a,b,.092,.088,lin('795339'),8)
+                frame.beam(a+vec((0,.057,0)),b+vec((0,.055,0)),.036,.038,lin('bb8050'),6)
+            end=roof(side,1,zz)
+            frame.beam(end-vec((.02*side,0,0)),end+vec((side*.17,.10,.03)),.102,.068,lin('8b5e3e'),7)
+        for i in range(17):
+            z0=-rl+(i+.5)*2*rl/17
+            if burnt and side>0 and z0>-.7: continue
+            # Glazed tubular ridge-ends, with recessed dark circular centres.
+            cap=roof(side,1,z0,0)
+            frame.beam(cap-vec((side*.19,-.02,0)),cap+vec((side*.03,0,0)),.095,.119,lin('626d69'),11)
+            frame.beam(cap+vec((side*.033,0,0)),cap+vec((side*.038,0,0)),.069,.069,lin('403c36'),10)
+        if burnt:
+            for i,zz in enumerate(np.linspace(-hl,hl,11)):
+                end=roof(side,.70+.27*((i*3)%5)/4,zz)
+                frame.beam(roof(side,0,zz,-.14),end+vec((0,-.14-.23*(i%3),.12*sin(i))),.071,.035,lin('5c4639'),7)
+                if i%3==1:
+                    frame.beam(end+vec((0,-.23,0)),end+vec((side*.18,-.05,.03)),.040,.009,lin('958264'),5)
+    for j in range(12):
+        a= (j/12*2-1)*rl
+        b= ((j+1)/12*2-1)*rl
+        if burnt and j in (7,8,9,10): continue
+        frame.beam(p(0,h+1.59,a),p(0,h+1.59,b),.12,.119,lin('606963'),10)
+    for sign in (-1,1):
+        fin=vec(p(0,h+1.59,sign*rl))
+        frame.beam(fin,fin+vec((0,.13,.15*sign)),.15,.102,lin('79523a'),9)
+        frame.beam(fin+vec((0,.13,.15*sign)),fin+vec((0,.31,.21*sign)),.104,.037,lin('aa7950'),8)
+
+
+def doorway(frame,painted,p,hw,hl,side,along_z):
+    """Raised doorsill and rafters take real depth under the painted facade."""
+    def d(u,y,out):
+        if along_z: return vec(p(u-hw*.49,y,side*(hl+out)))
+        return vec(p(side*(hw+out),y,u-hl*.49))
+    for i in range(2):
+        for j in range(3):
+            left=-.81+j*.55+.012*(i%2)
+            front=.28+(1-i)*.30
+            top=.17+i*.15
+            c=tone(lin('998e76'),.07*sin(j*2+i))
+            painted.patch([d(left,top,.02),d(left,top,front),d(left+.535,top,front),d(left+.535,top,.02)],
+                          'stone',j*.24,i*.20,j*.24+.22,i*.20+.21)
+            frame.quad(d(left,top,front),d(left,top-.15,front),d(left+.535,top-.15,front),d(left+.535,top,front),tone(c,-.16))
+    for u in (-.96,.96):
+        frame.beam(d(u,.34,.07),d(u,1.96,.09),.080,.073,TIMBER,8)
+        frame.beam(d(u,1.63,.08),d(u,1.88,.36),.045,.053,lin('8f6e49'),7)
+    frame.beam(d(-1.08,1.97,.09),d(1.09,2.0,.09),.095,.086,lin('7a5438'),7)
+    # Planked rain canopy above the double door, with feathered straw ends.
+    for j in range(14):
+        u=-1.05+j*.153
+        painted.patch([d(u,2.05,.06),d(u,1.84,.69),d(u+.151,1.83+.026*sin(j),.68+.032*sin(j*3)),d(u+.151,2.055,.06)],
+                      'wood',j/14,0,(j+1)/14,1)
 
 
 def house(g,x,z,w,l,broken=False):
-    b=Batch(('Fire-struck house' if broken else 'Village tile house')+' %.1f'%x)
+    frame=Batch(('Fire-struck timbers' if broken else 'Village timber joinery')+' %.1f'%x)
+    painted=Batch(('Burnt plaster and salvaged tiles' if broken else 'Painted rammed earth and tiles')+' %.1f'%x,6)
+    hw,hl=w*.5,l*.5;h=2.24
     y=ground_height(x,z)
-    hw,hl=w*.5,l*.5
-    h=2.19
     def p(xx,yy,zz): return (x+xx,y+yy,z+zz)
-    b.block(p(0,.17,0),(w+.48,.34,l+.46),BASE)
-    for k in range(3):
-        uz=-hl+(k+.5)*l/3
-        b.block(p(-hw,.29,uz),(.28,.27,l/3-.045),tone(BASE,-.09+.07*k))
-        b.block(p(hw,.29,uz),(.28,.27,l/3-.045),tone(BASE,.08-.05*k))
-    for sx in (-1,1):
-        for j in range(4):
-            zz=-hl+j*(l/3)
-            b.beam(p(sx*hw,.24,zz),p(sx*hw,h+(R.uniform(-.68,.0) if broken else .035),zz),.105,.090,BARK if broken else TIMBER,7)
-        for j in range(3):
-            zz=-hl+(j+.5)*l/3
-            if (sx* x<0 and j==1) or (broken and (j+sx)%3): continue
-            wh=1.73 if not broken else .72+.64*(j%2)
-            b.block(p(sx*hw,.33+wh*.5,zz),(.16,wh,l/3-.085),tone(WALL, R.uniform(-.10,.08)))
-            # Clay plaster patches and exposed daub under the eaves.
-            for _ in range(6):
-                hh=R.uniform(.32,.67)
-                along=zz+R.uniform(-l/8,l/8);dw=R.uniform(.07,.26)
-                xx=sx*(hw+.087)
-                b.triangle(p(xx,hh,along-dw),p(xx,hh+R.uniform(.04,.21),along),p(xx,hh,along+dw),lin('a39576'))
-            if not broken and j!=1:
-                b.block(p(sx*(hw+.094),1.47,zz),(.025,.48,.67),lin('564e40'))
-                for jj in range(4):
-                    b.block(p(sx*(hw+.117),1.47,zz-.28+jj*.185),(.042,.50,.027),TIMBER)
-        b.beam(p(sx*hw,h,-hl),p(sx*hw,h,hl),.105,.10,TIMBER,7)
-    for sz in (-1,1):
-        if not broken or sz<0:
-            b.block(p(0,1.11,sz*hl),(w-.16,1.55,.17),tone(WALL,-.04))
-            b.triangle(p(-hw,h-.05,sz*hl),p(0,h+1.15,sz*hl),p(hw,h-.05,sz*hl),WALL)
-        b.beam(p(-hw,h,sz*hl),p(hw,h,sz*hl),.12,.11,TIMBER,7)
-        b.beam(p(0,h-.2,sz*hl),p(0,h+1.11,sz*hl),.09,.075,TIMBER,6)
-    rw,rl=hw+.48,hl+.52
-    for sx in (-1,1):
-        for k in range(5):
-            inn=k/5;out=(k+1)/5
-            for j in range(12):
-                n0=-rl+j*(2*rl)/12;n1=-rl+(j+1)*(2*rl)/12
-                if broken and ((sx>0 and j>=4) or (sx<0 and j>=7 and k<3)): continue
-                def tile(fr,n,off=0):
-                    return p(sx*rw*fr,roof_y(rw*fr,n,h,rw,rl)+off,n)
-                swatch=tone(TILE,R.uniform(-.13,.16))
-                b.quad(tile(inn,n0),tile(inn,n1),tile(out,n1),tile(out,n0),swatch)
-                if j%2==0:
-                    b.beam(tile(inn,n0,.025),tile(out,n0,.025),.042,.052,tone(RIDGE,-.03),5)
-                if k>0:
-                    b.beam(tile(out,n0,.016),tile(out,n1,.016),.014,.014,tone(TILE,-.22),4)
-        for zz in (-rl,rl):
-            for k in range(5):
-                inn=k/5;out=(k+1)/5
-                b.beam(p(sx*rw*inn,roof_y(rw*inn,zz,h,rw,rl),zz),p(sx*rw*out,roof_y(rw*out,zz,h,rw,rl),zz),.055,.066,RIDGE,6)
-        if broken:
-            for zz in np.linspace(-hl,hl,8):
-                b.beam(p(0,h+1.12,zz),p(sx*rw,h-.08+R.uniform(-.25,.15),zz+.12),.060,.039,lin('4e4338'),6)
-    for j in range(12):
-        n0=-rl+j*(2*rl)/12;n1=-rl+(j+1)*(2*rl)/12
-        if broken and j>=7: continue
-        b.beam(p(0,h+1.20,n0),p(0,h+1.20,n1),.105,.113,RIDGE,8)
-    for side in (-1,1):
-        b.beam(p(0,h+1.20,side*rl),p(0,h+1.45,side*(rl+.18)),.12,.056,RIDGE,8)
+    # Raised stone plinth: uneven individual courses at its silhouette; the
+    # photographed corners of the original painted foundation wrap its face.
+    frame.block(p(0,.16,0),(w+.24,.32,l+.22),lin('797963'))
+    for along_z,half,run in ((True,hl,hw),(False,hw,hl)):
+        for side in (-1,1):
+            def v(u,yy,off=.0):
+                return p(u,yy,side*(half+off)) if along_z else p(side*(half+off),yy,u)
+            ends=[v(u,0,.125) for u in (-run-.12,run+.12)]
+            footing=[min(-.10,ground_height(xx,zz)-y-.12) for xx,_,zz in ends]
+            foundation=[v(-run-.12,.38,.125),v(-run-.12,footing[0],.125),v(run+.12,footing[1],.125),v(run+.12,.38,.125)]
+            painted.patch(foundation,'foundation')
+            # A frontage and a gable can both be read as the player circles the
+            # house; every face has textured masonry and an independent roof lip.
+            visible_entrance=not along_z and side*x<0
+            if broken:
+                n=12
+                for j in range(n):
+                    u0,u1=j/n,(j+1)/n
+                    t=(j+0.5)/n
+                    height=h*(.77+.23*cos(t*pi*1.7)) if side*x<0 or (along_z and side==1) else h
+                    if side*x<0 and .32<t<.59: continue
+                    top0=height-.20*(j%3==0);top1=height-.17*(j%3==2)
+                    corners=[v((u0*2-1)*run,top0,.01),v((u0*2-1)*run,.34,.01),
+                             v((u1*2-1)*run,.34,.01),v((u1*2-1)*run,top1,.01)]
+                    painted.patch(corners,'ruin',u0,min(.75,(h-min(top0,top1))/(h-.34)),u1,1)
+                    if top0<h-.20:
+                        frame.beam(corners[0],corners[3],.058,.035,lin('9b7255'),5)
+            else:
+                if along_z and side>0:
+                    # One recessed lattice bay in the gable; its scale follows a
+                    # room's window and the sill actually projects over the render.
+                    for lo,hi,name in ((-run,-.84,'gable'),(-.84,.84,'window'),(.84,run,'gable')):
+                        recess=-.055 if name=='window' else .012
+                        painted.patch([v(lo,h,recess),v(lo,.34,recess),v(hi,.34,recess),v(hi,h,recess)],name)
+                    for uu in (-.85,.85):
+                        frame.beam(v(uu,.32,.05),v(uu,h,.05),.075,.068,TIMBER,8)
+                    frame.beam(v(-.83,.77,.06),v(.84,.77,.06),.056,.056,TIMBER,8)
+                else:
+                    corners=[v(-run,h,.011),v(-run,.34,.011),v(run,.34,.011),v(run,h,.011)]
+                    painted.patch(corners,'front' if visible_entrance else 'gable')
+            for u in (-run,run):
+                frame.beam(v(u,.26,.025),v(u,h+(.055 if not broken else -.26),.045),.115,.10,lin('674a37'),8)
+            frame.beam(v(-run,h,.016),v(run,h,.016),.11,.10,lin('7c583d'),8)
+            if along_z and (not broken or side<0):
+                apices=[v(-run,h-.045,.018),v(run,h-.045,.018),v(0,h+1.55,.018)]
+                painted.triangle(*apices,(1,1,1),[uv_patch('gable',0,1),uv_patch('gable',1,1),uv_patch('gable',.5,0)])
+                frame.beam(v(0,h-.015,.055),v(0,h+1.55,.055),.082,.079,TIMBER,8)
+                for q in (-1,1):
+                    frame.beam(v(q*run*.63,h+.03,.05),v(q*run*.23,h+.88,.05),.047,.050,lin('765b41'),7)
+    tiled_roof(frame,painted,p,hw,hl,h,broken)
     if not broken:
-        # Ceramic storage vessels and a bundled bamboo trellis by the doorway.
-        sx=-1 if x>0 else 1
-        for i in range(3):
-            xx=sx*(hw+.41);zz=-hl+.52+i*.46;col=lin(['925e44','a67754','7e674c'][i])
-            b.lump(p(xx,.33,zz),(.28,.33,.275),col,rings=3,segs=9,jag=.04)
-            b.beam(p(xx,.56,zz),p(xx,.66,zz),.15,.12,col,10)
-            b.beam(p(xx,.657,zz),p(xx,.663,zz),.10,.10,lin('544b3b'),10)
-    g.add(b)
+        doorway(frame,painted,p,hw,hl,-1 if x>0 else 1,False)
+        for j in range(3):
+            sx=-1 if x>0 else 1
+            xx=sx*(hw+.46);zz=-hl+.40+j*.48
+            c=lin(('9b6849','b78760','766042')[j])
+            frame.lump(p(xx,.34,zz),(.28,.35,.29),c,4,12,.023)
+            frame.beam(p(xx,.62,zz),p(xx,.69,zz),.146,.132,c,12)
+            frame.beam(p(xx,.690,zz),p(xx,.695,zz),.098,.099,lin('54463b'),11)
+    else:
+        # Rubble rests beside the torn-out wall rather than floating in a single pile.
+        for _ in range(22):
+            zz=R.uniform(-hl+.18,hl)
+            xx=(hw+R.uniform(.12,.90))*(1 if x<0 else -1)
+            frame.lump(p(xx,.07,zz),(R.uniform(.12,.29),R.uniform(.06,.17),R.uniform(.15,.29)),
+                       lin(R.choice(('967e67','9f8974','a07557'))),2,8,.16)
+    g.add(frame);g.add(painted)
 
 
 def well(g):
-    b=Batch('Old stone well and windlass')
+    b=Batch('Old windlass and wooden bucket')
+    blocks=Batch('Weathered stone of the village well')
     x,z=-5.35,1.2
     def p(xx,yy,zz): return vec((x+xx,yy,z+zz))
     for layer in range(3):
-        for i in range(12):
-            a=(i+layer*.45)*pi/6;d=pi/6-.026;h=.22*layer-.035
-            ro,ri=1.04,.69
+        n=11+layer%2
+        for i in range(n):
+            a=(i+layer*.45)*2*pi/n;d=2*pi/n-.023;h=.225*layer-.035
+            ro=R.uniform(1.0,1.045)+(.045 if layer==2 else 0);ri=R.uniform(.68,.715)
+            thick=R.uniform(.201,.223); c=tone(BASE,R.uniform(-.15,.21))
+            profile=((ro-.05,h),(ro,h+.035),(ro+.006,h+thick-.038),
+                     (ro-.045,h+thick),(ri+.026,h+thick-.005),(ri,h+thick-.04),(ri,h))
             def v(r,hh,t): return p(r*cos(t),hh,r*sin(t))
-            c=tone(BASE,R.uniform(-.17,.16))
-            b.quad(v(ro,h,a),v(ro,h+.214,a),v(ro,h+.214,a+d),v(ro,h,a+d),c)
-            b.quad(v(ro,h+.214,a),v(ri,h+.214,a),v(ri,h+.214,a+d),v(ro,h+.214,a+d),tone(c,.11))
-            b.quad(v(ri,h,a+d),v(ri,h+.214,a+d),v(ri,h+.214,a),v(ri,h,a),tone(c,-.22))
+            for k in range(len(profile)-1):
+                r0,h0=profile[k];r1,h1=profile[k+1]
+                for seg in range(2):
+                    start=a+d*seg*.5;end=start+d*.5
+                    blocks.quad(v(r0,h0,start),v(r1,h1,start),v(r1,h1,end),v(r0,h0,end),
+                                tone(c,(.03,.0,.05,.13,-.06,-.14)[k]))
+            for angle in (a,a+d):
+                vertices=[v(rad,hh,angle) for rad,hh in profile]
+                for j in range(1,len(vertices)-1):
+                    blocks.triangle(vertices[0],vertices[j],vertices[j+1],tone(c,-.15))
     b.beam(p(0,.115,0),p(0,.12,0),.68,.68,lin('536e66'),16)
     for sign in (-1,1):
         b.beam(p(sign*1.03,0,-.16),p(sign*.92,1.72,-.16),.09,.074,TIMBER,7)
@@ -522,7 +691,19 @@ def well(g):
     b.beam(p(.2,.15,-.16),p(.2,1.48,-.16),.022,.022,lin('b49b68'),5)
     b.beam(p(1.2,1.51,-.16),p(1.2,1.18,-.13),.049,.045,TIMBER,7)
     b.beam(p(1.2,1.18,-.13),p(1.48,1.18,-.13),.039,.039,TIMBER,7)
-    g.add(b)
+    # A weathered wooden pail over the opening gives the lowered rope an endpoint.
+    bx,bz=.19,-.16
+    for i in range(12):
+        a=i*pi/6;aa=(i+1)*pi/6-.015
+        b.quad(p(bx+.14*cos(a),.14,bz+.14*sin(a)),p(bx+.188*cos(a),.40,bz+.188*sin(a)),
+               p(bx+.188*cos(aa),.40,bz+.188*sin(aa)),p(bx+.14*cos(aa),.14,bz+.14*sin(aa)),
+               tone(TIMBER,.16*sin(i*2.4)))
+    for h in (.19,.34):
+        for i in range(12):
+            a=i*pi/6;aa=(i+1)*pi/6;rad=.156 if h<.3 else .181
+            b.beam(p(bx+rad*cos(a),h,bz+rad*sin(a)),p(bx+rad*cos(aa),h,bz+rad*sin(aa)),
+                   .014,.014,lin('9c946c'),5)
+    g.add(blocks);g.add(b)
 
 
 def cart(g):
@@ -629,7 +810,8 @@ def beacon(g):
 
 
 def far_bank(g):
-    foliage=Batch('Distant woods on the northern terraces')
+    foliage=Batch('Distant northern grove trunks')
+    leaves=Batch('Painted canopy of the northern pass',7)
     # Leave the bent road visible through two groves; stagger the last horizon.
     for i in range(45):
         z=R.uniform(-54,-30)
@@ -642,12 +824,12 @@ def far_bank(g):
         foliage.beam((x,y-.02,z),(x,y+1.6*sc,z),.115*sc,.069*sc,BARK,6)
         for j in range(3):
             th=j*2.39+i*.37
-            foliage.lump((x+.72*sc*cos(th),y+(1.5+j*.27)*sc,z+.72*sc*sin(th)),(.95*sc,.70*sc,.85*sc),tone(col,j*.065),rings=2,segs=7,jag=.25)
+            crown(leaves,(x+.68*sc*cos(th),y+(1.7+j*.29)*sc,z+.68*sc*sin(th)),1.95*sc,1.35*sc,th,3)
     for i in range(27):
         z=R.uniform(-51,-34);x=R.uniform(-25,23)
         if abs(x-float(road_center(z)))>3.9:
             boulder(foliage,x,z,R.uniform(.49,1.35))
-    g.add(foliage)
+    g.add(foliage);g.add(leaves)
     headland=Batch('Northern bank beyond the trail')
     for i in range(24):
         for j in range(6):
@@ -662,33 +844,22 @@ def far_bank(g):
 
 def shoulders(g):
     for side in (-1,1):
-        b=Batch('Worn grassy shoulder '+str(side))
-        for i in range(148):
+        b=Batch('Meadow blades on road shoulder '+str(side),8)
+        stones=Batch('Weathered stone of road shoulder '+str(side))
+        for i in range(92):
             z=R.uniform(-12,25)
             x=float(road_center(z))+side*R.uniform(2.9,4.75)
             # Flat stones partially buried in chalky soil, so cavalry can traverse.
-            scale=R.uniform(.09,.34)
+            scale=R.uniform(.055,.17)
             col=lin(R.choice(('a59b83','928b74','afa389','877f69')))
-            b.lump((x,.008,z),(scale*1.45,scale*.24,scale*.73),col,rings=1,segs=6,jag=.28)
-        # Reed clumps placed along specific bends and erosion hollows. Bow the
-        # blades and turn the stalks in different directions under the same wind.
+            stones.lump((x,.023,z),(scale*1.19,scale*.52,scale*.83),col,rings=3,segs=11,jag=.10)
+        # Slender foxtails and wider dusty blades gather around damp bends.
         for cz in (-9.95,-6.0,3.9,7.2,12.1,15.3,19.8):
-            for _ in range(4):
-                z=cz+R.uniform(-.71,.71)
-                x=float(road_center(z))+side*R.uniform(3.45,5.60)
-                for blade in range(11):
-                    a=R.uniform(0,2*pi);l=R.uniform(.21,.54)
-                    base=vec((x+R.uniform(-.14,.14),.012,z+R.uniform(-.14,.14)))
-                    width=vec((.032*cos(a),0,.032*sin(a)))
-                    lean=vec((.22*sin(a)+.06,0,.22*cos(a)))
-                    mid=base+vec((0,l*.63,0))+lean*.23
-                    tip=base+vec((0,l*.89,0))+lean
-                    c=lin(R.choice(('9e9c60','88925c','b3a763','b8aa6b')))
-                    b.quad(base-width,base+width,mid+width*.66,mid-width*.66,c)
-                    b.triangle(mid-width*.66,mid+width*.66,tip,tone(c,.15))
-                    if blade%5==0:
-                        b.lump(tip+vec((0,.025,0)),(.026,.056,.026),lin('bbae75'),rings=1,segs=4,jag=.02)
-        g.add(b)
+            for _ in range(8):
+                z=cz+R.uniform(-.76,.76)
+                x=float(road_center(z))+side*R.uniform(3.4,5.6)
+                tussock(b,x,ground_height(x,z),z,R.uniform(.35,.69),R.uniform(.24,.58),R.choice((1,2,3)))
+        g.add(b);g.add(stones)
 
 
 def wayside(g):
@@ -703,7 +874,7 @@ def wayside(g):
             b.beam((x,base+hh,za-.15),(x,base+hh-.07,zb+.21),.060,.050,BARK_LIGHT,6)
     for i in range(26):
         x=R.choice([-1,1])*R.uniform(3.8,7.6);z=R.uniform(-10.8,28)
-        b.lump((x,.015,z),(R.uniform(.09,.26),R.uniform(.05,.11),R.uniform(.10,.24)),R.choice(ROCKS),rings=1,segs=6)
+        b.lump((x,.016,z),(R.uniform(.09,.22),R.uniform(.05,.11),R.uniform(.10,.21)),R.choice(ROCKS),rings=3,segs=10,jag=.11)
     g.add(b)
 
 
@@ -711,6 +882,13 @@ def main():
     g=Gltf(painted_ground())
     g.add_image(draw_banner_texture(),'image/jpeg','Cao army embroidered flag')
     g.g['materials'][5]['pbrMetallicRoughness']['baseColorTexture']={'index':1}
+    g.add_image(architecture_atlas(),'image/jpeg','Village painted atlas')
+    g.g['materials'][6]['pbrMetallicRoughness']['baseColorTexture']={'index':2}
+    g.add_image(foliage_atlas(),'image/png','Canopy painted sprays')
+    g.g['materials'][7]['pbrMetallicRoughness']['baseColorTexture']={'index':3}
+    g.add_image(meadow_atlas(),'image/png','Meadow painted tufts')
+    g.g['materials'][8]['pbrMetallicRoughness']['baseColorTexture']={'index':4}
+    field_brush()
     R.seed(8720)
     terrain(g);mountains(g);river(g);bridge(g);standards(g)
     house(g,9.4,-.35,3.9,5.45);house(g,-10.55,-1.7,4.05,6.15,True)

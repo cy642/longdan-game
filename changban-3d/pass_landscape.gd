@@ -5,6 +5,11 @@ const PASS_SCENE: PackedScene = preload("res://art/landscape/ChangbanPass.glb")
 const STANDARD_SHADER: Shader = preload("res://art/landscape/standard.gdshader")
 const RIVER_SHADER: Shader = preload("res://art/landscape/river.gdshader")
 const RIDGE_SHADER: Shader = preload("res://art/landscape/ridge.gdshader")
+const FIELD_SHADER: Shader = preload("res://art/landscape/field.gdshader")
+const STONE_SHADER: Shader = preload("res://art/landscape/stone.gdshader")
+const WOOD_SHADER: Shader = preload("res://art/landscape/wood.gdshader")
+const CANOPY_SHADER: Shader = preload("res://art/landscape/canopy.gdshader")
+const FIELD_BRUSH: Texture2D = preload("res://art/landscape/FieldBrush.jpg")
 
 
 func _ready() -> void:
@@ -14,6 +19,22 @@ func _ready() -> void:
 	# disabled. Apply the painted vertex colours on the shared imported materials.
 	var distant_paint := ShaderMaterial.new()
 	distant_paint.shader = RIDGE_SHADER
+	var grassland := ShaderMaterial.new()
+	grassland.shader = FIELD_SHADER
+	grassland.set_shader_parameter("brush",FIELD_BRUSH)
+	var stone := ShaderMaterial.new()
+	stone.shader = STONE_SHADER
+	stone.set_shader_parameter("brush",FIELD_BRUSH)
+	var bark := ShaderMaterial.new()
+	bark.shader = WOOD_SHADER
+	var bridge := ShaderMaterial.new()
+	bridge.shader = WOOD_SHADER
+	bridge.set_shader_parameter("plank_deck",true)
+	var canopy := ShaderMaterial.new()
+	canopy.shader = CANOPY_SHADER
+	var meadow := ShaderMaterial.new()
+	meadow.shader = CANOPY_SHADER
+	meadow.set_shader_parameter("meadow",true)
 	for node in valley.find_children("*", "MeshInstance3D", true, false):
 		var mesh: Mesh = node.mesh
 		for index in mesh.get_surface_count():
@@ -27,6 +48,23 @@ func _ready() -> void:
 			# The footpath receives tree and character shadows. Recasting its own
 			# flat surface leaves repetitive stripes on grazing camera angles.
 			node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var original := mesh.surface_get_material(0) as BaseMaterial3D
+			grassland.set_shader_parameter("ground_map",original.albedo_texture)
+			node.material_override = grassland
+		elif String(node.name).begins_with("Weathered stone"):
+			node.material_override = stone
+		elif String(node.name).begins_with("Elder wood trunk"):
+			node.material_override = bark
+		elif String(node.name).begins_with("River bridge"):
+			node.material_override = bridge
+		elif String(node.name).begins_with("Painted canopy"):
+			var leaves := mesh.surface_get_material(0) as BaseMaterial3D
+			canopy.set_shader_parameter("spray",leaves.albedo_texture)
+			node.material_override = canopy
+		elif String(node.name).begins_with("Meadow blades"):
+			var tufts := mesh.surface_get_material(0) as BaseMaterial3D
+			meadow.set_shader_parameter("spray",tufts.albedo_texture)
+			node.material_override = meadow
 	# Each animated material covers a single static batch, regardless of flag count.
 	var standards := valley.find_child("Cao army field colours", true, false) as MeshInstance3D
 	var river := valley.find_child("Han tributary", true, false) as MeshInstance3D

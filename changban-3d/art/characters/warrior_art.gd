@@ -9,6 +9,7 @@ const BROWN := Color("#854833")
 const COPPER := Color("#bc7548")
 const GOLD := Color("#edc47f")
 const MILK := Color("#e7edf1")
+const HEAD_SCALE := 1.18
 const F := Vector3.FORWARD
 var kind: String
 var coat: Color
@@ -17,14 +18,14 @@ var bright: Color
 var iron: Color
 var rim: Color
 var pen: Brush
-static var eye_paint: StandardMaterial3D
+static var eye_materials := {}
 
 func _init(who: String) -> void:
 	kind = who
 	match kind:
 		"hero":
-			coat = Color("#304679"); cloth = Color("#1776bb"); bright = Color("#56bde9")
-			iron = Color("#a9b9d1"); rim = MILK
+			coat = Color("#303c68"); cloth = Color("#2064ac"); bright = Color("#52c4ed")
+			iron = Color("#939fbd"); rim = Color("#eff1f5")
 		"shield":
 			coat = Color("#374848"); cloth = Color("#a15c37"); bright = Color("#db9f55")
 			iron = Color("#6e8279"); rim = Color("#c4b493")
@@ -37,9 +38,11 @@ func _init(who: String) -> void:
 
 func build(part: String) -> ArrayMesh:
 	pen = Brush.new()
+	pen.inked = kind == "hero"
 	var side := -1.0 if part.ends_with("_l") else 1.0
 	if part.begins_with("thigh"): thigh(side)
 	elif part.begins_with("shin"): shin(side)
+	elif part.begins_with("foot"): foot(side)
 	elif part.begins_with("arm"): arm(side)
 	elif part.begins_with("wrist"): wrist(side)
 	else:
@@ -49,13 +52,18 @@ func build(part: String) -> ArrayMesh:
 			"scarf": scarf()
 			"weapon": weapon()
 			"shield": shield()
-	var mesh := pen.bake()
 	if part == "head" and kind == "hero":
-		add_hero_eyes(mesh)
+		for i in pen.vertices.size():
+			pen.vertices[i] *= HEAD_SCALE
+		for i in pen.textured_positions.size():
+			pen.textured_positions[i] *= HEAD_SCALE
+	var mesh := pen.bake()
+	if part == "head":
+		add_painted_eyes(mesh)
 	return mesh
 
 func profile(center: Vector3, rings: Array, color: Color, sides := 12) -> void:
-	pen.turned(center,rings,color,sides)
+	pen.turned(center,rings,color,maxi(18,sides) if kind=="hero" else sides,kind=="hero")
 
 func front(points: Array, relief: float, color: Color) -> void:
 	pen.panel(points,F,relief,color)
@@ -72,15 +80,41 @@ func thigh(s: float) -> void:
 			Vector3(s*.045,y-.094,-.143)],outside,.019,rim if layer == 0 else iron)
 
 func shin(s: float) -> void:
-	# Toe projects forward; welt and sole sit on y=0 in the rest pose.
-	profile(Vector3.ZERO,[Vector4(-.325,.105,.17,-.047),Vector4(-.287,.105,.178,-.053),
-		Vector4(-.245,.092,.151,-.036),Vector4(-.17,.082,.085,0),Vector4(-.045,.093,.092,0)],LEATHER)
-	profile(Vector3.ZERO,[Vector4(-.322,.106,.172,-.051),Vector4(-.295,.107,.176,-.051)],INK)
+	profile(Vector3.ZERO,[Vector4(-.235,.086,.093,0),Vector4(-.17,.082,.085,0),Vector4(-.045,.093,.092,0)],LEATHER)
 	profile(Vector3.ZERO,[Vector4(-.252,.092,.096,0),Vector4(-.125,.106,.101,0),Vector4(-.021,.102,.099,0)],iron)
 	front([Vector3(-.075,-.025,-.065),Vector3(0,.038,-.108),Vector3(.082,-.038,-.069),
 		Vector3(.062,-.16,-.087),Vector3(s*.012,-.241,-.105),Vector3(-.062,-.17,-.085)],.028,rim)
 	pen.blade([Vector3(0,-.029,-.13),Vector3(s*.01,-.111,-.142),Vector3(s*.01,-.19,-.116)],
 		[.013,.01,.001],Vector3.RIGHT,F,iron)
+
+	if kind == "hero":
+		curved_plate(.082,.056,-.087,.056,-.018,-.219,Vector3.FORWARD,Brush.SILVER)
+
+func foot(s: float) -> void:
+	# The ankle hinge is .215 below the knee. The sole rests .110 below it.
+	var leather := Color("#3e465f") if kind == "hero" else LEATHER
+	profile(Vector3.ZERO,[Vector4(-.110,.087,.146,-.052),Vector4(-.094,.103,.163,-.058),
+		Vector4(-.066,.10,.167,-.068),Vector4(-.036,.092,.153,-.063),Vector4(.012,.085,.112,-.027),
+		Vector4(.062,.078,.086,0)],leather)
+	profile(Vector3.ZERO,[Vector4(-.109,.089,.15,-.053),Vector4(-.095,.104,.165,-.058)],INK)
+	if kind == "hero":
+		pen.turned(Vector3(0,-.016,-.085),[Vector4(-.075,.083,.126,-.021),Vector4(-.052,.102,.137,-.015),
+			Vector4(-.020,.098,.11,-.005),Vector4(.025,.071,.055,-.004)],iron,18,true)
+		pen.blade([Vector3(s*.086,-.067,-.134),Vector3(s*.078,-.042,-.174),Vector3(0,-.066,-.226)],
+			[.008,.012,.003],Vector3.UP,Vector3.FORWARD,rim)
+
+# Raised, fitted plates and embroidered cloth share the illustrated atlas. The
+# lateral curvature is explicit so contours survive an orbit of the camera.
+func curved_plate(top_half: float, bottom_half: float, z: float, bow: float, top: float, bottom: float, out: Vector3, tile: Vector2) -> void:
+	var grid := []
+	for iy in 9:
+		var v := float(iy)/8.0
+		for ix in 13:
+			var u := float(ix)/6.0-1.0
+			var x := lerpf(top_half,bottom_half,v)*u
+			var y := lerpf(top,bottom,v) + .035*u*u*(v-.5)
+			grid.append(Vector3(x,y,z) + out*bow*(1.0-u*u))
+	pen.painted_grid(grid,13,9,tile,out)
 
 func body() -> void:
 	profile(Vector3.ZERO,[Vector4(-.091,.265,.177,.018),Vector4(.035,.272,.171,.01),
@@ -116,6 +150,14 @@ func body() -> void:
 			[.024,.038,.001],Vector3.RIGHT,out,cloth)
 	profile(Vector3(0,.483,0),[Vector4(.0,.169,.14,0),Vector4(.056,.16,.138,0),Vector4(.091,.112,.11,0)],cloth)
 	pen.oval(Vector3(0,.559,0),Vector3(.105,.107,.095),SKIN)
+	if kind == "hero":
+		for zsign: float in [-1,1]:
+			var out := Vector3.BACK*zsign
+			curved_plate(.24,.168,.162*zsign,.086,.419,.195,out,Brush.SILVER)
+			curved_plate(.177,.20,.19*zsign,.053,.05,-.295,out,Brush.WEAVE)
+		# Crossed collar with a leather binding; the flap sits above the sash.
+		pen.blade([Vector3(-.149,.469,-.117),Vector3(-.088,.409,-.217),Vector3(.056,.329,-.235)],
+			[.023,.019,.003],Vector3.RIGHT,F,cloth)
 
 func arm(s: float) -> void:
 	profile(Vector3.ZERO,[Vector4(-.244,.083,.092,0),Vector4(-.13,.097,.10,0),
@@ -131,21 +173,45 @@ func arm(s: float) -> void:
 		Vector3(s*.177,-.023,.105),Vector3(s*.156,-.121,-.007),Vector3(s*.161,-.042,-.104)],out,.024,rim)
 	pen.blade([Vector3(s*.163,.03,-.072),Vector3(s*.194,-.004,-.022),Vector3(s*.165,-.078,.04)],
 		[.008,.013,.003],Vector3.FORWARD,out,cloth)
+	if kind == "hero":
+		# Enamel shoulder cap spans the front and outer flank of each pauldron.
+		var grid := []
+		for iy in 9:
+			var v := float(iy)/8.0
+			for ix in 15:
+				var a := lerpf(-1.12,1.17,float(ix)/14)
+				var radius := .166 - .045*(1-v)*(1-v)
+				grid.append(Vector3(s*(.014+radius*cos(a)),.065-.199*v+.035*cos(a)*(1-v),radius*sin(a)))
+		pen.painted_grid(grid,15,9,Brush.SILVER,Vector3(s,0,0))
 
-func wrist(_s: float) -> void:
+func wrist(s: float) -> void:
 	profile(Vector3.ZERO,[Vector4(-.166,.07,.066,0),Vector4(-.112,.082,.084,0),
 		Vector4(-.018,.09,.09,0),Vector4(.032,.072,.077,0)],iron)
 	profile(Vector3.ZERO,[Vector4(-.149,.078,.077,0),Vector4(-.124,.084,.083,0)],rim)
-	pen.oval(Vector3(0,-.198,-.01),Vector3(.079,.082,.073),SKIN)
+	if kind != "hero":
+		pen.oval(Vector3(0,-.198,-.01),Vector3(.079,.082,.073),SKIN)
+		return
+	# A palm in a fingerless gauntlet, with bent knuckles around the grip.
+	pen.oval(Vector3(0,-.189,.003),Vector3(.066,.071,.052),coat,14)
+	for j in 4:
+		var off := -.048+j*.031
+		pen.oval(Vector3(off,-.218+.009*absf(j-1.5),-.033),Vector3(.022,.038,.032),SKIN,12)
+	pen.oval(Vector3(-s*.048,-.193,-.042),Vector3(.029,.050,.031),Color("#efbe99"),12)
+	curved_plate(.067,.055,-.063,.028,.013,-.136,F,Brush.SILVER)
 
 func head() -> void:
 	pen.turned(Vector3.ZERO,[Vector4(.026,.085,.132,-.015),Vector4(.07,.184,.202,-.018),
 		Vector4(.149,.273,.249,-.018),Vector4(.245,.325,.267,-.008),Vector4(.359,.332,.271,0),
 		Vector4(.455,.308,.256,.008),Vector4(.526,.246,.222,.016),Vector4(.565,.157,.157,.025)],SKIN,20,true)
+	# Modelled skin tone graduates from warm temples to lit cheeks and chin.
+	var complexion := Color("#ffe0c5") if kind=="hero" else Color("#e8c4a1")
+	for i in pen.vertices.size():
+		var p := pen.vertices[i]
+		var shade := smoothstep(.15,.48,p.y)*.34 + smoothstep(-.23,.18,p.z)*.34
+		var blush := exp(-pow((absf(p.x)-.203)/.087,2)-pow((p.y-.175)/.057,2)) * smoothstep(.00,.19,-p.z)
+		pen.colors[i] = complexion.lerp(Color("#bd8e80"),shade).lerp(Color("#e79987"),blush*.48)
 	for s: float in [-1.0,1.0]:
 		pen.oval(Vector3(s*.31,.244,.005),Vector3(.061,.085,.05),SKIN)
-		if kind != "hero":
-			eye(s)
 	if kind == "hero":
 		face_mark([Vector2(-.014,.195),Vector2(-.008,.18),Vector2(.005,.178),Vector2(.015,.184),
 			Vector2(.004,.181)],Color("#ba8771"))
@@ -158,6 +224,13 @@ func head() -> void:
 		pen.blade([Vector3(-.036,.121,-.245),Vector3(.004,.118,-.255),Vector3(.043,.129,-.244)],
 			[.002,.007,.001],Vector3.UP,F,Color("#855749"))
 		helm()
+		if kind == "commander":
+			for s: float in [-1,1]:
+				pen.lock([Vector3(s*.014,.143,-.255),Vector3(s*.048,.147,-.259),
+					Vector3(s*.089,.127,-.233),Vector3(s*.122,.137,-.219)],
+					[.005,.015,.011,.002],Vector3.UP,F,Color("#624437"))
+			pen.lock([Vector3(0,.076,-.22),Vector3(0,.058,-.207),Vector3(.008,.025,-.188)],
+				[.025,.032,.002],Vector3.RIGHT,F,Color("#63463a"))
 
 func cheek_surface(x: float, y: float) -> Vector3:
 	var low := Vector4(.149,.273,.249,-.018)
@@ -177,7 +250,7 @@ func face_mark(line: Array, ink: Color) -> void:
 		points.append(cheek_surface(pt.x,pt.y))
 	pen.panel(points,F,.0004,ink)
 
-func add_hero_eyes(mesh: ArrayMesh) -> void:
+func add_painted_eyes(mesh: ArrayMesh) -> void:
 	# Paint hugs the actual cheek profile. Both eyes share a single small
 	# illustrated texture, with a mirrored upper lid and a clipped iris.
 	var verts := PackedVector3Array()
@@ -192,9 +265,12 @@ func add_hero_eyes(mesh: ArrayMesh) -> void:
 			var v := float(row)/ROWS
 			for column in COLUMNS+1:
 				var u := float(column)/COLUMNS
-				var x := side*lerpf(.040,.258,u)
-				var y := lerpf(.360,.139,v)
-				verts.append(cheek_surface(x,y))
+				var x := side*lerpf(.022,.286,u)
+				var y := lerpf(.369,.115,v)
+				if kind != "hero":
+					x = side*lerpf(.035,.267,u)
+					y = lerpf(.332,.147,v)
+				verts.append(cheek_surface(x,y)*(HEAD_SCALE if kind=="hero" else 1.0))
 				var dx := cheek_surface(x+.001,y)-cheek_surface(x-.001,y)
 				var dy := cheek_surface(x,y+.001)-cheek_surface(x,y-.001)
 				norms.append(dy.cross(dx).normalized())
@@ -215,46 +291,14 @@ func add_hero_eyes(mesh: ArrayMesh) -> void:
 	arrays[Mesh.ARRAY_TEX_UV] = uv
 	arrays[Mesh.ARRAY_INDEX] = indices
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
-	if eye_paint == null:
-		eye_paint = StandardMaterial3D.new()
-		eye_paint.albedo_texture = HERO_EYE
-		eye_paint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		eye_paint.roughness = 1.0
-		eye_paint.metallic_specular = 0.0
-		eye_paint.texture_repeat = false
-	mesh.surface_set_material(mesh.get_surface_count()-1,eye_paint)
-
-func face_point(x: float,y: float,inset: float) -> Vector3:
-	# Most of the painted eye is laid across the curvature of the cheek.
-	var cheek := .275 if y > .209 else .266
-	return Vector3(x,y,-.007-cheek*sqrt(maxf(.06,1.0-pow(x/.326,2)))-inset)
-
-func eye(s: float) -> void:
-	var upper := .288 if kind == "hero" else .277
-	var lower := .161 if kind == "hero" else .193
-	var shape := [
-		face_point(s*.053,upper-.028,.012),face_point(s*.133,upper+.035,.012),
-		face_point(s*.221,upper+.031,.012),face_point(s*.252,upper+.021,.012),
-		face_point(s*.219,lower+.005,.012),face_point(s*.146,lower-.007,.012),
-		face_point(s*.081,lower+.023,.012)]
-	front(shape,.003,INK)
-	front([face_point(s*.063,upper-.031,.019),face_point(s*.142,upper+.017,.019),
-		face_point(s*.221,upper+.019,.019),face_point(s*.211,lower+.009,.019),
-		face_point(s*.15,lower+.002,.019),face_point(s*.09,lower+.027,.019)],.004,MILK)
-	var iris := Color("#228dbd") if kind == "hero" else Color("#936d42")
-	iris_patch(s,(upper+lower)*.5+.008,.048,(upper-lower)*.48,iris,.027)
-	iris_patch(s,(upper+lower)*.5+.018,.024,(upper-lower)*.34,INK,.034)
-	var glint := face_point(s*.136,(upper+lower)*.5+.032,.041)
-	pen.oval(glint,Vector3(.011,.013,.005),Color.WHITE,8)
-	pen.blade([face_point(s*.045,upper+.035,.014),face_point(s*.147,upper+.08,.014),face_point(s*.247,upper+.069,.012)],
-		[.008,.019,.003],Vector3.UP,F,BROWN if kind == "hero" else INK)
-
-func iris_patch(s: float,y: float,rx: float,ry: float,color: Color,inset: float) -> void:
-	var points := []
-	for i in 12:
-		var a := TAU*i/12.0
-		points.append(face_point(s*.151+rx*cos(a),y+ry*sin(a),inset))
-	front(points,.001,color)
+	if not eye_materials.has(kind):
+		var eye_paint := ShaderMaterial.new()
+		eye_paint.shader = preload("res://art/characters/hero_gaze.gdshader")
+		eye_paint.set_shader_parameter("drawing",HERO_EYE)
+		eye_paint.set_shader_parameter("amber",0.0 if kind == "hero" else 1.0)
+		eye_paint.set_shader_parameter("offset",{"hero":0.0,"guard":.9,"shield":2.7,"commander":1.9}[kind])
+		eye_materials[kind] = eye_paint
+	mesh.surface_set_material(mesh.get_surface_count()-1,eye_materials[kind])
 
 func hair() -> void:
 	# Blue cloth appears between the fringe and eyebrows, with a high trailing knot.
@@ -262,6 +306,7 @@ func hair() -> void:
 	pen.turned(Vector3.ZERO,[Vector4(.402,.347,.291,.018),Vector4(.487,.354,.291,.037),
 		Vector4(.562,.313,.272,.056),Vector4(.624,.253,.218,.068),Vector4(.652,.127,.122,.081),
 		Vector4(.659,.031,.028,.081)],BROWN,20,true)
+	paint_crown()
 	# The lower cap hugs the occiput and stops behind the cheeks. Folded nape
 	# locks overlap it; the small blue bow sits above the hair at the collar.
 	profile(Vector3(0,0,.092),[Vector4(.106,.133,.12,.04),Vector4(.17,.263,.183,.017),
@@ -275,7 +320,7 @@ func hair() -> void:
 			var mid := Vector3(s*(.326+j*.009),.418-j*.029,z+.052)
 			var tip := Vector3(s*(.317+j*.019),.217+j*.009,z+.147)
 			pen.lock([start,start.lerp(mid,.57)+Vector3(s*.014,.006,0),mid,mid.lerp(tip,.65),tip],
-				[.072,.097,.087,.047,.001],axis,Vector3(s,.05,.13),BROWN.darkened(.048*j))
+				[.072,.097,.087,.047,.001],axis,Vector3(s,.05,.13),BROWN.darkened(.048*j),true)
 	# Forelocks sweep in a single direction; the asymmetric contour defines the hero.
 	var locks := [
 		[Vector3(-.18,.58,-.112),Vector3(-.255,.474,-.202),Vector3(-.301,.309,-.155)],
@@ -290,7 +335,7 @@ func hair() -> void:
 		var tip: Vector3 = path[2]
 		pen.lock([root,root.lerp(joint,.55)+Vector3(0,.012,-.009),joint,
 			joint.lerp(tip,.59)+Vector3(.008,0,-.004),tip],[.072,.106,.093,.054,.001],
-			Vector3.RIGHT,Vector3(0,.12,-1),BROWN.lightened(.042*(i%3)))
+			Vector3.RIGHT,Vector3(0,.12,-1),BROWN.lightened(.042*(i%3)),true)
 		if i == 1 or i == 3:
 			pen.lock([root.lerp(joint,.33)+F*.05,root.lerp(joint,.64)+F*.055,root.lerp(joint,.82)+F*.051],
 				[.001,.009,.001],Vector3.RIGHT,F,COPPER)
@@ -300,19 +345,51 @@ func hair() -> void:
 		pen.lock([Vector3(-.207,.558,-.091+dz),Vector3(-.118,.631,-.091+dz),
 			Vector3(.021,.674,-.07+dz),Vector3(.159,.667,-.041+dz),
 			Vector3(.281,.623,.007+dz),Vector3(.347-j*.012,.587+j*.018,.056+dz)],
-			[.067,.09,.095,.082,.044,.001],Vector3.FORWARD,Vector3.UP,BROWN.lightened(.028*(2-j)))
+			[.067,.09,.095,.082,.044,.001],Vector3.FORWARD,Vector3.UP,BROWN.lightened(.028*(2-j)),true)
 	pen.lock([Vector3(-.147,.586,.104),Vector3(-.073,.658,.13),Vector3(.024,.693,.174),
 		Vector3(.111,.722,.216),Vector3(.158,.753,.267)],
-		[.065,.076,.067,.033,.001],Vector3.FORWARD,Vector3.UP,BROWN.darkened(.07))
+		[.065,.076,.067,.033,.001],Vector3.FORWARD,Vector3.UP,BROWN.darkened(.07),true)
 	# Fan-shaped layered nape and band knot remain visible from the chase camera.
 	for j in 6:
 		var x := -.245+j*.095
 		pen.lock([Vector3(x*.83,.545,.236),Vector3(x*.97,.43,.285),Vector3(x,.356,.293),
 			Vector3(x*1.09,.226,.28),Vector3(x*1.12,.145+absf(x)*.18,.252)],
-			[.052,.078,.068,.042,.001],Vector3.RIGHT,Vector3.BACK,BROWN.darkened(.04*(j%3)))
+			[.052,.078,.068,.042,.001],Vector3.RIGHT,Vector3.BACK,BROWN.darkened(.04*(j%3)),true)
+	# Long, swept tufts break the round outline in three-quarter and rear view.
+	for s: float in [-1,1]:
+		for j in 3:
+			var y := .53 - j*.098
+			pen.lock([Vector3(s*.20,y+.045,.12),Vector3(s*.30,y+.025,.19),
+				Vector3(s*.363,y-.014,.26),Vector3(s*(.44-j*.018),y+.004,.32),
+				Vector3(s*(.505-j*.031),y+.052,.36)],[.052,.091,.079,.047,.002],
+				Vector3.UP,Vector3(s*.65,0,.76),BROWN.darkened(.10),true)
 	pen.oval(Vector3(-.158,.363,.29),Vector3(.107,.063,.058),bright)
 	pen.blade([Vector3(-.15,.368,.30),Vector3(-.232,.33,.35),Vector3(-.29,.254,.302)],
 		[.041,.04,.003],Vector3.RIGHT,Vector3.BACK,cloth)
+
+func paint_crown() -> void:
+	# Comb the top into a side part and down the occiput. The large rear
+	# surface has its own continuous paint, beneath the pointed outer hair.
+	var rows := [
+		Vector4(.675,.030,.030,.082),Vector4(.665,.141,.143,.082),
+		Vector4(.636,.259,.233,.071),Vector4(.575,.323,.283,.058),
+		Vector4(.491,.363,.301,.042),Vector4(.411,.356,.304,.023),
+		Vector4(.351,.344,.296,.033),Vector4(.294,.32,.271,.060)]
+	for quadrant in 4:
+		var points := []
+		var middle := (quadrant+.5)*PI/2
+		var outward := Vector3(sin(middle),.48,cos(middle)).normalized()
+		for iy in rows.size():
+			var r: Vector4 = rows[iy]
+			var v := float(iy)/(rows.size()-1)
+			for ix in 13:
+				var a := (quadrant+float(ix)/12.0)*PI/2
+				var angle := a+.42*(1-v)*(1-v)
+				var h := r.x+.01*cos(a*3)*v
+				# On the brow side the cap ends above the blue headband.
+				h += maxf(0.0,-cos(angle))*.113*smoothstep(.63,1,v)
+				points.append(Vector3(sin(angle)*r.y,h,cos(angle)*r.z+r.w))
+		pen.painted_grid(points,13,rows.size(),Brush.HAIR,outward,true)
 
 func helm() -> void:
 	if kind == "guard":
@@ -354,15 +431,24 @@ func helm() -> void:
 
 func scarf() -> void:
 	if kind == "hero":
-		var out := Vector3.BACK
-		# A split silk scarf streaming behind the silver cuirass.
-		pen.blade([Vector3(-.065,0,0),Vector3(-.16,-.044,.135),Vector3(-.181,-.147,.276),
-			Vector3(-.262,-.266,.407),Vector3(-.283,-.31,.548)],
-			[.103,.135,.141,.092,.002],Vector3.RIGHT,out,cloth)
-		pen.blade([Vector3(.02,-.014,.003),Vector3(.066,-.085,.147),Vector3(.036,-.201,.286),
-			Vector3(.123,-.286,.387)],[.075,.085,.074,.002],Vector3.RIGHT,out,bright)
-		pen.blade([Vector3(-.129,-.069,.174),Vector3(-.17,-.153,.301),Vector3(-.25,-.242,.397)],
-			[.005,.018,.002],Vector3.RIGHT,out,bright)
+		pen.oval(Vector3(-.023,0,.037),Vector3(.123,.071,.082),cloth,16)
+		# Two bias-cut tails twist away from the knot and the baby's shoulder.
+		for strand in 2:
+			var rows := []
+			for iy in 17:
+				var t := float(iy)/16.0
+				var center := Vector3(-.03,-.01,.05)
+				if strand == 0:
+					center += Vector3(-.50*t+.08*sin(t*TAU),-.14*t-.19*sin(t*PI*.85),.69*t)
+				else:
+					center += Vector3(.06*sin(t*PI)-.28*t,-.33*t-.085*sin(t*PI),.57*t)
+				var breadth := (.076+.094*sin(t*PI))*(1.0-smoothstep(.65,1,t)*.98)
+				var across := Vector3(.91,.04+.47*t,.13*sin(t*PI)).normalized()
+				for ix in 7:
+					var u := float(ix)/3.0-1
+					var fold := Vector3(0,.045*cos(u*PI+t*2),.03*(1-u*u))*sin(t*PI)
+					rows.append(center+across*breadth*u+fold)
+			pen.painted_grid(rows,7,17,Brush.SILK,Vector3(0,1,1))
 	elif kind == "commander":
 		for s: float in [-1.,1.]:
 			pen.blade([Vector3(s*.12,-.005,0),Vector3(s*.203,-.253,.12),

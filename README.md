@@ -6,9 +6,9 @@
 
 ## 长坂坡 · 3D 试玩
 
-[开始 3D 第一关](https://cy642.github.io/longdan-game/changban-3d-play/) · [3D 工程与开发说明](changban-3d/README.md)
+[开始 3D 第一关](https://cy642.github.io/longdan-game/changban-3d-play/) · [同镜头动作对比](docs/images/changban-3d-motion-02.webp) · [3D 工程与开发说明](changban-3d/README.md)
 
-从山道击退枪兵与盾兵，进残村接回阿斗，再迎战桥头守将，护送乡民渡河。用 WASD 行走，右键拖动转镜头，J 出枪、K 重击、空格闪避、E 接应。
+3D 试玩版 **0.2.0**。从山道击退枪兵与盾兵，进残村接回阿斗，再迎战桥头守将，护送乡民渡河。按 R 可使出「游龙回锋」，横扫破盾后踏步直刺。贴着敌锋按空格闪身，再按 J 能接「回马枪」。WASD 行走，右键拖动转镜头，K 重击，E 接应。
 
 ![3D 长坂坡实机画面](docs/images/changban-3d-field.jpg)
 

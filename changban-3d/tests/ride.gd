@@ -17,6 +17,7 @@ var result_time := 0
 var resume_ticks := 0
 var held := {}
 var failures := 0
+var dragon_used := false
 var stopped := false
 
 func _initialize() -> void:
@@ -120,6 +121,7 @@ func _drive() -> void:
 			_release_all()
 			_check(seen.has(0) and seen.has(1) and seen.has(2) and seen.has(3), "four stages reached by inputs")
 			_check(game.battle.refugee.position.z < -24.2, "escort crossed")
+			_check(dragon_used, "player cast both strokes in normal combat")
 			_save("07-clear")
 		if tick - result_time == 6:
 			game.hud.primary.pressed.emit()
@@ -161,6 +163,7 @@ func _drive() -> void:
 	var combat: bool = b.stage in [0,2] and not b.terminal
 	var near := delta.length() < 2.18
 	var direction := delta.normalized() if not near or not combat else Vector3.ZERO
+	direction = direction.rotated(Vector3.UP,-b.camera_yaw)
 	if b.stage == 3 and b.hero.position.z < -25.10:
 		direction = Vector3.ZERO
 	_press("move_forward",direction.z < -0.18)
@@ -169,10 +172,18 @@ func _drive() -> void:
 	_press("move_right",direction.x > 0.18)
 	_press("interact",b.can_interact() and tick % 4 == 0)
 	var fighting: bool = combat and delta.length() < 3.0
+	var cast: bool = combat and delta.length() < 3.75 and b.dragon_cooldown <= 0
+	_press("dragon",cast and tick % 5 == 0)
 	_press("heavy",fighting and b.heavy_cooldown <= 0.06 and tick % 5 == 0)
 	_press("attack",fighting and b.heavy_cooldown > 0.06 and tick % 6 == 0)
 	if b.stage == 0 and b.action in ["attack","heavy"] and b.contacted and delta.length() < 3.0:
 		_save("03-skirmish")
+	if b.action == "dragon":
+		if b.dragon_strokes == 1:
+			_save("08-dragon-sweep")
+		elif b.dragon_strokes == 2:
+			dragon_used = true
+			_save("09-dragon-lance")
 	if b.stage == 1 and b.hero.position.z < 2.8 and b.hero.position.z > 0.4:
 		_save("04-village")
 	if b.stage == 2 and b.hero.position.z < -9.0:

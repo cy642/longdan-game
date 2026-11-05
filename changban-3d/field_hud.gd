@@ -29,6 +29,9 @@ var foe_name: Label
 var foe_bar: ColorRect
 var feedback: Label
 var marker: Label
+var ability_title: Label
+var ability_fill: ColorRect
+var return_tip: Label
 var last_hp := 1.0
 
 func _ready() -> void:
@@ -143,6 +146,11 @@ func _build_hud() -> void:
 	_rect(hud, Vector2(42,662), Vector2(206,9), Color(0.08,0.12,0.12,0.95))
 	vital = _rect(hud, Vector2(45,664), Vector2(200,5), Color("#e4bd77"))
 	_label(hud, "J  出枪     K  破阵     空格  闪身", Vector2(42,678), 14, MUTED)
+	_rect(hud,Vector2(291,643),Vector2(1,43),Color(GOLD,.56))
+	ability_title = _label(hud,"",Vector2(311,641),17,PAPER,true)
+	_rect(hud,Vector2(312,678),Vector2(143,3),Color(INK,.83))
+	ability_fill = _rect(hud,Vector2(312,678),Vector2(143,3),Color("#9ed7dd"))
+	return_tip = _label(hud,"J  回马枪",Vector2(483,642),19,GOLD,true)
 	_label(hud, "WASD  移动     右键拖动 / ← →  转镜头     Esc  暂停", Vector2(846,674), 15, PAPER)
 	threat = Control.new()
 	hud.add_child(threat)
@@ -166,7 +174,7 @@ func show_mode(mode: String, muted: bool) -> void:
 	secondary.visible = mode == "pause" or mode == "won" or mode == "lost"
 	sound.visible = mode == "pause"
 	sound.text = "声音  ·  关" if muted else "声音  ·  开"
-	menu_footer.text = "WASD  移动     J  出枪     K  重击     空格  闪身     E  接应"
+	menu_footer.text = "WASD  移动     J  出枪     K  重击     R  游龙回锋     空格  闪身     E  接应"
 	match mode:
 		"title":
 			chapter.text = "荆州  /  建安十三年"
@@ -176,7 +184,7 @@ func show_mode(mode: String, muted: bool) -> void:
 		"pause":
 			chapter.text = "长坂坡  /  战中小憩"
 			title.text = "暂歇"
-			story.text = "右键拖动或按方向键转动视角。\n看准敌将起手，闪过枪锋再还击。"
+			story.text = "按 R 横扫破盾，再送出第二枪。\n贴着敌锋闪身，按 J 可接回马枪。"
 			primary.text = "继续战斗"
 			secondary.text = "重新出战"
 		"won":
@@ -201,6 +209,11 @@ func update_battle(battle, camera: Camera3D, dt: float) -> void:
 	hp_value.text = "%d / %d" % [ceili(battle.hp), ceili(battle.hp_max)]
 	last_hp = lerpf(last_hp, clampf(battle.hp / battle.hp_max,0.0,1.0), 1.0-exp(-12.0*dt))
 	vital.size.x = 200.0 * last_hp
+	var cooldown: float = battle.dragon_cooldown
+	ability_title.text = "R  游龙回锋" if cooldown <= 0.0 else "游龙回锋  %.1f 秒" % cooldown
+	ability_title.modulate = Color.WHITE if cooldown <= 0.0 else Color("#c6c4ad")
+	ability_fill.size.x = 143 * clampf(1.0 - cooldown / battle.DRAGON_RECHARGE,0.0,1.0)
+	return_tip.visible = battle.riposte_window > 0.0
 	var foe: Dictionary = battle.enemy_status()
 	threat.visible = not foe.is_empty()
 	if threat.visible:

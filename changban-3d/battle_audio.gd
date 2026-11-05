@@ -9,6 +9,8 @@ const CUES := {
 	"hurt": [0.25, 79.0, -19.0], "dodge": [0.18, 130.0, -25.0],
 	"warn": [0.22, 237.0, -23.0], "rescue": [0.56, 392.0, -20.0],
 	"clear": [0.83, 293.66, -18.0],
+	"coil": [0.23, 146.83, -23.0], "sweep": [0.27, 246.94, -21.0],
+	"point": [0.19, 440.0, -22.0], "parry": [0.28, 698.46, -22.0],
 }
 var sounds: Dictionary = {}
 var voices: Array[AudioStreamPlayer] = []
@@ -53,6 +55,13 @@ func _render(cue: String, duration: float, freq: float) -> AudioStreamWAV:
 		match cue:
 			"swish", "dodge":
 				sample = (smooth_noise * 1.7 + noise * 0.12) * sin(PI * pow(u, 0.66))
+			"coil", "sweep":
+				var slide := 0.55 + u * (1.04 if cue == "coil" else 0.42)
+				sample = (smooth_noise * 1.3 + sin(TAU * freq * t * slide) * 0.28) * sin(PI * u)
+			"point":
+				sample = (sin(TAU*freq*t*(1.65-0.57*u))*0.40 + smooth_noise*1.7) * sin(PI*pow(u,0.65))
+			"parry":
+				sample = tone*0.34 + sin(TAU*freq*2.50*t)*0.18 + smooth_noise*exp(-28.0*t)*0.35
 			"impact", "hurt":
 				sample = (sin(TAU * freq * t * (1.8 - u * 0.7)) * 0.7 + smooth_noise * 0.9)
 			"steel":
